@@ -37,53 +37,17 @@ Embedded-System-Group-14-Project/
 ├── firmware/
 │   ├── CMakeLists.txt
 │   ├── pico_sdk_import.cmake
-│   │
 │   ├── src/
 │   │   ├── main.c
-│   │   │
 │   │   ├── buddy1_communication/
-│   │   │   ├── wifi.c
-│   │   │   ├── mqtt.c
-│   │   │   ├── telemetry.c
-│   │   │   ├── communication_task.c
-│   │   │   └── telemetry_task.c
-│   │   │
 │   │   ├── buddy2_motion/
-│   │   │   ├── motor.c
-│   │   │   ├── encoder.c
-│   │   │   ├── pid.c
-│   │   │   └── motion_task.c
-│   │   │
 │   │   ├── buddy3_navigation/
-│   │   │   ├── ir_sensor.c
-│   │   │   ├── line_following.c
-│   │   │   ├── barcode.c
-│   │   │   ├── line_task.c
-│   │   │   └── barcode_task.c
-│   │   │
 │   │   ├── buddy4_imu/
-│   │   │   ├── imu.c
-│   │   │   ├── imu_filter.c
-│   │   │   ├── hump_detection.c
-│   │   │   ├── imu_task.c
-│   │   │   └── terrain_task.c
-│   │   │
 │   │   ├── buddy5_obstacle/
-│   │   │   ├── ultrasonic.c
-│   │   │   ├── servo.c
-│   │   │   ├── obstacle_scan.c
-│   │   │   ├── obstacle_profile.c
-│   │   │   ├── avoidance.c
-│   │   │   ├── line_recovery.c
-│   │   │   ├── obstacle_scan_task.c
-│   │   │   ├── obstacle_profile_task.c
-│   │   │   └── avoidance_task.c
-│   │   │
 │   │   ├── shared/
 │   │   │   ├── robot_state.c
 │   │   │   ├── command_router.c
 │   │   │   └── safety_manager.c
-│   │   │
 │   │   └── rtos/
 │   │       ├── task_manager.c
 │   │       ├── queue_manager.c
@@ -95,13 +59,7 @@ Embedded-System-Group-14-Project/
 │   │   ├── buddy3.h
 │   │   ├── buddy4.h
 │   │   ├── buddy5.h
-│   │   ├── robot_config.h
-│   │   ├── pin_config.h
-│   │   ├── robot_types.h
-│   │   ├── robot_state.h
-│   │   ├── motion_commands.h
 │   │   └── rtos_config.h
-│   │
 │   └── build/                  # Generated; Git ignored
 │
 ├── telemetry/
