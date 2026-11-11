@@ -1,161 +1,125 @@
-# Barcode analysis: what the supplied samples establish
+# Subsystem 3 barcode analysis
 
-Owner: Buddy 3. Code: `code39.c` (symbology), `barcode_dec.c` (capture
-state machine), `drv_ir.c` (edge capture), `nav_map.c` (meanings),
-`task_barcode.c` (task). Tests: `s3_unit_tests.c` S3-U01..U17.
+This document describes the current implementation in `code39.c`,
+`barcode_dec.c`, `drv_ir.c`, `task_barcode.c`, and `nav_map.c`. The decoder is
+host-testable; hardware performance and the printed-track setup still need
+physical validation.
 
-## 1. Sources examined
+## Barcode format
 
-| Source | What it contains | How it was measured |
-|---|---|---|
-| `Barcode & Line Specification.pdf` | Photo of a printed barcode beside the track line. Annotations: approx. barcode length **141 mm**, gap barcode→line **20 mm**, line width **18 mm** | Page rendered at high resolution; element run lengths measured along one horizontal scan line through the bars (dark/light threshold), x = 340..1400 px |
-| `Barcode Sample.pdf`, pages 1–4 | Vector barcodes labelled "A" (pages 1–2) and "Z" (pages 3–4), two print scales | Pages rendered; run lengths measured on a horizontal line |
-| `BARCODE.pptx` | Slides with barcodes labelled A, F, Z (EMF vector shapes) and W, X, Y (PNG images) | Slide XML unpacked; EMF bar geometry read, PNG run lengths measured |
-| Project Briefing | Three IR sensors; the right one reads barcodes; barcodes encode navigation commands | Read |
+The supplied samples were measured as Code 39: nine alternating bar/space
+elements per symbol, with five bars and four spaces, and a narrow
+inter-character gap. The measured narrow-to-wide ratio is approximately 1:3.
+The sample start and stop symbol is `*`; a one-character label therefore has
+29 captured runs (three nine-element symbols and two gaps). These measurements
+are the basis for using Code 39, rather than an assumption based only on the
+printed label.
 
-All eleven measured element-width vectors are kept verbatim in
-`s3_unit_tests.c` (`bc_vectors[]`) as test inputs.
+`code39.c` generates the 44-symbol Code 39 pattern table using the standard
+bar-pattern and wide-space groups. The classifier ranks bars against bars and
+spaces against spaces, so a constant bias between dark and light durations
+does not directly affect the decision. It accepts a minimum overall
+wide:narrow ratio of 1.5:1; for bars, the second-widest versus third-widest
+comparison uses 1.3:1 to tolerate compressed timing. It checks the start/stop
+symbols, forbids `*` as data, validates the inter-character gaps, and tries
+the captured run in both directions. A 27-run special case attempts to
+recover one missed transition pair in a one-uppercase-letter `*X*` label.
 
-## 2. Findings
+The unit-test vectors in `s3_unit_tests.c` record the measured sample widths.
+S3-U01 checks pattern-table properties and measured patterns; S3-U02 checks
+the supplied vectors. S3-U03 and S3-U04 cover reverse orientation and changed
+scale. S3-U05..U09 cover malformed count, width, pattern/start-stop, and gap
+cases. These are software tests, not physical track trials.
 
-Every sample, from all three sources, has the same structure:
+## Sensor capture and timing
 
-* **29 elements** (bar, space, bar, …, bar) = 3 groups of 9 elements, with
-  one extra narrow space between groups.
-* Each group has **5 bars and 4 spaces**, and **exactly 3 of its 9 elements
-  are wide**.
-* There are only **two widths**, with a measured **wide:narrow ratio of
-  about 3:1**: PDF 118–119 vs 39–40 px; PPTX 351 vs 117 units, 78 vs 26 px,
-  66 vs 22 px, 27 vs 9 px. The photo of a real print gives 58–64 vs
-  18–23 px; ink spread and blur make bars look wider and spaces narrower.
-* The first and last group are identical in every sample: pattern
-  `n w n n w n w n n` (`0x094`).
-* The middle group differs with the printed label. "A" =
-  `w n n n n w n n w` (`0x109`); "Z" = `n w w n w n n n n` (`0x0D0`); and so
-  on for F, W, X, Y.
+The barcode sensor is IR_RIGHT on GP26. Its raw level is converted to
+black/not-black using the line task's calibrated black polarity. `drv_ir.c`
+supports two capture modes:
 
-That is exactly the **Code 39** structure: 9 elements per character, 3 wide,
-2 widths, `*` as start/stop (`0x094`). Each group is 6 × 1 + 3 × 3 = 15
-units, so `*X*` with two 1-unit gaps is **47 narrow units**. The
-specification's 141 mm then gives a **3.0 mm narrow** and **9.0 mm wide**
-element, which matches the 3:1 ratio. The middle groups decode to the
-printed labels, and only with the standard Code 39 table.
+* Default `S3_CAPTURE_POLL_1MS=1`: RP2040 TIMER alarm 3 samples GP26 every
+  1 ms. A candidate level must remain stable for 3 ms before an edge is
+  recorded, using the candidate's initial timestamp. This filters brief
+  glitches but can miss or distort narrow features depending on sensor speed
+  and alignment.
+* `S3_CAPTURE_POLL_1MS=0`: the shared GPIO handler records GP26 edge
+  timestamps. Each record stores a microsecond timestamp with 2 us resolution
+  and the post-edge level. The ISR only enqueues records and wakes the
+  consumer task.
 
-The symbology is therefore **derived from the samples, not assumed**. Other
-common symbologies do not fit:
+Both modes use a 64-entry single-producer/single-consumer ring. If it fills,
+overflow is flagged and the barcode task aborts the current capture and sets
+`SYS_FLT_BARCODE_OVERFLOW`. `S3_BARCODE_ANALOG` optionally selects ADC0 input
+with threshold/hysteresis; analog mode requires 1 ms polling.
 
-* **Code 128:** 6 elements per character in 4 widths.
-* **EAN/UPC:** 4 widths, fixed guard patterns, digits only.
-* **Interleaved 2 of 5:** characters in pairs, no `*` frame.
+The decoder uses **elapsed time in microseconds** between recorded edges as
+element width. Its speed and odometry arguments are currently ignored; it
+does not convert edge times to distance or compensate for speed changes.
+Consequently, vehicle speed must be reasonably steady during one barcode,
+and the sample rate/filter must resolve its narrow elements. Previous claims
+of encoder-based width conversion, a distance-based capture window, or an
+active 450 mm timeout do not describe the current code.
 
-`code39.c` builds its table from the Code 39 rule (bar pattern × wide-space
-group) rather than from a typed list. S3-U01 checks the table: 44 unique
-patterns, 3 wide each, and `*`, `A` and `Z` equal to the measured patterns.
+## Capture and decode state machine
 
-The decoder supports every uppercase letter `A` through `Z` in standard
-Code 39. It generates the letter patterns in three groups (`A`–`J`,
-`K`–`T`, and `U`–`Z`) and matches the measured bars and spaces to those
-patterns. A single-letter label such as `*B*` has 29 measured elements,
-including the two inter-character gaps. The `*` symbols delimit the scan.
+`bc_edge()` starts on a white-to-black transition after at least 30,000 us of
+white (or treats the first observed black edge as having sufficient prior
+quiet). Repeated same-level events are ignored. During capture, a single
+element longer than `BC_IDLE_TIMEOUT_US` (3 s) fails as `BC_ERR_LONG`; the
+64-edge limit fails as overflow. Interior runs shorter than 1,000 us are
+merged with their adjacent runs to remove a missed-transition pair.
 
-References
+While capturing, `bc_poll()` only considers completion after at least one
+whole symbol has been observed and the current level is white. It completes
+when the trailing quiet interval reaches the larger of 100,000 us or 2.5 times
+the widest observed duration, capped at 3 s. If no completion occurs and the
+edge quiet period exceeds 3 s, the capture fails as stalled. Although
+`barcode_dec.h` defines distance-related limits and lockout fields, the current
+`barcode_dec.c` does not enforce a distance window or post-decode start
+lockout. Do not treat those declarations as active behavior.
 
-- [Zebra SM72 Integration Guide — ASCII Character Sets](https://docs.zebra.com/us/en/scanners/general/sm72-ig/ascii-character-sets.html)
-- [Zebra ZPL Programming Guide — `^B3` Code 39](https://cpws.zebra.com/cpws/docs/zpl/zpl-zbi2-pm-en.pdf)
+Successful decodes return data symbols between `*` delimiters. The decoder
+stores only the first symbol for duplicate comparison. A repeated first
+symbol decoded within 2,000,000 us is marked `BCR_DUPLICATE`; this is
+time-based, despite the distance-named declarations in the header. Invalid
+captures set the invalid result and are reported by the task; they do not
+issue a motion command. Line following continues independently.
 
-## 3. Buddy 3 navigation mapping
+## Navigation behavior
 
-The current firmware uses these Buddy 3 mappings:
+`nav_map_reset()` installs these current defaults:
 
-| Code 39 character | Buddy 3 command |
+| Code 39 symbol | Navigation command |
 |---|---|
-| A | Turn Right |
-| F | Turn Left |
-| Z | U-turn |
+| A | Right |
+| F | Left |
+| U | Left |
 | X | Straight |
+| Y | U-turn |
 
-`nav_map.c` loads these defaults at barcode-task startup. Other valid Code 39
-characters are decoded and reported (telemetry fields 17–23, `EVT_BARCODE`)
-but produce no motion unless explicitly mapped. S3-U15 verifies these
-assignments.
+Other valid Code 39 symbols decode but have no navigation action unless
+mapped. `nav_to_motion()` maps left/right/U-turn to Buddy 2 turn commands and
+straight to a move of `S3_STRAIGHT_MM`.
 
-* Navigation codes use 2 bits plus a separate valid bit (Tribunal 1,
-  Buddy 3: "2-bit codes for up to 4 navigation commands").
+The current `S3_NAV_AT_JUNCTION` default is `1`. In Normal mode, a mapped
+barcode command is retained until the line follower reports a new junction;
+the barcode task then sends the command to Buddy 2 and waits up to
+`S3_NAV_WAIT_MS` for its result. A pending command is cleared on init or safe
+stop. When `S3_NAV_AT_JUNCTION` is set to `0`, a mapped command is sent as
+soon as it is decoded. The barcode task does not directly drive the motors.
 
-Also open:
+S3-U15 checks the default map; S3-U16 checks overrides and rejected inputs;
+S3-U17 checks the navigation-to-motion command conversion.
 
-* Whether a command is executed **at once** (Week 6 statechart order
-  decode → execute) or **at the next junction**. This is the switch
-  `S3_NAV_AT_JUNCTION` in `subsystem3.h`, default 0 = at once.
-* How far `STRAIGHT` drives through a junction: `S3_STRAIGHT_MM` = 120 mm
-  `[CAL]`.
+## Validation status and limits
 
-## 4. Why edge capture is needed (Tribunal 1, Version B change)
+The documented unit tests exercise the decoder, capture logic, navigation
+mapping, and line-following logic in software. They do not establish the
+physical barcode read rate or reliability. Before relying on barcode
+navigation on the vehicle, measure the sensor's black/white output and
+recorded edge intervals on the actual print while moving at the intended
+speed. In particular, verify that the default 1 ms sampling plus 3 ms stable
+filter preserves enough transitions for the narrowest printed element. Also
+verify GP26 wiring and check ring overflow during an extended run.
 
-A 3 mm narrow bar under the sensor lasts **10 ms at 300 mm/s** and 7.5 ms
-at 400 mm/s. The Week 6 plan polled the IR sensors every 20–50 ms, so whole
-bars would be missed. That was the reason for Tribunal 1's change:
-
-* **Primary:** the IR_RIGHT (GP27) edge interrupt, a callback of the one
-  shared GPIO handler, stores a 32-bit record per edge (31-bit µs time + 1
-  level bit) in a 64-entry single-producer/single-consumer ring. Overflow is
-  flagged (`SYS_FLT_BARCODE_OVERFLOW`), never silent.
-* **Backup:** `-DS3_CAPTURE_POLL_1MS=1` samples GP27 every 1 ms from RP2040
-  TIMER alarm 3. The 10 ms kernel tick is too coarse for this. At 300 mm/s,
-  1 ms is 0.3 mm, so a 3 mm bar spans about 10 samples. This variant was
-  build-tested (normal and `TEST=1` images); it is not hardware-tested.
-
-Estimated interrupt load at 400 mm/s (an engineering estimate, **to be
-measured** on the car):
-
-* Barcode: ≤ 133 edges/s.
-* Encoders: 2 × 39 rising edges/s, with 20 slots per revolution `[CAL]` and
-  a 65 mm wheel.
-* Ultrasonic echo: 33 edges/s.
-
-That is well under 300 interrupts/s, and each handler only timestamps. The
-handler count `gpio_irq_count()` and `ir_edge_count()` let the team measure
-the real rate (Tribunal 1 risk R3).
-
-## 5. Decoding method (`barcode_dec.c`, `code39.c`)
-
-1. **Start:** a white→black edge after at least 12 mm of white (quiet
-   zone).
-2. **Element widths:** each width is the time between edges × the wheel
-   speed from Buddy 2's encoders (Tribunal 1: "consider vehicle speed and
-   encoder distance"). Encoder ticks (about 10 mm) are coarser than a 3 mm
-   bar, so distance alone cannot measure one.
-3. **Glitch merge:** an interior element shorter than 0.8 mm is merged into
-   its neighbours.
-4. **Classification:** each 9-element group is classified by **ratio**,
-   bars against bars and spaces against spaces. This makes it independent
-   of print scale, speed drift, and a constant black/white bias from blur
-   or threshold. The wide/narrow split must exceed 1.5:1, otherwise
-   `C39_ERR_WIDTH`.
-5. **Validation:** the run must be 10k − 1 elements and start and end with
-   `*`, with no `*` inside, narrow inter-character gaps and valid patterns.
-   It is tried forwards, then **reversed** (car driving the other way).
-6. **End:** white for at least 20 mm and 2.5× the widest element. The
-   capture window is a **distance** (450 mm), so the timeout adapts to speed
-   (Week 6 statechart); a 3 s stall also aborts.
-7. **Duplicates:** the same symbol within 600 mm is reported `DUPLICATE`,
-   with no second command. Starts are ignored for 150 mm after a decode.
-8. **Invalid input never produces a command** (Tribunal 1 interface map). It
-   increments the invalid count, sets the degraded fault
-   `BARCODE_INVALID`, and line following continues.
-
-## 6. Evidence and remaining tests
-
-| Evidence | Result | Kind |
-|---|---|---|
-| S3-U02: all 11 supplied samples (PDF A/A/Z/Z, PPTX A/F/Z/W/X/Y, photo A) | all decode to their printed label | software test, real sample geometry |
-| S3-U03/U04: reversed sample; 3.5× print scale | decode | software test |
-| S3-U05..U09: wrong element count, no contrast, corrupted start, wide gap, missing start/stop | rejected | software test |
-| S3-U10: drive simulation, 15 trials × 100/200/300 mm/s, ±15 % speed ripple, encoder speed 5 % high, 0.6 mm blur | 45/45 correct | **simulation** |
-| S3-U11..U14: duplicate, line under sensor, stall, window | as specified | simulation |
-| INT-11: barcode → navigation → Buddy 2 turn/move → NORMAL | pass | simulation |
-
-**Not yet done:** physical tests on the track (Tribunal 1 test plan: 15
-consecutive correct reads at each of 3 speeds; assumption A4, barcode vs
-curve). Also not yet done: checking GP27 wiring and the black level, and
-measuring the edge rate.
+References for the symbology: [Zebra Code 39 character sets](https://docs.zebra.com/us/en/scanners/general/sm72-ig/ascii-character-sets.html) and [Zebra ZPL Code 39 command](https://cpws.zebra.com/cpws/docs/zpl/zpl-zbi2-pm-en.pdf).
