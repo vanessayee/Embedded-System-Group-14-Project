@@ -1,42 +1,67 @@
 /*
  *	subsystem3.c
- *	Subsystem 3 -- Consumer: creates its objects and starts its task.
+ *	Subsystem 3 -- line following and barcode decoding: kernel objects
+ *	and tasks.
  *
- *	APIs shown: tk_cre_mbx, tk_cre_mtx
+ *	Kernel objects (TEAM.md section 6 budget):
+ *	  flg_line_evt    event flag  IF-L2 line events (several waiters)
+ *	  cyc_line        cyclic      20 ms, wakes the Line Following task
+ *	  line_task       task        priority 14, core 1
+ *	  barcode_task    task        priority 17, core 1
+ *	Pins: GP2 (IR left), GP6 (IR centre), GP26 (IR right / barcode edges)
  */
 
 #include "subsystem3.h"
+#include "drv_ir.h"
 
-EXPORT ID		mbx_samples;	/* IF-01 */
-EXPORT ID		mtx_stats;	/* IF-04 */
-EXPORT APP_STATS	app_stats;
+EXPORT ID	flg_line_evt;
+EXPORT ID	cyc_line;
+EXPORT ID	tid_line;
+EXPORT ID	tid_barcode;
 
 EXPORT ER subsystem3_init(void)
 {
-	T_CMBX	cmbx = {0};
-	T_CMTX	cmtx = {0};
+	T_CFLG	cflg = {0};
+	T_CCYC	ccyc = {0};
 
-	/* Mailbox: passes a POINTER to a message (zero copy).  The message
-	   memory must stay valid until the receiver is done with it, which
-	   is why subsystem 2 takes it from its memory pool. */
-	cmbx.mbxatr = TA_TFIFO | TA_MFIFO;	/* FIFO waiters, FIFO messages */
-	mbx_samples = tk_cre_mbx(&cmbx);
-	if (mbx_samples < E_OK) {
-		return mbx_samples;
+	s3_line_seq.seq = 0;
+
+	cflg.flgatr  = TA_TFIFO | TA_WMUL;
+	cflg.iflgptn = 0;
+	flg_line_evt = tk_cre_flg(&cflg);
+	if (flg_line_evt < E_OK) {
+		return flg_line_evt;
 	}
 
-	/* Mutex: only one task at a time may touch app_stats.  TA_INHERIT
-	   (priority inheritance) avoids priority inversion: a low-priority
-	   holder is temporarily raised to the waiter's priority. */
-	cmtx.mtxatr = TA_INHERIT;
-	mtx_stats = tk_cre_mtx(&cmtx);
-	return (mtx_stats < E_OK) ? mtx_stats : E_OK;
+	ccyc.cycatr = TA_HLNG;
+	ccyc.cychdr = (FP)line_cyclic_handler;
+	ccyc.cyctim = S3_PERIOD_MS;
+	ccyc.cycphs = S3_PERIOD_MS + 10U;	/* offset from Motion Control */
+#if TK_SUPPORT_SMP
+	ccyc.cycatr |= TA_ASSPRC;
+	ccyc.assprc  = APP_CORE_CONTROL;
+#endif
+	cyc_line = tk_cre_cyc(&ccyc);
+	if (cyc_line < E_OK) {
+		return cyc_line;
+	}
+
+	/* pins + IR_RIGHT edge callback, before any task starts */
+	return ir_init();
 }
 
 EXPORT ER subsystem3_start(void)
 {
-	/* Pinned to core 0 (TP_PRC1): opposite core to the producer */
-	ID tid = app_start_task(consumer_task, S3_PRI_CONSUMER, TP_PRC1,
-				"consumer_task");
-	return (tid < E_OK) ? tid : E_OK;
+	tid_line = app_start_task(line_task, S3_PRI_LINE, APP_CORE_CONTROL,
+				  "line_task");
+	if (tid_line < E_OK) {
+		return tid_line;
+	}
+	tid_barcode = app_start_task(barcode_task, S3_PRI_BARCODE, APP_CORE_CONTROL,
+				     "barcode_task");
+	if (tid_barcode < E_OK) {
+		return tid_barcode;
+	}
+	ir_set_wake_task(tid_barcode);
+	return tk_sta_cyc(cyc_line);
 }
