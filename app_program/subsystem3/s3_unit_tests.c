@@ -545,12 +545,13 @@ LOCAL INT test_nav_map(void)
 	nav_map_reset();
 	map_ok = nav_map_lookup((UB)c39_index_of_char('A'), &nav) && nav == NAV_RIGHT
 		 && nav_map_lookup((UB)c39_index_of_char('F'), &nav) && nav == NAV_LEFT
-		 && nav_map_lookup((UB)c39_index_of_char('Z'), &nav) && nav == NAV_LEFT
+		 && nav_map_lookup((UB)c39_index_of_char('Y'), &nav) && nav == NAV_UTURN
 		 && nav_map_lookup((UB)c39_index_of_char('X'), &nav) && nav == NAV_STRAIGHT
-		 && nav_map_lookup((UB)c39_index_of_char('U'), &nav) && nav == NAV_UTURN
+		 && nav_map_lookup((UB)c39_index_of_char('U'), &nav) && nav == NAV_LEFT
+		 && !nav_map_lookup((UB)c39_index_of_char('Z'), &nav)
 		 && !nav_map_lookup((UB)c39_index_of_char('W'), &nav);
 	TEST_CHECK("S3-U15", map_ok,
-		   "default barcode mapping: A=RIGHT, F=LEFT, Z=LEFT, X=STRAIGHT, U=U-TURN");
+		   "default barcode mapping: A=RIGHT, F=LEFT, U=LEFT, X=STRAIGHT, Y=U-TURN; Z unmapped");
 	t_ok = nav_map_set((UB)c39_index_of_char('A'), NAV_LEFT) == E_OK
 		   && nav_map_lookup((UB)c39_index_of_char('A'), &nav) && nav == NAV_LEFT
 		   && nav_map_set(C39_STAR, NAV_LEFT) == E_PAR
