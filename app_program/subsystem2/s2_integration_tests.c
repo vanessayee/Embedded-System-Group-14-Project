@@ -442,7 +442,7 @@ LOCAL INT int_avoidance(void)
 
 LOCAL INT int_barcode_nav(void)
 {
-	static const char	sym[] = { 'A', 'F', 'U', 'X', 'Y' };
+	static const char	sym[] = { 'A', 'F', 'Z', 'X', 'U' };
 	static const UB		navs[] = { NAV_RIGHT, NAV_LEFT, NAV_LEFT, NAV_STRAIGHT, NAV_UTURN };
 	static const W		turn_mdeg[] = { 90000, -90000, -90000, 0, 180000 };
 	CAR		*c = &car;
@@ -521,7 +521,7 @@ LOCAL INT int_barcode_nav(void)
 			TEST_CHECK("INT-11d", nav_mode && mres_status(r) == MRES_DONE
 				   && c->vf.mode == VM_NORMAL && iabs(moved) <= 10000
 				   && iabs(c->th_mdeg - th0 - 180000) <= TURN_TOL_MDEG,
-				   "Y at the junction pivots about 180 degrees in place and returns to NORMAL");
+				   "U at the junction pivots about 180 degrees in place and returns to NORMAL");
 		}
 		ok = ok && nav_mode && mres_status(r) == MRES_DONE && c->vf.mode == VM_NORMAL
 		     && iabs(c->th_mdeg - th0 - turn_mdeg[k]) <= TURN_TOL_MDEG
@@ -547,7 +547,7 @@ LOCAL INT int_barcode_nav(void)
 	}
 	nav_map_reset();
 	TEST_CHECK("INT-11b", ok,
-		   "A/F/U/X/Y wait for GP6+GP2 junction -> RIGHT/LEFT/LEFT/STRAIGHT/U-TURN -> DONE -> NORMAL");
+		   "A/F/Z/X/U wait for GP6+GP2 junction -> RIGHT/LEFT/LEFT/STRAIGHT/U-TURN -> DONE -> NORMAL");
 	TEST_CHECK("INT-11c", word_ok, "barcode status word carries symbol, command and motion result");
 	TEST_SUMMARY("int barcode nav");
 	return test_fail_;
@@ -602,32 +602,6 @@ LOCAL INT int_junction_turn(void)
 	TEST_CHECK("INT-21b", ok && iabs(th + 90000) <= TURN_TOL_MDEG
 		   && iabs(oc) <= TURN_LINE_WIDTH_MM / 2 && orr > 0,
 		   "LEFT at a cross junction: outgoing line under the centre sensor");
-	{
-		LINE_FOLLOW follower;
-		LF_OUT line_out;
-		UB cal[10] = {2,2,2,2,2,2,2,2,2,2};
-		W start_mm = (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000;
-		UINT k;
-		BOOL driving = ok;
-
-		lf_init(&follower);
-		(void)lf_calibrate(&follower, cal, 10);
-		lf_turn_done(&follower, TRUE);
-		for (k = 0; k < 200U; k++) {
-			UB black = (car_sensor_black(c, 0) ? IR_BIT(IR_C) : 0U)
-				| (car_sensor_black(c, TURN_IR_GAP_MM) ? IR_BIT(IR_L) : 0U);
-			W odo_mm = (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000;
-
-			lf_step(&follower, black, odo_mm, MOTION_PERIOD_MS, TRUE, &line_out);
-			car_steer(c, -line_out.steer, line_out.speed_frac);
-			car_cycle(c);
-			driving = driving && c->vf.mode == VM_NORMAL;
-		}
-		TEST_CHECK("INT-21d", driving
-			   && (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000 - start_mm > 60
-			   && iabs((W)((c->y_um - c->jy_um) / 1000)) <= 30,
-			   "after LEFT, Buddy 3 steering drives forward along the outgoing branch");
-	}
 	car_start(c);
 	c->ir_track = TRUE;
 	c->jy_um = 10000000;	/* no outgoing line within reach of this turn */

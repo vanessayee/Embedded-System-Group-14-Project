@@ -1,63 +1,110 @@
 # Subsystem 3 — test log
 
-**Subsystem:** Line following and barcode decoding (Buddy 3) · **Student ID:** 2501720 · **Code:** `app_program/subsystem3/`
 
-See [testing/README.md](../README.md) for how to run tests and record results.
-Automated IDs below are defined in `s3_unit_tests.c` and
-`subsystem3_test.c`. The target checks require the `TEST=1` image and a
-running RP2040. A passing software simulation does not establish performance
-with the physical sensor and track.
+**Subsystem:** Line following and barcode navigation  ·
+**Student ID:** 2501720  ·  **Code:** `app_program/subsystem3/`
+
+See `testing/README.md` for how to run tests and record results.
 
 ## Test cases
 
-Define a test here before running it. IDs are kept as assigned in the source;
-gaps are intentional and IDs are never reused.
+Test definitions below mirror the current automated checks. Pico-only tests must be run on target.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
-| S3-U01 | Generated Code 39 table and measured `*`, `A`, `Z` patterns | Barcode symbology | auto | `s3_run_unit_tests()` | 44 unique patterns; expected patterns match |
-| S3-U02 | Eleven supplied barcode sample vectors | Barcode sample decoding | auto | Decode all vectors in `s3_unit_tests.c` | All decode to the printed symbol |
-| S3-U03 | Barcode scanned in reverse | Read direction | auto | Reverse the measured A run and decode | A decodes with reversed flag |
-| S3-U04 | Scale independence | Decode across print scales | auto | Scale measured A widths by 3.5 | A decodes |
-| S3-U05–U09 | Invalid count, width contrast, corrupted/missing delimiters, and oversized gap | Reject malformed scans | auto | Run malformed vectors through `c39_decode()` | Each malformed input is rejected |
-| S3-U10 | Capture simulation over A at three speeds | Barcode capture | auto | 15 trials each at 100, 200, 300 mm/s with simulated ripple and optical bias | 15/15 valid reads at each speed |
-| S3-U11a | First Z capture and diagnostic durations | Capture result and diagnostics | auto | Simulate first pass over Z | Valid Z with 29 diagnostic durations |
-| S3-U11 | Repeated Z capture | Duplicate suppression | auto | Decode Z again within the simulated repeat interval | Result is `BCR_DUPLICATE` |
-| S3-U12–U13 | Isolated dark run and stalled partial scan | Invalid capture handling | auto | Feed incomplete edges and poll past timeout | Invalid result; stall reports `BC_ERR_STALLED` |
-| S3-U14 | Odometry jump during partial capture | Current decoder timing interface | auto | Change odometry without adding sensor edges | Capture remains open; odometry does not end it |
-| S3-U15–U17 | Default navigation map, map overrides, and command conversion | Barcode-to-motion mapping | auto | Check defaults, invalid map inputs, and motion arguments | Mappings and Buddy 2 command types/arguments match code |
-| S3-U18–U29 | IR calibration, steering, line loss/recovery, junction detection, and barcode-sensor isolation | Line-following behavior | auto | Run line-following state-machine cases in `s3_unit_tests.c` | Each case meets its stated steering/event expectation |
-| S3-U30–U31 | Line and barcode status-word packing | IF-L1 / IF-L3 status interfaces | auto | Pack then unpack boundary-value structures | Fields round-trip correctly |
-| S3-U32 | Line task period and overrun count | Line task runtime | auto (target) | Observe task statistics during test image run | 48–52 runs/s and no overruns |
-| S3-U33 | Line status sequence and timestamp advance | IF-L1 | auto (target) | Compare status before and after 200 ms | Sequence and timestamp advance within stated bounds |
-| S3-U34 | IR calibration decision during INIT | IR startup | auto (target) | Wait up to one second in INIT | Calibration succeeds or `SYS_FLT_IR_CAL` is set |
-| S3-U35 | Barcode idle/overflow state and frozen GPIO callback registration | Barcode task and GPIO interface | auto (target) | Inspect status and attempt late callback registration | Idle, no overflow, registration returns `E_OBJ` |
-| S3-U52–U59 | Line corridor, recovery, mirrored sensor, calibration, and barcode-sensor independence cases | Line following and sensor separation | auto | Run the corresponding logic cases in `s3_unit_tests.c` | Assertions pass; barcode input does not perturb line tracking |
-| S3-U60 | Decode with stationary-wheel inputs | Edge-time decoding | auto | Feed a synthetic A using zero wheel speed/odometry | A decodes from edge timing |
-| S3-U61–U63 | Damaged/recovered reverse scans and recorded A durations | Code 39 robustness | auto | Feed recorded timing vectors | Direction/error classification and valid A result match assertions |
-| S3-U64–U71 | Barcode toggle independence, long corridor, steering slew/response, and post-turn behavior | Line-following behavior | auto | Run corresponding state-machine cases | Steering/events remain within asserted behavior |
-| S3-U72–U73 | Recorded reverse F timing and gap validation | Reverse decoding | auto | Decode recorded F, then enlarge its gap | F accepted; oversized gap rejected |
-| S3-U74–U75 | Full uppercase alphabet, forward and reverse | Code 39 alphabet support | auto | Decode A–Z patterns in both directions | All 26 letters decode in each direction |
-| S3-U76–U77 | Recorded reverse F with weak bar separation; ambiguous forward scan | Width classification | auto | Feed the two recorded vectors | Reverse F accepted; ambiguous width rejected |
-| S3-U78 | A–Z captures at three simulated label lengths, both directions | Capture and decode scales | auto | Simulate 170, 250, 339 mm labels | All 156 cases decode correctly |
-| S3-U79 | Ambiguous 25-element scan | Reject insufficient element count | auto | Decode the ambiguous partial vector | `C39_ERR_COUNT`; cannot produce a command |
-| S3-U80–U81 | 27-element single-run merge recovery and ambiguity rejection | Missed-transition recovery | auto | Test merge positions across A–Z in both directions | Recoverable cases return correct letters; ambiguous cases reject |
-| S3-U82 | Post-turn line reacquisition | Line following after barcode manoeuvre | auto | Exercise turn completion and sensor sequences | Pivot/straight recovery follows assertions |
-| S3-U84 | Long, merged-run W capture | Capture completion before stall timeout | auto | Simulate a 339 mm W with a 2 s merged run | W decodes as a 27-element recovery |
-| S3-U85 | Right-turn straight settling | Line following after right turn | auto | Exercise right-turn completion and centre-line samples | Settles straight, then resumes steering |
-| S3-M01 | Physical barcode read reliability on the track | Hardware validation | manual | On the vehicle, test the actual print at intended speeds; save a video/log with setup and outcomes | Record the observed read count and failures; no pass threshold is claimed by the software tests |
-| S3-M02 | GP26 wiring, sensor polarity/contrast, and edge capture behavior | Hardware interface validation | manual | Check raw sensor output on white/black and observe captured transitions; record setup/evidence | Confirm wiring and that transitions are preserved at operating speed |
+| S3-U01 | Code 39 table: 44 unique patterns, 3 wide each; * A Z as measured |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U01 PASS` |
+| S3-U02 | every supplied sample decodes (PDF A/Z, PPTX A/F/Z/W/X/Y, photo A) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U02 PASS` |
+| S3-U03 | barcode read in the opposite direction decodes (reversed flag) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U03 PASS` |
+| S3-U04 | print-scale independent (ratio classification) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U04 PASS` |
+| S3-U05 | invalid: element count not 10k-1 |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U05 PASS` |
+| S3-U06 | invalid: no wide/narrow contrast |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U06 PASS` |
+| S3-U07 | invalid: corrupted start symbol rejected (no command) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U07 PASS` |
+| S3-U08 | invalid: wide inter-character gap rejected |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U08 PASS` |
+| S3-U09 | invalid: missing start/stop character |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U09 PASS` |
+| S3-U10 | 15/15 reads at 100, 200 and 300 mm/s (+-15 % ripple, 5 % speed bias, 0.6 mm blur) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U10 PASS` |
+| S3-U11 | same barcode again within 600 mm: DUPLICATE (no second command) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U11 PASS` |
+| S3-U11a | first pass over Z: VALID |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U11a PASS` |
+| S3-U12 | 60 mm black run rejected as not-a-barcode at once |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U12 PASS` |
+| S3-U13 | no edge for 3 s while capturing: aborted (bounded) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U13 PASS` |
+| S3-U14 | capture longer than the 450 mm window: aborted |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U14 PASS` |
+| S3-U15 | default mapping A=LEFT, F=RIGHT, Z=U-TURN, X=STRAIGHT |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U15 PASS` |
+| S3-U16 | mapping override/reset works; '*' and nav > 3 rejected |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U16 PASS` |
+| S3-U17 | LEFT/RIGHT/U-TURN/STRAIGHT -> encoder TURN/MOVE commands |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U17 PASS` |
+| S3-U18 | calibration on the line: black = high |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U18 PASS` |
+| S3-U19 | inverted sensor polarity is learnt, not assumed |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U19 PASS` |
+| S3-U20 | ambiguous start position -> calibration failure |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U20 PASS` |
+| S3-U21 | flickering sensor while still -> calibration failure |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U21 PASS` |
+| S3-U22 | centred: straight at full cruise fraction |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U22 PASS` |
+| S3-U23 | line drifting to IR_L: steer towards it |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U23 PASS` |
+| S3-U24 | line under IR_L only: stop and pivot towards it |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U24 PASS` |
+| S3-U25 | centre and IR_L white: arc towards IR_R (car's left) at once, then pivot; LOST |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U25 PASS` |
+| S3-U26 | line reacquired -> FOUND; keeps turning gently towards IR_R for LF_REALIGN_MS, then straight |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U26 PASS` |
+| S3-U27 | line never found: keeps pivoting towards IR_R; no RECOVERY_FAIL |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U27 PASS` |
+| S3-U28 | all three sensors black for >= 8 mm: one JUNCTION event |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U28 PASS` |
+| S3-U29 | black under the barcode sensor (IR_R) beside the line does not disturb steering |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U29 PASS` |
+| S3-U52 | side pivot held through all-white until the centre has the line; then half speed, no kick back |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U52 PASS` |
+| S3-U53 | black under IR_R alone is not the line: lost, turning towards IR_R, search not ended |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U53 PASS` |
+| S3-U54 | lost-line turn, then IR_L has the line: FOUND, pivot towards IR_L |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U54 PASS` |
+| S3-U55 | lost-line arc ends after LF_LOST_ARC_MM of travel, then pivot |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U55 PASS` |
+| S3-U56 | turning on after a find, line drifts to IR_L: steer towards IR_L |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U56 PASS` |
+| S3-U57 | short lost-line arc (< LF_REALIGN_MIN_MS) finds the line: straight on, no turn-on |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U57 PASS` |
+| S3-U30 | line status word round trip at limits (steer -63) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U30 PASS` |
+| S3-U31 | barcode status word round trip at limits |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U31 PASS` |
+| S3-U32 | Line Following runs every 20 ms (50 per s) within half its period |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U32 PASS` |
+| S3-U33 | line status word republished every period with a fresh timestamp (IF-L1) |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U33 PASS` |
+| S3-U34 | IR calibration decided within 1 s of INIT (calibrated, or IR_CAL fault): never stalls |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U34 PASS` |
+| S3-U35 | barcode reader idle outside NORMAL, no edge overflow; GPIO callbacks frozen once running |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U35 PASS` |
 
-*Method:* **auto** = `TEST_CHECK` in code; result printed on the console.
-**manual** = a person observes the result on hardware and saves evidence.
-S3-M01 and S3-M02 are planned manual checks, not recorded results.
+*Method:* **auto** = `TEST_CHECK` in code, result printed on the console;
+**manual** = a person observes the result (LED, scope, meter, phone app…).
 
 ## Results
 
-Add a row for each test ID and each run. Do not enter results until the test
-has actually been run; keep the console log or manual evidence under
-`testing/subsystem3/logs/`.
+Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
+| 2025-11-18 | S3-U01 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U02 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U03 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U04 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U05 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U06 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U07 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U08 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U09 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U10 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U11a | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U11 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U12 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U13 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U14 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U15 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U16 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U17 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U18 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U19 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U20 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U21 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U22 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U23 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U24 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U52 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U25 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U26 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U58 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U57 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U55 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U56 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U27 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U28 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U29 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U53 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U54 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U30 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U31 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U32 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U33 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
+| 2025-11-18 | S3-U34 | not recorded | Vanessa | FAIL | `../integration/logs/2025-11-18_intergation_test.txt` | Calibration unresolved at check; later calibration message appears after test run. |
+| 2025-11-18 | S3-U35 | not recorded | Vanessa | PASS | `../integration/logs/2025-11-18_intergation_test.txt` |  |
 | YYYY-MM-DD | S3-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |

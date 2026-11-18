@@ -96,7 +96,7 @@
 					   centre sensor, - if nearer the right */
 #define TURN_ADVANCE_RIGHT_MM	(TURN_IR_AHEAD_MM - TURN_PIVOT_OFFSET_MM \
 				 + TURN_IR_GAP_MM + TURN_ADVANCE_TRIM_MM)
-#define TURN_ADVANCE_LEFT_EXTRA_MM 0	/* [CAL] correction after measuring sensor/axle geometry */
+#define TURN_ADVANCE_LEFT_EXTRA_MM 50	/* [CAL] extra approach on the physical course */
 #define TURN_ADVANCE_LEFT_MM	(TURN_IR_AHEAD_MM - TURN_PIVOT_OFFSET_MM \
 				 + TURN_ADVANCE_TRIM_MM + TURN_ADVANCE_LEFT_EXTRA_MM)
 #define TURN_LEFT_COAST_DEG	3	/* release drive before 90 deg */
