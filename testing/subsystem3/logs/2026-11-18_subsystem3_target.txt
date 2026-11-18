@@ -1,0 +1,50 @@
+[TEST] S3-U01 PASS  Code 39 table: 44 unique patterns, 3 wide each; * A Z as measured
+[TEST] S3-U02 PASS  every supplied sample decodes (PDF A/Z, PPTX A/F/Z/W/X/Y, photo A)
+[TEST] S3-U03 PASS  barcode read in the opposite direction decodes (reversed flag)
+[TEST] S3-U04 PASS  print-scale independent (ratio classification)
+[TEST] S3-U05 PASS  invalid: element count not 10k-1
+[TEST] S3-U06 PASS  invalid: no wide/narrow contrast
+[TEST] S3-U07 PASS  invalid: corrupted start symbol rejected (no command)
+[TEST] S3-U08 PASS  invalid: wide inter-character gap rejected
+[TEST] S3-U09 PASS  invalid: missing start/stop character
+[TEST] s3 code39 SUMMARY 9 passed, 0 failed
+[TEST] S3-U10 PASS  15/15 reads at 100, 200 and 300 mm/s (+-15 % ripple, 5 % speed bias, 0.6 mm blur)
+[TEST] S3-U11a PASS  first pass over Z: VALID
+[TEST] S3-U11 PASS  same barcode again within 600 mm: DUPLICATE (no second command)
+[TEST] S3-U12 PASS  60 mm black run rejected as not-a-barcode at once
+[TEST] S3-U13 PASS  no edge for 3 s while capturing: aborted (bounded)
+[TEST] S3-U14 PASS  capture longer than the 450 mm window: aborted
+[TEST] s3 capture SUMMARY 6 passed, 0 failed
+[TEST] S3-U15 PASS  default barcode mapping: A=LEFT, F=RIGHT, Z=U-TURN, X=STRAIGHT
+[TEST] S3-U16 PASS  mapping overrides work; '*' and nav > 3 rejected; reset restores defaults
+[TEST] S3-U17 PASS  LEFT/RIGHT/U-TURN/STRAIGHT -> encoder TURN/MOVE commands
+[TEST] s3 nav map SUMMARY 3 passed, 0 failed
+[TEST] S3-U18 PASS  calibration on the line: black = high
+[TEST] S3-U19 PASS  inverted sensor polarity is learnt, not assumed
+[TEST] S3-U20 PASS  ambiguous start position -> calibration failure
+[TEST] S3-U21 PASS  flickering sensor while still -> calibration failure
+[TEST] S3-U22 PASS  centred: straight at Buddy 3's reduced cruise fraction
+[TEST] S3-U23 PASS  line drifting to IR_L: steer towards it
+[TEST] S3-U24 PASS  line under IR_L only: stop and pivot towards it
+[TEST] S3-U52 PASS  side pivot held through all-white until the centre has the line; then half speed, no kick back
+[TEST] S3-U25 PASS  brief white gap ignored; sustained loss uses a gentle arc, then pivot; LOST
+[TEST] S3-U26 PASS  line reacquired on centre -> FOUND and straight immediately
+[TEST] S3-U58 PASS  two-sample centre dropout is filtered without steering or line-loss events
+[TEST] S3-U57 PASS  short lost-line arc (< LF_REALIGN_MIN_MS) finds the line: straight on, no turn-on
+[TEST] S3-U55 PASS  lost-line arc ends after LF_LOST_ARC_MM of travel, then pivot
+[TEST] S3-U56 PASS  turning on after a find, line drifts to IR_L: steer towards IR_L
+[TEST] S3-U27 PASS  line never found: keeps pivoting towards IR_R; no RECOVERY_FAIL
+[TEST] S3-U28 PASS  all three sensors black for >= 8 mm: one JUNCTION event
+[TEST] S3-U29 PASS  black under the barcode sensor (IR_R) beside the line does not disturb steering
+[TEST] S3-U53 PASS  black under IR_R alone is not the line: lost, turning towards IR_R, search not ended
+[TEST] S3-U54 PASS  lost-line turn, then IR_L has the line: FOUND, pivot towards IR_L
+[TEST] s3 line SUMMARY 19 passed, 0 failed
+[TEST] S3-U30 PASS  line status word round trip at limits (steer -63)
+[TEST] S3-U31 PASS  barcode status word round trip at limits
+[TEST] s3 status words SUMMARY 2 passed, 0 failed
+[TEST] S3-U32 PASS  Line Following runs every 20 ms (50 per s) within half its period
+[TEST] S3-U33 PASS  line status word republished every period with a fresh timestamp (IF-L1)
+[TEST] S3-U34 PASS  IR calibration decided within 1 s of INIT (calibrated, or IR_CAL fault): never stalls
+[TEST] S3-U35 PASS  barcode reader idle outside NORMAL, no edge overflow; GPIO callbacks frozen once running
+[TEST] subsystem3 target SUMMARY 4 passed, 0 failed
+[TEST] subsystem3 TOTAL 0 failed check(s)
