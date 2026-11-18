@@ -1,52 +1,82 @@
 /*
  *	subsystem4.c
- *	Subsystem 4 -- Monitor: creates its objects and starts its task.
+ *	Subsystem 4 -- IMU and terrain monitoring: kernel objects and tasks.
  *
- *	APIs shown: tk_cre_flg, tk_cre_mbf, tk_cre_alm
+ *	Kernel objects (TEAM.md section 6 budget):
+ *	  flg_imu        event flag   10 ms tick + I2C completion (one waiter)
+ *	  mbf_imu_hump   message buf  32 x 4-byte packed samples (IF internal)
+ *	  cyc_imu        cyclic       10 ms
+ *	  imu_task       task         priority 13, core 1
+ *	  hump_task      task         priority 18
+ *	Peripherals: I2C0 on GP16 (SDA) / GP17 (SCL), IRQ 23.
  */
 
 #include "subsystem4.h"
 
-EXPORT ID	mbf_summary;	/* IF-03 */
-EXPORT ID	flg_events;	/* IF-03 */
-EXPORT ID	alm_monitor;
+EXPORT ID	flg_imu;
+EXPORT ID	mbf_imu_hump;
+EXPORT ID	cyc_imu;
+EXPORT ID	tid_imu;
+EXPORT ID	tid_hump;
 
 EXPORT ER subsystem4_init(void)
 {
 	T_CFLG	cflg = {0};
 	T_CMBF	cmbf = {0};
-	T_CALM	calm = {0};
+	T_CCYC	ccyc = {0};
+	S4_IMU_STATUS initial = {0};
 
-	/* Event flag: a 32-bit pattern of bits.  Tasks wait for a bit (or a
-	   combination of bits) to be set. */
-	cflg.flgatr  = TA_TFIFO | TA_WMUL;	/* allow several waiters */
-	cflg.iflgptn = 0;			/* all bits clear to begin with */
-	flg_events = tk_cre_flg(&cflg);
-	if (flg_events < E_OK) {
-		return flg_events;
+	s4_imu_seq.seq = 0;
+	/* Never expose zero-degree sensor values before calibration.  The
+	   validity bit is authoritative, but using the reserved invalid codes
+	   also keeps telemetry consumers from mistaking startup for a real
+	   level/stationary measurement. */
+	initial.pitch_deg = (B)S4_ANGLE_INVALID;
+	initial.roll_deg = (B)S4_ANGLE_INVALID;
+	initial.yaw_rate_dps = (H)S4_RATE_INVALID;
+	initial.motion_class = MCLS_STATIONARY;
+	initial.status = IMU_ST_INIT;
+	initial.heading_deg = (UH)S4_HEADING_INVALID;
+	s4_imu_pack(&initial, s4_imu_words);
+	s4_imu_time = 0;
+	s4_dropped = 0;
+
+	cflg.flgatr  = TA_TFIFO | TA_WSGL;
+	cflg.iflgptn = 0;
+	flg_imu = tk_cre_flg(&cflg);
+	if (flg_imu < E_OK) {
+		return flg_imu;
 	}
 
-	/* Message buffer: COPIES variable-length data into a kernel ring
-	   buffer.  Here it carries short text lines from subsystem 3. */
 	cmbf.mbfatr = TA_TFIFO;
-	cmbf.bufsz  = 4 * S4_SUMMARY_MAX;	/* total buffer size, bytes */
-	cmbf.maxmsz = S4_SUMMARY_MAX;		/* largest single message */
-	mbf_summary = tk_cre_mbf(&cmbf);
-	if (mbf_summary < E_OK) {
-		return mbf_summary;
+	cmbf.bufsz  = APP_MBF_BUFSZ(S4_HUMP_QUEUE_LEN, sizeof(UW));
+	cmbf.maxmsz = sizeof(UW);
+	mbf_imu_hump = tk_cre_mbf(&cmbf);
+	if (mbf_imu_hump < E_OK) {
+		return mbf_imu_hump;
 	}
 
-	/* Alarm handler: called ONCE, a given time after tk_sta_alm().
-	   The monitor task re-arms it each time round its loop. */
-	calm.almatr = TA_HLNG;
-	calm.almhdr = (FP)monitor_alarm_handler;
-	alm_monitor = tk_cre_alm(&calm);
-	return (alm_monitor < E_OK) ? alm_monitor : E_OK;
+	ccyc.cycatr = TA_HLNG;
+	ccyc.cychdr = (FP)imu_cyclic_handler;
+	ccyc.cyctim = S4_PERIOD_MS;
+	ccyc.cycphs = S4_PERIOD_MS;
+#if TK_SUPPORT_SMP
+	ccyc.cycatr |= TA_ASSPRC;
+	ccyc.assprc  = APP_CORE_CONTROL;
+#endif
+	cyc_imu = tk_cre_cyc(&ccyc);
+	return (cyc_imu < E_OK) ? cyc_imu : E_OK;
 }
 
 EXPORT ER subsystem4_start(void)
 {
-	/* No affinity: the scheduler may run it on either core */
-	ID tid = app_start_task(monitor_task, S4_PRI_MONITOR, 0, "monitor_task");
-	return (tid < E_OK) ? tid : E_OK;
+	tid_imu = app_start_task(imu_task, S4_PRI_IMU, APP_CORE_CONTROL, "imu_task");
+	if (tid_imu < E_OK) {
+		return tid_imu;
+	}
+	tid_hump = app_start_task(hump_task, S4_PRI_HUMP, APP_CORE_ANY, "hump_task");
+	if (tid_hump < E_OK) {
+		return tid_hump;
+	}
+	return tk_sta_cyc(cyc_imu);
 }
