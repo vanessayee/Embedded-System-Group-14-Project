@@ -23,40 +23,40 @@ Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-18 | INT-15a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-15b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-16a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-16b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-16c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-16d | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-16e | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-10a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-10b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-10c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-10d | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-11a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-11b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-11c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-12a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-12b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-13a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-13b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-13c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-13d | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-13e | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-14a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-14b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-14c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-14d | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-17a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-17b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-18a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-18b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-18c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-19a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-19b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-20a | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-20b | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-20c | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
-| 2026-11-18 | INT-20d | not recorded | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-15a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-15b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-16a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-16b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-16c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-16d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-16e | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-10a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-10b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-10c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-10d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-11a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-11b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-11c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-12a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-12b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-13a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-13b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-13c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-13d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-13e | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-14a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-14b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-14c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-14d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-17a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-17b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-18a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-18b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-18c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-19a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-19b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-20a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-20b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-20c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
+| 2026-11-18 | INT-20d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_host_all_buddies.txt` |  |
 | YYYY-MM-DD | INT-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |

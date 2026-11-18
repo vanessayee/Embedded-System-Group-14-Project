@@ -54,52 +54,52 @@ Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-18 | S4-U01 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U02 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U03 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U04 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U05 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U06 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U07 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U08 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U09 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U10 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U11 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U12 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U13 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U14 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U15 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U16 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U17 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U18 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U33 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U34 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U35 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U36 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U37 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U38 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U39 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U40 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U41 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U42 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U43 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U19 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U20 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U21 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U22 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U23 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U24 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U25 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U44 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U45 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U26 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U27 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U28 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U29 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U30 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U31 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U32 | 47ad264 | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
-| 2026-11-18 | S4-U30 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
-| 2026-11-18 | S4-U31 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
-| 2026-11-18 | S4-U32 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
+| 2026-11-18 | S4-U01 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U02 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U03 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U04 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U05 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U06 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U07 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U08 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U09 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U10 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U11 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U12 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U13 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U14 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U15 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U16 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U17 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U18 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U33 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U34 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U35 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U36 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U37 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U38 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U39 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U40 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U41 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U42 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U43 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U19 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U20 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U21 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U22 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U23 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U24 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U25 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U44 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U45 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U26 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U27 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U28 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U29 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U30 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U31 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U32 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-18 | S4-U30 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
+| 2026-11-18 | S4-U31 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
+| 2026-11-18 | S4-U32 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
 | YYYY-MM-DD | S4-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |

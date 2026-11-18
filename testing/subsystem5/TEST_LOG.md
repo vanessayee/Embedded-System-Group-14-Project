@@ -59,46 +59,46 @@ Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-11-18 | S5-U01 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U02 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U02b | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U03 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U04 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U05 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U06 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U07 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U08 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U09 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U10 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U11 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U12 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13b | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13c | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13d | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13e | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13f | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13g | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U13h | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U14 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U15 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U15b | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U15c | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U16 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U16b | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U16c | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U17 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U17b | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U17d | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U17c | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U18a | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U18 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U19 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U20 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U21 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U22 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U23 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
-| 2026-11-18 | S5-U21 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
-| 2026-11-18 | S5-U22 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
-| 2026-11-18 | S5-U23 | not recorded | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
+| 2026-11-18 | S5-U01 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U02 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U02b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U03 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U04 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U05 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U06 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U07 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U08 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U09 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U10 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U11 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U12 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13e | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13f | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13g | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U13h | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U14 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U15 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U15b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U15c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U16 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U16b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U16c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U17 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U17b | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U17d | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U17c | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U18a | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U18 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U19 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U20 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U21 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U22 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U23 | 42f79b1 (main; tested 47ad264) | Vanessa | PASS | `logs/2026-11-18_subsystem5_host.txt` |  |
+| 2026-11-18 | S5-U21 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
+| 2026-11-18 | S5-U22 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
+| 2026-11-18 | S5-U23 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
 | YYYY-MM-DD | S5-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_subsystem5_test.txt` | |
