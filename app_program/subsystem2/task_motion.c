@@ -430,9 +430,7 @@ LOCAL void control_cycle(void)
 			LSEEN_STALE_MS)
 		: FALSE;
 	mc_step(&mc, &in, MOTION_PERIOD_MS, &mout);
-	if (mc.has_active && !mc.advancing && mcmd_src(mc.active) == MSRC_BARCODE
-	    && mcmd_type(mc.active) == MCMD_TURN
-	    && mcmd_arg(mc.active) > -135 && mcmd_arg(mc.active) < 135) {
+	if (mc.has_active && !mc.advancing && mc_is_junction_turn(mc.active)) {
 		UW bits = lw & (LSEEN_C | LSEEN_R);
 		if (bits != turn_log_bits || mc.turn_align != turn_log_align) {
 			W dir = (mcmd_arg(mc.active) > 0) ? 1 : -1;

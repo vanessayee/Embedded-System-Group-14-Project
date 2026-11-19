@@ -82,16 +82,9 @@ LOCAL void reset_control(MOTION_CTRL *mc)
 	mc->stall_r = FALSE;
 }
 
-EXPORT void mc_init(MOTION_CTRL *mc)
+/* Reset per-command turn acquisition without discarding the saved junction edge. */
+LOCAL void reset_turn(MOTION_CTRL *mc)
 {
-	mc->state = MS_IDLE;
-	mc->has_active = FALSE;
-	mc->active = 0;
-	mc->q_head = 0;
-	mc->q_count = 0;
-	mc->start_l_um = 0;
-	mc->start_r_um = 0;
-	mc->target_um = 0;
 	mc->seek_from_um = 0;
 	mc->seek_extra_um = 0;
 	mc->seek_seen = FALSE;
@@ -104,6 +97,19 @@ EXPORT void mc_init(MOTION_CTRL *mc)
 	mc->advance_um = 0;
 	mc->adv_r_black = FALSE;
 	mc->adv_ref = FALSE;
+}
+
+EXPORT void mc_init(MOTION_CTRL *mc)
+{
+	mc->state = MS_IDLE;
+	mc->has_active = FALSE;
+	mc->active = 0;
+	mc->q_head = 0;
+	mc->q_count = 0;
+	mc->start_l_um = 0;
+	mc->start_r_um = 0;
+	mc->target_um = 0;
+	reset_turn(mc);
 	mc->junction_black = FALSE;
 	mc->junction_edge_ms = 0;
 	mc->junction_edge_um = 0;
@@ -183,8 +189,8 @@ LOCAL W cmd_speed(const MOTION_CTRL *mc, UW cmd, W dflt)
 }
 
 /* A 90 deg barcode turn at a junction (not a U-turn, not avoidance):
-   advance to the turn point, then turn about TURN_PIVOT_OFFSET_MM */
-LOCAL BOOL is_junction_turn(UW cmd)
+   advance to the turn point, then pivot about the axle centre */
+EXPORT BOOL mc_is_junction_turn(UW cmd)
 {
 	INT	arg = mcmd_arg(cmd);
 
@@ -206,18 +212,7 @@ LOCAL void start_cmd(MOTION_CTRL *mc, UW cmd, MC_OUT *out)
 	mc->stall_ms_l = 0;
 	mc->stall_ms_r = 0;
 
-	mc->seek_from_um = 0;
-	mc->seek_extra_um = 0;
-	mc->seek_seen = FALSE;
-	mc->turn_contact_samples = 0;
-	mc->turn_gap_samples = 0;
-	mc->turn_line_seq = 0xFFU;
-	mc->turn_align = FALSE;
-	mc->turn_wait_ms = 0;
-	mc->advancing = FALSE;
-	mc->advance_um = 0;
-	mc->adv_r_black = FALSE;
-	mc->adv_ref = FALSE;
+	reset_turn(mc);
 	if (mcmd_type(cmd) == MCMD_TURN) {
 		INT	deg = (arg < 0) ? -arg : arg;
 
@@ -227,15 +222,14 @@ LOCAL void start_cmd(MOTION_CTRL *mc, UW cmd, MC_OUT *out)
 				? mc_turn_arc_um(deg - TURN_SEEK_EARLY_DEG) : 0;
 			mc->seek_extra_um = mc_turn_arc_um(TURN_SEEK_EXTRA_DEG);
 		}
-		if (is_junction_turn(cmd)) {
+		if (mc_is_junction_turn(cmd)) {
 			/* Wheel slip/calibration can put the real branch before the
 			   old 70-degree window. Slow and acquire from the same guard. */
 			mc->seek_from_um = mc_turn_arc_um(TURN_CONTACT_MIN_DEG);
 			mc->advancing = TRUE;
 			mc->adv_r_black = mc->junction_black;
 			mc->junction_black = FALSE;
-			mc->advance_um = 1000 * ((arg > 0) ? TURN_ADVANCE_RIGHT_MM
-							   : TURN_ADVANCE_LEFT_MM);
+			mc->advance_um = 1000 * TURN_ADVANCE_MM;
 			mc->state = MS_STRAIGHT;
 		} else {
 			mc->state = MS_TURNING;
@@ -581,7 +575,7 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 		    MC_OUT *out)
 {
 	W	dir = isign(mcmd_arg(mc->active));	/* +1 = clockwise */
-	BOOL	junction = is_junction_turn(mc->active);
+	BOOL	junction = mc_is_junction_turn(mc->active);
 	BOOL	bc = (mcmd_src(mc->active) == MSRC_BARCODE);
 	BOOL	seeking = bc && TURN_LINE_SEEK && in->line_seen_fresh
 			  && (in->line_seen & LSEEN_VALID) != 0UL;
@@ -663,19 +657,12 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 		return;
 	}
 	vo = approach_speed(mc, cmd_speed(mc, mc->active, TURN_SPEED_MMS), rem);
-	if (junction) {
-		/* Same axle-centred motion and acquisition speed in both directions. */
-		vi = vo;
-		corr = balance((dir > 0) ? pl : pr, (dir > 0) ? pr : pl, vo);
-		if (done >= mc->seek_from_um) {
-			vo = MIN_CTRL_SPEED_MMS;
-			vi = MIN_CTRL_SPEED_MMS;
-			corr = 0;
-		}
-	} else {
-		/* on the spot: equal speeds, balanced travel */
-		vi = vo;
-		corr = balance((dir > 0) ? pl : pr, (dir > 0) ? pr : pl, vo);
+	/* Axle-centred pivot with balanced wheel travel in either direction. */
+	vi = vo;
+	corr = balance((dir > 0) ? pl : pr, (dir > 0) ? pr : pl, vo);
+	if (junction && done >= mc->seek_from_um) {
+		vo = vi = MIN_CTRL_SPEED_MMS;
+		corr = 0;
 	}
 	outer = vo - corr;
 	inner = vi + corr;
@@ -900,7 +887,7 @@ EXPORT void mc_step(MOTION_CTRL *mc, const MC_IN *in, UW dt_ms, MC_OUT *out)
 			run_move(mc, &des_l, &des_r, out);
 		}
 		if (mc->has_active && mc->elapsed_ms > mc->timeout_ms) {
-			enter_fault(mc, out, is_junction_turn(mc->active) && TURN_LINE_SEEK
+			enter_fault(mc, out, mc_is_junction_turn(mc->active) && TURN_LINE_SEEK
 				? SYS_FLT_RECOVERY_TIMEOUT : SYS_FLT_MOTOR_STALL);
 			return;
 		}

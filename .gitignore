@@ -6,6 +6,7 @@ Release
 *.uf2
 *.map
 *.o
+*.obj
 *.d
 build_make/tools/elf2uf2
 tools/elf2uf2/elf2uf2

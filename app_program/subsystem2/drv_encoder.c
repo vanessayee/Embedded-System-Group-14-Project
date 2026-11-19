@@ -12,8 +12,6 @@ typedef struct {
 	W	ticks;
 	UW	edges;
 	UW	last_us;
-	UW	period_us;
-	UW	glitches;
 } ENC_REC;
 
 LOCAL ENC_REC		enc_rec[2];		/* single writer: the ISR */
@@ -41,7 +39,6 @@ LOCAL void encoder_edge(UINT pin, UINT events, UW now_us)
 	/* Glitch filter: an edge closer than ENC_MIN_EDGE_US to the last
 	   counted one is comparator chatter, not a slot. */
 	if (r->edges != 0U && (UW)(now_us - r->last_us) < ENC_MIN_EDGE_US) {
-		r->glitches = r->glitches + 1U;
 		return;
 	}
 #if ENC_QUADRATURE
@@ -59,7 +56,6 @@ LOCAL void encoder_edge(UINT pin, UINT events, UW now_us)
 #endif
 	app_seq_write_begin(&r->seq);
 	r->ticks += step;
-	r->period_us = (r->edges == 0U) ? 0U : (now_us - r->last_us);
 	r->last_us = now_us;
 	r->edges = r->edges + 1U;
 	app_seq_write_end(&r->seq);
@@ -103,9 +99,6 @@ EXPORT BOOL encoder_snapshot(UINT wheel, ENC_SNAP *out)
 
 		out->ticks = r->ticks;
 		out->edges = r->edges;
-		out->last_us = r->last_us;
-		out->period_us = r->period_us;
-		out->glitches = r->glitches;
 		if (!app_seq_read_retry(&r->seq, s)) {
 			return TRUE;
 		}

@@ -90,7 +90,6 @@ IMPORT UW   motion_last_result(UW src);
 IMPORT void motion_stop(UW src);
 /* Line steering, -63..63 (+ = right), speed fraction 0..15 of cruise */
 IMPORT void motion_set_steer(INT steer, UW speed_frac);
-IMPORT void motion_set_steer_reverse(UW speed_frac);	/* straight back */
 IMPORT void motion_clear_steer(void);
 /* IR sensors seeing black, physical sides; every line period, all modes.
    Barcode turns end when the new line is between centre and right. */
@@ -101,7 +100,6 @@ IMPORT void motion_get_status(MOTION_STATUS *st);
 /* Average wheel travel since boot (mm, signed) and speed (mm/s) */
 IMPORT void motion_get_odometry(W *dist_mm, W *speed_mms);
 IMPORT W    motion_creep_speed_mms(void);
-IMPORT void motion_set_armed(BOOL armed);	/* bench / test use */
 
 /* ---------------------------------------------------------------------
  *  System state API (sys_state.c)

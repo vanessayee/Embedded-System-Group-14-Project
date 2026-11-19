@@ -29,11 +29,6 @@ EXPORT ER motor_init(void)
 	return E_OK;
 }
 
-EXPORT BOOL motor_ready(void)
-{
-	return (app_load(&motor_is_ready) != 0U) ? TRUE : FALSE;
-}
-
 LOCAL void write_motor(UW slice, W duty, BOOL invert)
 {
 	UW	cc;

@@ -33,7 +33,6 @@
 #define GPIO_IRQ_INTNO		13	/* IO_IRQ_BANK0 (RP2040 datasheet) */
 #define GPIO_IRQ_LEVEL		1	/* highest external priority level  */
 
-#define GPIO_PULL_NONE		0U
 #define GPIO_PULL_UP		1U
 #define GPIO_PULL_DOWN		2U
 

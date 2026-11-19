@@ -351,7 +351,7 @@ LOCAL INT test_execution(void)
 		SEEK_RUN	s;
 		W		right_advance;
 		W		right_outer, right_inner, right_heading;
-		W		adv = 15000 + (TURN_ADVANCE_RIGHT_MM
+		W		adv = 15000 + (TURN_ADVANCE_MM
 					       - TURN_LINE_WIDTH_MM / 2) * 1000;
 
 		seek_turn(&pl, 90, TRUE, 15, 840, 890, 980, 1030, &s);
@@ -365,7 +365,7 @@ LOCAL INT test_execution(void)
 			   && s.tl_um > 0 && s.tr_um < 0
 			   && iabs(s.tl_um + s.tr_um) < 6000,
 			   "barcode RIGHT: equal wheel arcs, right-leading contact then confirmed white gap");
-		adv = 15000 + (TURN_ADVANCE_LEFT_MM - TURN_LINE_WIDTH_MM / 2) * 1000;
+		adv = 15000 + (TURN_ADVANCE_MM - TURN_LINE_WIDTH_MM / 2) * 1000;
 		/* Left has the opposite order: centre first, then GP2. The
 		   successful stop is in the white gap, after centre leaves. */
 		seek_turn(&pl, -90, TRUE, 15, 980, 1030, 840, 890, &s);
@@ -424,7 +424,7 @@ LOCAL INT test_execution(void)
 			   "line seen only far from 90 deg: fault at the angle limit");
 		seek_turn(&pl, 90, FALSE, 15, 800, 860, 950, 1000, &s);
 		TEST_CHECK("S2-U10f", mres_status(s.res) == MRES_FAULT
-			   && iabs(s.adv_um - TURN_ADVANCE_RIGHT_MM * 1000) <= 3000
+			   && iabs(s.adv_um - TURN_ADVANCE_MM * 1000) <= 3000
 			   && s.h > 870 && s.h < 940,
 			   "no fresh IR word: stop at encoder target and report unconfirmed turn");
 		seek_turn(&pl, 180, FALSE, 0, 0, 0, 0, 0, &s);
@@ -452,7 +452,7 @@ LOCAL INT test_execution(void)
 	in.vmode = VM_NAV_ACTION;
 	mc_step(&mc, &in, MOTION_PERIOD_MS, &out);
 	TEST_CHECK("S2-U10i", res == MREJ_NONE && mc.adv_ref
-		   && mc.advance_um == (TURN_ADVANCE_LEFT_MM - TURN_LINE_WIDTH_MM / 2 - 7) * 1000,
+		   && mc.advance_um == (TURN_ADVANCE_MM - TURN_LINE_WIDTH_MM / 2 - 7) * 1000,
 		   "left turn uses the recorded GP2 exit 7 mm before command start");
 
 	/* NFR12: MOVE followed by a queued TURN keeps at least creep speed */

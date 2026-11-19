@@ -111,6 +111,9 @@ typedef struct {
 	BOOL	escalated;
 } MOTION_CTRL;
 
+/* Shared classification for execution and turn diagnostics. */
+IMPORT BOOL mc_is_junction_turn(UW cmd);
+
 IMPORT void mc_init(MOTION_CTRL *mc);
 IMPORT void mc_out_clear(MC_OUT *out);
 

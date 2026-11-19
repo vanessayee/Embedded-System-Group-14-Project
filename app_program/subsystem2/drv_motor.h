@@ -27,6 +27,5 @@ IMPORT ER   motor_init(void);
 IMPORT void motor_set(W duty_l_pm, W duty_r_pm);
 /* Both motors off in one store per slice; safe from handlers */
 IMPORT void motor_off(void);
-IMPORT BOOL motor_ready(void);
 
 #endif /* DRV_MOTOR_H */

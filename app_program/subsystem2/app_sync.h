@@ -8,13 +8,11 @@
  *	  - words with several writers use app_atomic_or/clear/xchg();
  *	  - words with ONE writer use app_store()/app_load() (an aligned
  *	    32-bit access is indivisible; the barrier orders it across cores);
- *	  - multi-word records with one writer use an APP_SEQ sequence count;
- *	  - anything else uses an APP_LOCK for a few instructions.
+ *	  - multi-word records with one writer use an APP_SEQ sequence count.
  *
- *	Why a wrapper: the kernel's SMP API (tk/smp.h: ISpinLock, atomic_*)
+ *	Why a wrapper: the kernel's SMP API (tk/smp.h: atomic_*)
  *	is only compiled when TK_SUPPORT_SMP is 1.  On the single-core build
  *	(make SMP=0) masking interrupts is enough because nothing else runs.
- *	Never call a kernel function or block while holding an APP_LOCK.
  */
 
 #ifndef APP_SYNC_H
@@ -27,50 +25,6 @@
 
 /* Full memory barrier (Cortex-M0+ DMB) */
 #define APP_DMB()	Asm("dmb" ::: "memory")
-
-/* ---------------------------------------------------------------------
- *  Short critical section
- * --------------------------------------------------------------------- */
-typedef struct {
-#if TK_SUPPORT_SMP
-	T_SPLOCK	word;		/* tk/smp.h software spinlock */
-#else
-	UW		unused;		/* single core: interrupt mask only */
-#endif
-} APP_LOCK;
-
-Inline void app_lock_init(APP_LOCK *lk)
-{
-#if TK_SUPPORT_SMP
-	(void)InitSpinLock(&lk->word);
-#else
-	lk->unused = 0;
-#endif
-}
-
-/* Masks interrupts on this core and, with SMP, excludes the other core.
-   Returns the state for app_lock_exit().  Usable from handlers. */
-Inline UINT app_lock_enter(APP_LOCK *lk)
-{
-	UINT	st;
-#if TK_SUPPORT_SMP
-	(void)ISpinLock(&lk->word, &st);
-#else
-	(void)lk;
-	DI(st);
-#endif
-	return st;
-}
-
-Inline void app_lock_exit(APP_LOCK *lk, UINT st)
-{
-#if TK_SUPPORT_SMP
-	(void)ISpinUnlock(&lk->word, st);
-#else
-	(void)lk;
-	EI(st);
-#endif
-}
 
 /* ---------------------------------------------------------------------
  *  Atomic read-modify-write of a shared 32-bit word (returns old value)

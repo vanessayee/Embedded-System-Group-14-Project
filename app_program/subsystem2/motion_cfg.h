@@ -85,8 +85,6 @@
 #define TURN_ADVANCE_TRIM_MM	0	/* [CAL] + if the line ends up nearer the
 					   centre sensor, - if nearer the right */
 #define TURN_ADVANCE_MM		(TURN_IR_AHEAD_MM + TURN_ADVANCE_TRIM_MM)
-#define TURN_ADVANCE_RIGHT_MM	TURN_ADVANCE_MM
-#define TURN_ADVANCE_LEFT_MM	TURN_ADVANCE_RIGHT_MM /* shared junction turn point */
 #define TURN_CONFIRM_SAMPLES	2U
 #define TURN_SETTLE_MS		200U
 #define TURN_CONTACT_MIN_DEG	45	/* reject initial-junction contact; allow
@@ -152,6 +150,5 @@
 					   needed at 628 edges per turn, and both
 					   edges would crowd ENC_MIN_EDGE_US at speed */
 #define ENC_MIN_EDGE_US		300	/* glitch filter: reject faster edges */
-#define ENC_SPEED_TIMEOUT_MS	300	/* no edge for this long = stopped   */
 
 #endif /* MOTION_CFG_H */

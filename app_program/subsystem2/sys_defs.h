@@ -45,7 +45,6 @@
 #define VM_OBSTACLE	3U	/* Obstacle Handling: Buddy 5 in control */
 #define VM_SAFE_STOP	4U	/* Safe Stop / Fault: motors disabled */
 #define VM_COUNT	5U
-#define VM_BITS		3U
 
 /* ---------------------------------------------------------------------
  *  Shared fault bitmask.  One bit per independent fault, one owner per

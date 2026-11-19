@@ -33,9 +33,6 @@
 typedef struct {
 	W	ticks;		/* signed cumulative count */
 	UW	edges;		/* counted edges (unsigned) */
-	UW	last_us;	/* time of the last counted edge */
-	UW	period_us;	/* time between the last two counted edges */
-	UW	glitches;	/* edges rejected by the glitch filter */
 } ENC_SNAP;
 
 IMPORT ER   encoder_init(void);			/* pins + IRQ registration */

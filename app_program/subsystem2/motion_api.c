@@ -143,12 +143,6 @@ EXPORT void motion_set_steer(INT steer, UW speed_frac)
 	app_store(&s2_steer_word, steer_pack(steer_seq_ctr, steer, speed_frac));
 }
 
-EXPORT void motion_set_steer_reverse(UW speed_frac)
-{
-	steer_seq_ctr = (UB)((steer_seq_ctr + 1U) & STEER_SEQ_MASK);
-	app_store(&s2_steer_word, steer_pack(steer_seq_ctr, 0, speed_frac) | STEER_REV);
-}
-
 EXPORT void motion_clear_steer(void)
 {
 	app_store(&s2_steer_word, 0U);
@@ -206,9 +200,4 @@ EXPORT void motion_get_odometry(W *dist_mm, W *speed_mms)
 EXPORT W motion_creep_speed_mms(void)
 {
 	return (W)app_load(&s2_creep_mms);
-}
-
-EXPORT void motion_set_armed(BOOL armed)
-{
-	app_store(&s2_armed, armed ? 1U : 0U);
 }
