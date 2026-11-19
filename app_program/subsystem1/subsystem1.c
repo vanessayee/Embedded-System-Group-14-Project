@@ -55,7 +55,6 @@ EXPORT ER subsystem1_init(void)
 	s1_comm_word = 0;
 	s1_tlm_dropped = 0;
 	s1_rx_rejected = 0;
-	s1_status_now = 0;
 
 	cflg.flgatr = TA_TFIFO | TA_WSGL;
 	flg_comm = tk_cre_flg(&cflg);

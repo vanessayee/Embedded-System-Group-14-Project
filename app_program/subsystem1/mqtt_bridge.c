@@ -56,6 +56,7 @@ int32_t s1_mqtt_take_tx(uint8_t *buf, int32_t cap, const char **topic)
 {
 	UB	msg[S1_MSG_MAX];
 	INT	n, i;
+	const char *tx_topic;
 
 	if (mbf_mqtt_tx <= 0 || buf == NULL || topic == NULL) {
 		return 0;
@@ -64,13 +65,14 @@ int32_t s1_mqtt_take_tx(uint8_t *buf, int32_t cap, const char **topic)
 	if (n <= 1) {
 		return 0;				/* nothing queued */
 	}
-	if (n - 1 > (INT)cap || topic_of(msg[0]) == NULL) {
+	tx_topic = topic_of(msg[0]);
+	if (n - 1 > (INT)cap || tx_topic == NULL) {
 		return -1;
 	}
 	for (i = 1; i < n; i++) {
 		buf[i - 1] = msg[i];
 	}
-	*topic = topic_of(msg[0]);
+	*topic = tx_topic;
 	return (int32_t)(n - 1);
 }
 

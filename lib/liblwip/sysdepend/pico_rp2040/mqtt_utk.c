@@ -46,7 +46,6 @@ static ip_addr_t	broker_addr;
 static u8_t		connecting;
 
 static char		rx_topic[MQTT_UTK_RX_TOPIC_MAX];
-static UB		rx_data[MQTT_UTK_RX_DATA_MAX];
 static uint8_t		rx_raw[MQTT_UTK_RX_DATA_MAX];	/* binary, for subsystem 1 */
 static u16_t		rx_len;
 static u8_t		rx_truncated;
@@ -79,19 +78,14 @@ static void incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 
 	for(i = 0; i < len; i++) {
 		if(rx_len < (MQTT_UTK_RX_DATA_MAX - 1)) {
-			/* rx_raw keeps the real bytes: command frames are binary.
-			 * rx_data is a printable copy for debugging on the
-			 * console, where raw bytes would scramble the terminal. */
-			UB c = data[i];
-			rx_raw[rx_len] = c;
-			rx_data[rx_len++] = (c >= 0x20 && c < 0x7f)? c: '.';
+			/* Command frames contain binary bytes. */
+			rx_raw[rx_len++] = data[i];
 		} else {
 			rx_truncated = 1;
 		}
 	}
 
 	if((flags & MQTT_DATA_FLAG_LAST) != 0) {
-		rx_data[rx_len] = '\0';
 		if(!rx_truncated) {
 			(void)s1_mqtt_put_rx(rx_topic, rx_raw, (int32_t)rx_len);
 		}

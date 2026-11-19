@@ -14,8 +14,8 @@ Grafana is now the main entry point and embeds the live HTML console. Node-RED o
 
 The robot (Pico W) sends small binary messages to an MQTT broker
 (Mosquitto). **Node-RED** checks and decodes them and writes them into a
-**PostgreSQL** database. **Grafana** shows the database as a live and
-historical dashboard.
+**PostgreSQL** database. **Grafana** embeds the live mission dashboard,
+which reads PostgreSQL through the Node-RED backend.
 
 ```
 Pico W ──Wi-Fi──> Mosquitto ──> Node-RED ──> PostgreSQL ──> Grafana (browser)
@@ -104,7 +104,7 @@ ports. They never touch the live robot, its topics or `csc14_telemetry`.
 | Robot link **UNKNOWN** | Node-RED lost the broker: a backend problem, not the robot (`bin/csc14 logs nodered`) |
 | **Backend pipeline: NOT REPORTING** | Node-RED stopped: `bin/csc14 start` |
 | **BUFFERING** | PostgreSQL unreachable; rows wait in memory (1 hour) and are written when it is back |
-| Every panel shows an error | Grafana cannot reach PostgreSQL: `bin/csc14 status` |
+| Dashboard service unavailable | Check Node-RED and PostgreSQL with `bin/csc14 status` |
 | Many **Rejected frames** | wrong firmware/protocol version or a corrupted connection; the reason column says which check failed |
 | Left/right IR swapped | `CSC14_IR_SIDES_MIRRORED` must match the firmware's `drv_ir.h` |
 

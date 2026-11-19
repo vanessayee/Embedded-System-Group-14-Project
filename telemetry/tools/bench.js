@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /*
  * bench.js -- reproducible backend measurements on ISOLATED services (own
- * broker, database, Node-RED and Grafana; the live ones are not touched).
+ * broker, database and Node-RED; the live ones are not touched).
  *
  *   bin/csc14 bench [--normal-s 120] [--out FILE]
  *
- * Phases: idle, normal (virtual robot at the real 2 Hz), dashboard polling
- * (every panel query every 5 s), stress (20 Hz telemetry), database outage,
+ * Phases: idle, normal (virtual robot at the real 2 Hz), stress
+ * (20 Hz telemetry), database outage,
  * broker outage.  Reports latency (publish -> received by Node-RED,
  * received -> row committed), CPU and memory of each service, storage per
- * row and per hour, dashboard query times.  All numbers are MEASURED on
+ * row and per hour. All numbers are MEASURED on
  * this computer with simulated frames; they say nothing about the Pico's
  * Wi-Fi or its control loops.
  */
@@ -21,8 +21,6 @@ const os = require('os');
 const path = require('path');
 const mqtt = require('mqtt');
 const h = require('../test/helpers/harness');
-const grafana = require('../test/helpers/grafana');
-const dashboard = require('../grafana/dashboards/csc14-robot.json');
 const { VirtualRobot } = require('../lib/sim');
 const { codec } = require('../lib/protocol');
 
@@ -110,14 +108,12 @@ async function main() {
 	fs.mkdirSync(path.join(env.CSC14_RUNTIME_DIR, 'nodered'), { recursive: true });
 	const nr = new h.NodeRed(env);
 	await nr.start();
-	const g = await h.startGrafana(dir, db);
 	const report = { when: new Date().toISOString(), host: `${os.type()} ${os.release()} ${os.arch()}, ` +
 		`${os.cpus().length} CPUs, ${(os.totalmem() / 2 ** 30).toFixed(0)} GB`, node: process.version, phases: {} };
 	const meter = new Meter({
 		'Node-RED': () => [String(nr.proc.pid)],
 		PostgreSQL: pgPids,
-		Mosquitto: () => [String(broker.proc.pid)],
-		Grafana: () => (g ? [String(g.proc.pid)] : [])
+		Mosquitto: () => [String(broker.proc.pid)]
 	});
 	/* like the Pico: QoS 0 and nothing queued while disconnected */
 	const client = mqtt.connect({ host: '127.0.0.1', port: broker.port, clientId: 'csc14-bench-pub',
@@ -209,31 +205,6 @@ async function main() {
 				frame_bytes: Number(rowSize.frame_b), decoded_json_bytes: Number(rowSize.json_b) } };
 		console.log('done');
 
-		/* dashboard polling: every panel query every 5 s */
-		if (g) {
-			process.stdout.write('dashboard polling 60 s (+ robot at 2 Hz) ... ');
-			const times = [];
-			let failed = 0;
-			meter.start();
-			const until = Date.now() + 60000;
-			let next = Date.now();
-			await runFor(60, 500, 0, async () => {
-				if (Date.now() >= next && Date.now() < until) {
-					next += 5000;
-					const r = await grafana.queryAll(g.url, g.auth, dashboard, { robot: 'bench-car', source: 'simulated',
-						intervalMs: 1000 }, Date.now() - 15 * 60000, Date.now());
-					for (const x of r) { times.push(x.ms); if (x.status !== 200 || x.error) { failed++; } }
-				}
-			});
-			const wide = await grafana.queryAll(g.url, g.auth, dashboard, { robot: 'bench-car', source: 'simulated',
-				intervalMs: 20000 }, Date.now() - 6 * 3600000, Date.now());
-			report.phases.dashboard = { resources: meter.stop(), queries: times.length, failed,
-				query_ms: { p50: pct(times, 0.5), p95: pct(times, 0.95), max: pct(times, 1) },
-				six_hour_range_ms: { p50: pct(wide.map((x) => x.ms), 0.5), max: pct(wide.map((x) => x.ms), 1),
-					failed: wide.filter((x) => x.status !== 200 || x.error).length } };
-			console.log('done');
-		}
-
 		/* stress: 20 telemetry frames per second (10x) */
 		process.stdout.write('stress 20 Hz telemetry for 30 s ... ');
 		const s0 = Date.now();
@@ -289,7 +260,6 @@ async function main() {
 	} finally {
 		client.end(true);
 		await nr.stop();
-		if (g) { await g.stop(); }
 		broker.stop();
 		await proxy.disable().catch(() => {});
 		await db.drop();
@@ -324,11 +294,6 @@ function markdown(r) {
 			`Storage: ${(p.storage.bytes_added / 1024).toFixed(0)} KiB added in ${p.seconds} s (telemetry+heartbeat+event incl. indexes) ` +
 				`= ${(perHour / 2 ** 20).toFixed(1)} MiB per hour of robot operation. Average telemetry row ${f1(p.storage.row_bytes)} B ` +
 				`(frame ${f1(p.storage.frame_bytes)} B, decoded JSONB ${f1(p.storage.decoded_json_bytes)} B).`, '');
-		}
-		if (p.query_ms) {
-			L.push(`${p.queries} panel queries (${p.failed} failed), every panel every 5 s: p50 ${f1(p.query_ms.p50)} ms, ` +
-				`p95 ${f1(p.query_ms.p95)} ms, max ${f1(p.query_ms.max)} ms. 6-hour range: p50 ${f1(p.six_hour_range_ms.p50)} ms, ` +
-				`max ${f1(p.six_hour_range_ms.max)} ms (${p.six_hour_range_ms.failed} failed).`, '');
 		}
 		if (p.drain_ms !== undefined) {
 			L.push(`Outage ${p.seconds} s: peak buffer ${p.buffered_peak.bulk} bulk + ${p.buffered_peak.priority} priority rows; ` +

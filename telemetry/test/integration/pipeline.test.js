@@ -13,7 +13,6 @@ const path = require('path');
 const mqtt = require('mqtt');
 const h = require('../helpers/harness');
 const { codec } = require('../../lib/protocol');
-const grafana = require('../helpers/grafana');
 const dashboard = require('../../grafana/dashboards/csc14-robot.json');
 
 const drained = (x) => x && x.buffer.bulk + x.buffer.priority + x.buffer.inflight === 0;
@@ -232,27 +231,19 @@ test('pipeline on isolated services', { timeout: 900000 }, async (t) => {
 			assert.ok(Number(r.p95) < 1000);
 		});
 
-		await t.test('Grafana: provisioned data source and dashboard; every panel query runs', async (tt) => {
-			const g = await h.startGrafana(dir, db);
+		await t.test('Grafana: provisioned mission dashboard embeds the live console', async (tt) => {
+			const g = await h.startGrafana(dir);
 			if (!g) {
 				tt.skip('Grafana is not installed (bin/csc14 setup)');
 				return;
 			}
 			try {
-				const ds = await (await fetch(g.url + '/api/datasources/uid/csc14-pg/health', { headers: { authorization: g.auth } })).json();
-				assert.equal(ds.status, 'OK', JSON.stringify(ds));
 				const d = await (await fetch(g.url + '/api/dashboards/uid/csc14-robot', { headers: { authorization: g.auth } })).json();
 				assert.equal(d.dashboard.uid, 'csc14-robot');
 				assert.equal(d.meta.provisioned, true);
-				const res = await grafana.queryAll(g.url, g.auth, dashboard, { robot: 'it-car', source: 'live', intervalMs: 1000 },
-					Date.now() - 30 * 60000, Date.now());
-				const failed = res.filter((r) => r.status !== 200 || r.error);
-				assert.deepEqual(failed, []);
-				const runRes = await grafana.queryAll(g.url, g.auth, dashboard, { robot: 'it-car', source: 'live', run: runId,
-					intervalMs: 1000 }, Date.now() - 30 * 60000, Date.now());
-				assert.deepEqual(runRes.filter((r) => r.status !== 200 || r.error), []);
-				const ms = res.map((r) => r.ms).sort((a, b) => a - b);
-				tt.diagnostic(`${res.length} panel queries OK; median ${ms[ms.length >> 1].toFixed(0)} ms, max ${ms[ms.length - 1].toFixed(0)} ms`);
+				assert.deepEqual(d.dashboard.panels, dashboard.panels);
+				assert.match(d.dashboard.panels[0].options.content, /<iframe[^>]+csc14\/dashboard/);
+				assert.deepEqual(d.dashboard.panels[0].targets, []);
 			} finally {
 				await g.stop();
 			}

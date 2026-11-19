@@ -220,14 +220,12 @@ function grafanaHome() {
 	return g ? path.join(dir, g) : null;
 }
 
-async function startGrafana(dir, db) {
+async function startGrafana(dir) {
 	const home = grafanaHome();
 	if (!home) { return null; }
 	const port = await freePort();
 	const env = Object.assign({}, process.env, {
-		CSC14_TELEMETRY_DIR: ROOT, CSC14_PG_HOST: db.cfg.pg.host, CSC14_PG_PORT: String(db.cfg.pg.port),
-		CSC14_PG_DATABASE: db.cfg.pg.database, CSC14_PG_READER_USER: db.cfg.pgReader.user,
-		CSC14_PG_READER_PASSWORD: db.cfg.pgReader.password,
+		CSC14_TELEMETRY_DIR: ROOT,
 		GF_PATHS_DATA: path.join(dir, 'grafana-data'), GF_PATHS_LOGS: path.join(dir, 'grafana-logs'),
 		GF_PATHS_PLUGINS: path.join(dir, 'grafana-data', 'plugins'),
 		GF_PATHS_PROVISIONING: path.join(ROOT, 'grafana', 'provisioning'),

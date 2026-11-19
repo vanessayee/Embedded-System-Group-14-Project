@@ -19,7 +19,6 @@
 
 EXPORT volatile UW	s1_comm_word;
 EXPORT volatile UW	s1_rx_rejected;
-EXPORT volatile UW	s1_status_now;
 
 LOCAL COMM_FSM		fsm;
 LOCAL volatile UW	tx_dropped;		/* writer: comm task */
@@ -157,7 +156,6 @@ LOCAL void execute(const CMD_RECORD *c)
 	}
 
 	if (c->cmd == CMD_REQ_STATUS) {
-		app_store(&s1_status_now, 1U);
 		(void)tk_wup_tsk(tid_tlm);
 	}
 	if (c->cmd == CMD_STOP) {

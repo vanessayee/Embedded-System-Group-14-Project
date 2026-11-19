@@ -162,7 +162,6 @@ EXPORT void telemetry_task(INT stacd, void *exinf)
 
 		(void)tk_slp_tsk(TMO_FEVR);
 		(void)tk_can_wup(TSK_SELF);
-		(void)app_atomic_xchg(&s1_status_now, 0U);	/* served by this run */
 		start = task_stat_begin(&s1_stat_tlm);
 
 		collect(&src);

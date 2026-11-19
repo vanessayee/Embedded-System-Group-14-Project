@@ -11,13 +11,7 @@ if(!(Test-Path -LiteralPath $grafanaExe)){throw 'Local Grafana installation not 
 $services=@(Get-CimInstance Win32_Process -Filter "Name='grafana.exe'" | Where-Object {$_.CommandLine -and $_.CommandLine.Contains($configPath)})
 if($services.Count -and !$Restart){Write-Output 'Grafana is already running. Use -Restart after configuration changes.';return}
 foreach($service in $services){Stop-Process -Id $service.ProcessId}
-$db=Import-Clixml -LiteralPath (Join-Path $StateDir 'db-local.xml')
 $env:CSC14_TELEMETRY_DIR=$telemetryRoot
-$env:CSC14_PG_HOST='127.0.0.1'
-$env:CSC14_PG_PORT='55432'
-$env:CSC14_PG_DATABASE='csc14_telemetry'
-$env:CSC14_PG_READER_USER='csc14_reader'
-$env:CSC14_PG_READER_PASSWORD=$db.reader
 $env:GF_PATHS_DATA=Join-Path $StateDir 'grafana-data'
 $env:GF_PATHS_LOGS=Join-Path $StateDir 'grafana-logs'
 $env:GF_PATHS_PLUGINS=Join-Path $StateDir 'grafana-data\plugins'

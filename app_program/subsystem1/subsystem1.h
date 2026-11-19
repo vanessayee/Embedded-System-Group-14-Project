@@ -78,7 +78,6 @@ IMPORT volatile UW	s1_tlm_dropped;		/* writer: telemetry task */
 IMPORT volatile UW	s1_rx_rejected;		/* writer: comm task      */
 IMPORT volatile UW	s1_session;		/* writer: MQTT client (bridge) */
 IMPORT volatile UW	s1_reconnect_req;	/* comm task sets, bridge takes */
-IMPORT volatile UW	s1_status_now;		/* comm task sets, telemetry takes */
 IMPORT TASK_STAT	s1_stat_tlm;
 IMPORT ER   s1_queue_put_drop_oldest(ID mbf, const UB *msg, INT len, volatile UW *dropped);
 IMPORT void comm_task(INT stacd, void *exinf);

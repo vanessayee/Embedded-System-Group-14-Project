@@ -10,7 +10,7 @@ const criteria = [
 ];
 const defaults = { left: 'Z', right: 'A', straight: 'X', uturn: 'Y' };
 const names = { left: 'LEFT', right: 'RIGHT', straight: 'STRAIGHT', uturn: 'U-TURN' };
-let saved = null, busy = false, initialized = false, lastFrame = '', samples = [], boot = null;
+let saved = null, initialized = false, lastFrame = '', samples = [], boot = null;
 for (const key of Object.keys(defaults)) {
 	const select = $('rule-' + key);
 	for (const letter of ['—', ...letters]) { const o = document.createElement('option'); o.value = letter === '—' ? '' : letter; o.textContent = letter; select.append(o); }
@@ -45,7 +45,6 @@ async function api(path, body) {
 	return data;
 }
 function lock(value) {
-	busy = value;
 	for (const id of ['apply-rules', 'read-rules', 'restore-rules']) $(id).disabled = value;
 	for (const key of Object.keys(defaults)) $('rule-' + key).disabled = value;
 	for (const button of document.querySelectorAll('[data-command]'))

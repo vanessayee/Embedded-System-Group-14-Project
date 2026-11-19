@@ -43,7 +43,7 @@ class DemoService {
 
 	async snapshot() {
 		const args = [this.cfg.robotId];
-		const session = (await this.db.query("SELECT boot_id,first_rx_at FROM csc14.boot_session WHERE robot_id=$1 AND source='live' ORDER BY first_rx_at DESC LIMIT 1", args)).rows[0] || null;
+		const session = (await this.db.query("SELECT boot_id FROM csc14.boot_session WHERE robot_id=$1 AND source='live' ORDER BY first_rx_at DESC LIMIT 1", args)).rows[0] || null;
         const sessionArgs = [this.cfg.robotId, session ? session.boot_id : null];
         const latest = (await this.db.query("SELECT * FROM csc14.v_telemetry WHERE robot_id=$1 AND source='live' AND boot_id=$2 ORDER BY received_at DESC LIMIT 1", sessionArgs)).rows[0] || null;
 		if (this.boot !== (session && session.boot_id)) {
@@ -68,11 +68,10 @@ class DemoService {
 			 AND boot_id=$2 AND kind='MODE' AND data->>'old_mode'='2'
 			 AND data->>'new_mode'='1') AS done`, [this.cfg.robotId, latest.boot_id])).rows[0].done : false;
 		evidence.instruction_followed = instruction;
-		const commands = (await this.db.query("SELECT received_at,cmd,arg,status,ack_result,ack_detail FROM csc14.command WHERE robot_id=$1 AND source='live' AND received_at >= $2 ORDER BY id DESC LIMIT 8", [this.cfg.robotId, session ? session.first_rx_at : null])).rows;
 		const age = latest ? (Date.now() - new Date(latest.received_at)) / 1000 : null;
-		return { robot: this.cfg.robotId, session_id: session && session.boot_id, session_started_at: session && session.first_rx_at, now: new Date(), latest, age_s: age,
-			live: age !== null && age <= 5, evidence, events, commands,
-			mapping: { confirmed: this.confirmed, desired: this.desired, volatile: true } };
+		return { robot: this.cfg.robotId, session_id: session && session.boot_id, latest, age_s: age,
+			live: age !== null && age <= 5, evidence, events,
+			mapping: { confirmed: this.confirmed, desired: this.desired } };
 	}
 
 	// Normal configuration commands serialize; STOP bypasses the batch queue.
@@ -144,6 +143,15 @@ class DemoService {
 		return { accepted: true, command: name, detail: ack.detail, cmd_id: cmdId };
 	}
 
+	async transferMap(rules) {
+		for (const letter of LETTERS) {
+			await this.command(rules ? 'SET_NAV_MAP' : 'GET_NAV_MAP',
+				rules ? mapArg(letter, rules[letter]) : letter.charCodeAt(0) - 55);
+			await new Promise(r => setTimeout(r, 220));
+		}
+		return { confirmed: { ...this.confirmed } };
+	}
+
 	async syncMap() {
 		if (this.mappingBusy) throw new Error('Another barcode configuration request is running.');
 		const s = await this.snapshot();
@@ -151,11 +159,7 @@ class DemoService {
 		if (this.mappingBusy) throw new Error('Another barcode configuration request is running.');
 		this.mappingBusy = true;
 		try {
-		for (const letter of LETTERS) {
-			await this.command('GET_NAV_MAP', letter.charCodeAt(0) - 55);
-			await new Promise(r => setTimeout(r, 220));
-		}
-		return { confirmed: { ...this.confirmed } };
+			return await this.transferMap();
 		} finally { this.mappingBusy = false; }
 	}
 
@@ -168,15 +172,12 @@ class DemoService {
 		if (this.mappingBusy) throw new Error('Another barcode configuration request is running.');
 		this.mappingBusy = true;
 		try {
-		this.desired = rules;
-		fs.mkdirSync(path.dirname(this.rulesFile), { recursive: true });
-		fs.writeFileSync(this.rulesFile + '.tmp', JSON.stringify(rules, null, 2));
-		fs.renameSync(this.rulesFile + '.tmp', this.rulesFile);
-		for (const letter of LETTERS) {
-			await this.command('SET_NAV_MAP', mapArg(letter, rules[letter]));
-			await new Promise(r => setTimeout(r, 220));
-		}
-		return { accepted: true, confirmed: { ...this.confirmed }, note: 'Robot map is RAM-only. Reapply after power cycling.' };
+			this.desired = rules;
+			fs.mkdirSync(path.dirname(this.rulesFile), { recursive: true });
+			fs.writeFileSync(this.rulesFile + '.tmp', JSON.stringify(rules, null, 2));
+			fs.renameSync(this.rulesFile + '.tmp', this.rulesFile);
+			const result = await this.transferMap(rules);
+			return { accepted: true, ...result, note: 'Robot map is RAM-only. Reapply after power cycling.' };
 		} finally { this.mappingBusy = false; }
 	}
 

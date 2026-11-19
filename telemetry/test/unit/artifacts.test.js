@@ -45,5 +45,7 @@ test('main Grafana embeds the live controls, with no sample dashboard provisione
  assert.equal(main.uid,'csc14-robot');assert.equal(main.panels.length,1);
  assert.match(main.panels[0].options.content,/src="http:\/\/127\.0\.0\.1:1880\/csc14\/dashboard"/);
  assert.doesNotMatch(main.panels[0].options.content,/preview=grafana/);
+ assert.deepEqual(main.panels[0].targets,[]);
+ assert.equal(fs.existsSync(path.join(ROOT,'grafana/provisioning/datasources/csc14-postgres.yaml')),false);
  assert.deepEqual(fs.readdirSync(path.join(ROOT,'grafana/dashboards')).filter(x=>x.endsWith('.json')),['csc14-robot.json']);
 });

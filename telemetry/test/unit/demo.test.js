@@ -119,19 +119,47 @@ test('physical reset selects new boot before telemetry arrives and scopes all cu
   let session = {boot_id:'old',first_rx_at:new Date(1000)};
   f.service.db.query = async (sql,args) => {
    f.writes.push({sql,args});
-   if(sql.startsWith('SELECT boot_id,first_rx_at')) return {rows:[session]};
+   if(sql.startsWith('SELECT boot_id FROM')) return {rows:[session]};
    if(sql.startsWith('SELECT * FROM csc14.v_telemetry')) {
     assert.equal(args[1],session.boot_id); assert.match(sql,/boot_id=\$2/);
     return {rows:[]};
    }
    if(sql.includes('FROM csc14.event')) {assert.match(sql,/boot_id=\$2/);assert.equal(args[1],session.boot_id);}
-   if(sql.includes('FROM csc14.command')) {assert.match(sql,/received_at >= \$2/);assert.equal(args[1],session.first_rx_at);}
    return {rows:[]};
   };
   await f.service.snapshot(); f.service.confirmed.A='RIGHT';
   session = {boot_id:'new',first_rx_at:new Date(2000)};
   const s = await f.service.snapshot();
   assert.equal(s.session_id,'new'); assert.equal(s.latest,null); assert.deepEqual(s.evidence,{instruction_followed:false});
-  assert.deepEqual(s.mapping.confirmed,{}); assert.deepEqual(s.events,[]); assert.deepEqual(s.commands,[]);
+  assert.deepEqual(s.mapping.confirmed,{}); assert.deepEqual(s.events,[]);
+  assert.ok(!f.writes.some(w => w.sql.includes('FROM csc14.command')), 'snapshot does not query unused command history');
  } finally {await f.service.close(); fs.rmSync(f.runtimeDir,{recursive:true});}
+});
+
+
+test('read and apply mapping batches cover all 26 letters and release the batch lock', async () => {
+ const f = fixture();
+ try {
+  f.service.snapshot = async () => ({live:true,latest:{mode_label:'SAFE_STOP'}});
+  const sent = [];
+  f.service.command = async (name,arg) => {
+   assert.equal(f.service.mappingBusy,true);
+   sent.push([name,arg]);
+   f.service.confirmed[String.fromCharCode((arg & 63)+55)] = name === 'SET_NAV_MAP' ? ACTIONS[arg >> 6] : 'NONE';
+  };
+  const read = await f.service.syncMap();
+  assert.deepEqual(sent,[...LETTERS].map(l=>['GET_NAV_MAP',l.charCodeAt(0)-55]));
+  assert.equal(Object.keys(read.confirmed).length,26);
+  assert.equal(f.service.mappingBusy,false);
+  sent.length=0;
+  const rules=Object.fromEntries([...LETTERS].map((l,i)=>[l,ACTIONS[i % ACTIONS.length]]));
+  const applied=await f.service.applyRules(rules);
+  assert.deepEqual(sent,[...LETTERS].map(l=>['SET_NAV_MAP',mapArg(l,rules[l])]));
+  assert.deepEqual(applied.confirmed,rules);
+  assert.deepEqual(JSON.parse(fs.readFileSync(f.service.rulesFile,'utf8')),rules);
+  assert.equal(f.service.mappingBusy,false);
+  f.service.command=async()=>{throw new Error('transfer interrupted');};
+  await assert.rejects(f.service.syncMap(),/transfer interrupted/);
+  assert.equal(f.service.mappingBusy,false);
+ } finally {await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
 });
