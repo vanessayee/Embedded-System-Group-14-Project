@@ -6,6 +6,7 @@ done when it is **written down here with its result and a saved log**.
 ```
 testing/
 ├── README.md              this guide
+├── host/                  shared laptop test runner for all five buddies
 ├── subsystem1/            one folder per subsystem, kept by its owner
 │   ├── TEST_LOG.md        test cases + results
 │   └── logs/              saved console output, photos, scope captures
@@ -14,6 +15,21 @@ testing/
 ├── integration/           tests across two or more subsystems (shared)
 └── system/                tests of the whole product against its requirements (shared)
 ```
+
+## Host logic tests (all five buddies)
+
+From the repository root, using Make and GCC (MSYS2 on Windows):
+
+```sh
+make -C testing/host
+make -C testing/host SUITES="s3 int"
+```
+
+The runner, Makefile and shim headers live in `testing/host/`. Test
+implementations remain beside their subsystem logic so they can also run
+in the Pico `TEST=1` image. Host tests exercise logic and simulated
+integration; they do not validate physical sensors or motor calibration.
+Generated outputs are ignored and can be rebuilt.
 
 ## Three levels of test
 

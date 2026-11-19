@@ -247,10 +247,6 @@ EXPORT void line_task(INT stacd, void *exinf)
 			tm_printf((UB*)"line: junction confirmed (GP6 + GP2 black), count %d\n", (INT)junctions);
 			(void)tk_set_flg(flg_line_evt, LEV_JUNCTION);
 		}
-		if ((out.events & LF_EV_RECOVERY_FAIL) != 0U) {
-			/* Reserved for compatibility; line recovery is non-latching. */
-			sys_fault_clear(SYS_FLT_LINE_RECOVERY);
-		}
 
 		st.ir_black = black;
 		st.pos = lf.pos;

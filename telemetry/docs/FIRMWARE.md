@@ -10,7 +10,7 @@ was changed. **Nothing was flashed.**
 |---|---|---|---|
 | F1 | `tlm_build.c` (`tlm_events`) | also send the OBSTACLE event when the avoidance state **enters FAILED** | `task_avoid.c` `fail()` does not move the avoidance counter, so v1 never reported a failure. The backend sees FAILED in telemetry, but the **failure reason** (`AVF_*`) is only in the event, not in any telemetry field. Same event layout; one event per failure. |
 | F2 | `task_telemetry.c`, `subsystem1.h` | optional `S1_STAT_REPORT_S` (default **0 = not compiled**): every N s print the existing TASK_STAT counters of motion, line, IMU, scan and telemetry tasks, the telemetry queue fill level and the comm counters on the USB console | TASK_STAT is only printed by the `TEST=1` image, which runs the self-tests instead of normal operation. Needed to measure control-loop timing with telemetry running (MEASUREMENTS.md). |
-| docs | `MQTT_BINARY_PROTOCOL.md`, `MQTT_INTEGRATION_PATCH.md`, `mqtt_bridge.h`, `nodered_decoder.js`, `tlm_monitor.js` | corrected severity of LINE_RECOVERY, heading source/sign, IR sides, ultrasonic meaning, profile zeros, FAULTS first event, applied status of the transport patch; server-side codec fixes | — |
+| docs | `MQTT_BINARY_PROTOCOL.md`, `MQTT_INTEGRATION_PATCH.md`, `mqtt_bridge.h`, `telemetry/lib/codec.js`, `telemetry/tools/tlm_monitor.js` | corrected severity of LINE_RECOVERY, heading source/sign, IR sides, ultrasonic meaning, profile zeros, FAULTS first event, applied status of the transport patch; server-side codec fixes | — |
 
 Host tests: `INT-16e` (new) checks F1: a failed avoidance with an
 unchanged counter produces exactly one OBSTACLE event carrying the reason,

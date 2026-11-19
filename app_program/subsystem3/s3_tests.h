@@ -8,7 +8,7 @@
 #define S3_TESTS_H
 
 #include <tk/typedef.h>
-#include "barcode_dec.h"
+#include "barcode.h"
 
 /* Drive the simulated car over "*<c>*" printed at track position
    start_um (3 mm narrow / 9 mm wide, 0.6 mm optical blur, +-15 % speed

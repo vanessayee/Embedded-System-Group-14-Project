@@ -13,9 +13,9 @@ Define a test here before running it. Test IDs never change.
 | S1-U01 | cyclic handler is running | | auto | `subsystem1_test.c` | `[TEST] S1-U01 PASS` |
 | S1-U02 | LED task sleeps between ticks (not busy) | | auto | `subsystem1_test.c` | `[TEST] S1-U02 PASS` |
 | S1-U03 | LED on GP19 toggles every 250 ms | | manual | 1. Flash normal image. 2. Watch LED / measure with scope. | 2 Hz blink, 50 % duty |
-| S1-U27 | server codec: golden frames decode and re-encode byte for byte; fault severity, IR sides, field ranges | FR14, Tribunal 1 R1 | auto | `node app_program/subsystem1/docs/nodered_decoder.js` | 14 × `PASS` |
+| S1-U27 | server codec: golden frames decode and re-encode byte for byte; fault severity, IR sides, field ranges | FR14, Tribunal 1 R1 | auto | `node telemetry/lib/codec.js` | 14 × `PASS` |
 | S1-U28 | telemetry backend unit tests: codec, ingest (sessions, wrap, gaps, saturation, link states), store (outage, overflow), generated flow and dashboard | FR6, FR13, FR14, NFR11 | auto | `telemetry/bin/csc14 test` | `pass 34`, `fail 0` |
-| INT-16e | a failed avoidance (counter unchanged) sends one OBSTACLE event with its reason | FR12, FR7 | auto | `make -C app_program/subsystem2/host_test SUITES="s1 int" run` | `[TEST] INT-16e PASS` |
+| INT-16e | a failed avoidance (counter unchanged) sends one OBSTACLE event with its reason | FR12, FR7 | auto | `make -C testing/host SUITES="s1 int" run` | `[TEST] INT-16e PASS` |
 | INT-21 | telemetry pipeline on isolated services: real Node-RED, PostgreSQL, Grafana (routing, rejection, runs, restart, reboot, stale/offline, database outage, overflow, ACK, commands, every panel query) | FR13, FR14, NFR9–NFR11 | auto | `telemetry/bin/csc14 test integration` | every subtest ✔ |
 | S1-U29 | telemetry backend measurements: latency, CPU/RAM, storage, outages | NFR3, A1 | auto | `telemetry/bin/csc14 bench` | report written; nothing lost in a 30 s database outage |
 | S1-U30 | live delivery: Pico → broker → Node-RED → PostgreSQL → dashboard | FR7, FR13, FR14 | manual | `telemetry/docs/FIRMWARE.md` §5 | link ONLINE, 2 telemetry/s, real IR sides, outage shown as a gap |

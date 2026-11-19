@@ -8,7 +8,7 @@
  *	  cyc_line        cyclic      20 ms, wakes the Line Following task
  *	  line_task       task        priority 14, core 1
  *	  barcode_task    task        priority 17, core 1
- *	Pins: GP2 (IR left), GP6 (IR centre), GP26 (IR right / barcode edges)
+ *	Pins: GP2 (physical right), GP6 (centre), GP26 (physical left / barcode)
  */
 
 #include "subsystem3.h"
@@ -46,7 +46,7 @@ EXPORT ER subsystem3_init(void)
 		return cyc_line;
 	}
 
-	/* pins + IR_RIGHT edge callback, before any task starts */
+	/* pins + configured barcode capture source, before any task starts */
 	return ir_init();
 }
 

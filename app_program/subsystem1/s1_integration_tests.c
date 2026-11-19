@@ -12,7 +12,7 @@
  *	          avoidance is reported although its counter does not move
  *	The expected values are written out by hand from the field
  *	definitions, not computed by the code under test.
- *	Runs on the host (subsystem2/host_test/) and in the on-target test
+ *	Runs on the host (testing/host/) and in the on-target test
  *	image.
  */
 
@@ -27,8 +27,7 @@
 #include "s1_tests.h"
 #include "../subsystem2/sys_defs.h"
 #include "../subsystem2/motion_msg.h"
-#include "../subsystem3/code39.h"
-#include "../subsystem3/barcode_dec.h"
+#include "../subsystem3/barcode.h"
 #include "../subsystem3/line_follow.h"
 #include "../subsystem3/nav_map.h"
 #include "../subsystem3/s3_status.h"

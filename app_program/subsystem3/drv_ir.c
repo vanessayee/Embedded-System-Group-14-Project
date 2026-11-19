@@ -41,7 +41,6 @@ LOCAL UW		edge_ring[IR_EDGE_RING];
 LOCAL volatile UW	edge_head;
 LOCAL volatile UW	edge_tail;
 LOCAL volatile UW	edge_overflow;		/* ISR sets, task takes */
-LOCAL volatile UW	edge_total;		/* writer: ISR */
 LOCAL ID		edge_wake_tid;
 
 LOCAL void push_edge(UW now_us, UW level)
@@ -54,7 +53,6 @@ LOCAL void push_edge(UW now_us, UW level)
 	} else {
 		edge_ring[head] = (now_us & ~1UL) | (level & 1U);
 		app_store(&edge_head, next);	/* publish after the data */
-		edge_total = edge_total + 1U;
 	}
 	if (edge_wake_tid > 0) {
 		(void)tk_wup_tsk(edge_wake_tid);
@@ -128,7 +126,6 @@ EXPORT ER ir_init(void)
 	edge_head = 0;
 	edge_tail = 0;
 	edge_overflow = 0;
-	edge_total = 0;
 	edge_wake_tid = 0;
 	gpio_input_config(IR_LEFT_PIN, GPIO_PULL_UP);
 	gpio_input_config(IR_CENTER_PIN, GPIO_PULL_UP);
@@ -223,7 +220,3 @@ EXPORT void ir_edge_flush(void)
 	}
 }
 
-EXPORT UW ir_edge_count(void)
-{
-	return app_load(&edge_total);
-}

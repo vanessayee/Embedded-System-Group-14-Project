@@ -1,5 +1,5 @@
 /*
- * Protocol codec (app_program/subsystem1/docs/nodered_decoder.js) as the
+ * Protocol codec (telemetry/lib/codec.js) as the
  * backend uses it: golden frames, signed/scaled values, invalid codes,
  * structural rejection, field ranges, severity policy, physical sides.
  */

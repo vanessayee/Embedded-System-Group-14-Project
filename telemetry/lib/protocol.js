@@ -2,15 +2,12 @@
  * protocol.js
  * The backend's view of the CSC14 binary protocol.  The wire layout, the
  * enumerations and the fault policy come from the ONE JavaScript codec,
- * app_program/subsystem1/docs/nodered_decoder.js (which mirrors
+ * telemetry/lib/codec.js (which mirrors
  * mqtt_proto.c); this file only maps decoded frames onto database columns.
  */
 'use strict';
 
-const path = require('path');
-const { REPO } = require('./config');
-
-const codec = require(path.join(REPO, 'app_program', 'subsystem1', 'docs', 'nodered_decoder.js'));
+const codec = require('./codec');
 
 const E = codec.ENUMS;
 const code = (list, label) => {

@@ -1,5 +1,5 @@
 /*
- *	code39.h
+ *	barcode.h
  *	Code 39 symbol decoding (Buddy 3).  Pure logic, host-testable.
  *
  *	Evidence (subsystem3/docs/BARCODE_ANALYSIS.md): every barcode supplied
@@ -20,8 +20,8 @@
  *	1 = wide.
  */
 
-#ifndef CODE39_H
-#define CODE39_H
+#ifndef BARCODE_H
+#define BARCODE_H
 
 #include <tk/typedef.h>
 
@@ -67,4 +67,83 @@ IMPORT UW c39_gap_limit(const UW w[C39_ELEMENTS], UH pattern);
 IMPORT INT  c39_decode(const UW *el, UINT n, UB *data, UINT max_data,
 		       BOOL *reversed);
 
-#endif /* CODE39_H */
+
+/*
+ *	barcode.h
+ *	Barcode capture and decoding state machine (Buddy 3), fed by the edge
+ *	timestamps recorded by the IR_RIGHT (GP26) interrupt (Tribunal 1,
+ *	Version B: interrupt edge capture, asynchronous decoding).  Pure
+ *	logic, host-testable.
+ *
+ * Element widths are GPIO transition durations in microseconds. Code 39
+ * uses relative narrow/wide timing within each symbol. Decoding is independent
+ * of wheel speed and odometry.
+ * Start after white, finish after white lasting 2.5 times the longest
+ * element (at least 100 ms). A 3 s edge timeout bounds stalled captures.
+ * Keep relative sensor/print speed reasonably steady within each symbol.
+ */
+
+
+
+#define BC_MAX_EDGES		64	/* 4 data symbols: 6*10-1 elements */
+#define BC_MAX_DATA		4
+
+/* Capture timing is defined in barcode.c; no wheel-distance limits apply. */
+#define BC_END_QUIET_X10	25	/* ... and >= 2.5 x widest element */
+#define BC_IDLE_TIMEOUT_US	3000000	/* no edge for 3 s: car stopped   */
+
+/* States (2 bits in the barcode status word) */
+#define BCS_IDLE		0U
+#define BCS_CAPTURING		1U
+#define BCS_DECODING		2U	/* used by the task while executing */
+#define BCS_EXECUTING		3U
+
+/* Results (2 bits) */
+#define BCR_NONE		0U
+#define BCR_VALID		1U
+#define BCR_INVALID		2U
+#define BCR_DUPLICATE		3U
+
+/* Capture failures beyond the C39_ERR_* codes */
+#define BC_ERR_LONG		(-10)	/* element longer than a barcode bar */
+#define BC_ERR_OVERFLOW		(-11)	/* too many edges                    */
+#define BC_ERR_WINDOW		(-12)	/* reserved legacy error code        */
+#define BC_ERR_STALLED		(-13)	/* no edge for too long              */
+#define BC_ERR_ABORTED		(-14)	/* aborted by the caller             */
+
+typedef struct {
+	UB	result;			/* BCR_* */
+	UB	n_data;
+	UB	data[BC_MAX_DATA];	/* Code 39 indices */
+	BOOL	reversed;
+	INT	err;			/* when INVALID */
+	UB	n_elements;		/* after glitch merging */
+	UB	n_diag;			/* widths available for serial diagnosis */
+	UW	element_us[BC_MAX_EDGES]; /* measured durations in us */
+} BC_RESULT;
+
+typedef struct {
+	UB	state;
+	UB	level;			/* 1 = black under the sensor */
+	BOOL	level_known;
+	UW	t_last_us;		/* last edge */
+	UW	edge_t[BC_MAX_EDGES];
+	UINT	n_edges;
+	BOOL	have_last;
+	UB	last_sym;
+	UW	widest_us;
+	UW	last_decode_us;		/* time-based duplicate suppression */
+} BC_DEC;
+
+IMPORT void bc_init(BC_DEC *d);
+IMPORT void bc_abort(BC_DEC *d, BC_RESULT *res);
+IMPORT BOOL bc_capturing(const BC_DEC *d);
+
+/* One digital edge: black is the level AFTER the edge. */
+IMPORT void bc_edge(BC_DEC *d, UW t_us, UB black, BC_RESULT *res);
+
+/* Periodic check without an edge: completion and stall */
+IMPORT void bc_poll(BC_DEC *d, UW now_us, BC_RESULT *res);
+
+
+#endif /* BARCODE_H */

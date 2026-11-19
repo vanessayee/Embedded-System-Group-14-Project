@@ -13,7 +13,6 @@ EXPORT void lf_reset_tracking(LINE_FOLLOW *lf)
 	lf->state = lf->calibrated ? LS_ON_LINE : LS_UNKNOWN;
 	lf->pos = LP_CENTER;
 	lf->err = 0;
-	lf->prev_err = 0;
 	lf->steer_cmd = 0;
 	lf->edge_side = 0;
 	lf->edge_ms = 0;
@@ -22,17 +21,13 @@ EXPORT void lf_reset_tracking(LINE_FOLLOW *lf)
 	lf->lost_ms = 0;
 	lf->lost_start_mm = 0;
 	lf->lost_pending = FALSE;
-	lf->center_gap_ms = 0;
 	lf->settle_ms = 0;
 	lf->straight_ms = 0;
 	lf->turning = FALSE;
 	lf->turn_start_mm = 0;
 	lf->turn_ms = 0;
-	lf->realign_ms = 0;
-	lf->pivot_dir = 0;
-	lf->pivot_ms = 0;
 	lf->in_junction = FALSE;
-	lf->junction_start_mm = 0;
+	lf->junction_reported = FALSE;
 	lf->junction_ms = 0;
 	lf->post_turn = FALSE;
 	lf->post_turn_ms = 0;
@@ -61,14 +56,14 @@ EXPORT void lf_init(LINE_FOLLOW *lf)
 
 EXPORT INT lf_calibrate(LINE_FOLLOW *lf, const UB *raw, UINT n)
 {
-	UINT	ones[3] = {0, 0, 0};
+	UINT	ones[2] = {0, 0};
 	UINT	i, k;
 
 	if (n == 0U) {
 		return LF_CAL_UNSTABLE;
 	}
 	for (k = 0; k < n; k++) {
-		for (i = 0; i < 3U; i++) {
+		for (i = 0; i < 2U; i++) {
 			ones[i] += (raw[k] >> i) & 1U;
 		}
 	}
@@ -107,7 +102,7 @@ EXPORT UB lf_black_bits(const LINE_FOLLOW *lf, UB raw)
 	return b;
 }
 
-LOCAL void classify(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms, LF_OUT *out)
+LOCAL void classify(LINE_FOLLOW *lf, UB black, UW dt_ms, LF_OUT *out)
 {
 	BOOL	l = (black & IR_BIT(IR_L)) != 0U;
 	BOOL	c = (black & IR_BIT(IR_C)) != 0U;
@@ -117,14 +112,14 @@ LOCAL void classify(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms, LF_OUT *out)
 		   the separate barcode sensor and need not see the crossing. */
 		if (!lf->in_junction) {
 			lf->in_junction = TRUE;
-			lf->junction_start_mm = odo_mm;
+			lf->junction_reported = FALSE;
 			lf->junction_ms = 0;
 		}
 		lf->junction_ms += dt_ms;
-		if (lf->junction_start_mm != (W)0x7FFFFFFF
+		if (!lf->junction_reported
 		    && lf->junction_ms >= LF_JUNCTION_CONFIRM_MS) {
 			out->events |= LF_EV_JUNCTION;
-			lf->junction_start_mm = (W)0x7FFFFFFF;	/* report once */
+			lf->junction_reported = TRUE;	/* report once */
 		}
 		lf->pos = LP_JUNCTION;
 		lf->err = 0;
@@ -147,15 +142,6 @@ LOCAL void classify(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms, LF_OUT *out)
 		lf->pos = LP_LOST_LEFT;	/* search towards the tracking gap */
 		lf->err = 3 * LF_LOST_DIR;
 	}
-}
-
-LOCAL UB speed_for(INT err)
-{
-	INT	a = (err < 0) ? -err : err;
-
-	/* Edge corrections remain moving arcs; only confirmed line-loss
-	   recovery is allowed to pivot. */
-	return (UB)((a == 0) ? LF_CRUISE_SPEED : LF_NEAR_SPEED);
 }
 
 LOCAL INT steer_slew(INT current, INT target)
@@ -272,12 +258,9 @@ EXPORT void lf_step(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms,
 	   losing the line. Elapsed time alone cannot distinguish those cases. */
 	c = (black & IR_BIT(IR_C)) != 0U;
 	l = (black & IR_BIT(IR_L)) != 0U;
-	lf->center_gap_ms = 0;	/* legacy timer no longer controls tracking */
 
-	classify(lf, black, odo_mm, dt_ms, out);
+	classify(lf, black, dt_ms, out);
 	/* Ordinary edge contact is always a moving correction. */
-	lf->pivot_dir = 0;
-	lf->pivot_ms = 0;
 	/* During avoidance Buddy 5 needs true sensor-based LOST/FOUND events,
 	   so the virtual white corridor applies only while Buddy 3 owns
 	   steering in Normal Navigation. */
@@ -285,17 +268,8 @@ EXPORT void lf_step(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms,
 		  || (navigating && lf->state == LS_ON_LINE && !lf->turning);
 	if (on_line) {
 		if (lf->turning) {
-			lf->prev_err = lf->err;	/* no D kick from the lost error */
 			lf->steer_cmd = 0;	/* found: ramp from straight, not the pivot */
-			if (lf->pivot_dir == 0 && lf->turn_ms >= LF_REALIGN_MIN_MS) {
-				/* A long lost-line turn found it: the car
-				   still points across the curve, keep turning
-				   that way while moving on.  Not after a short
-				   one: the car is about straight, and turning
-				   on swung it ~10 deg across a straight line,
-				   which then weaved right and left. */
-				lf->realign_ms = LF_REALIGN_MS;
-			}
+
 		}
 		lf->turning = FALSE;
 	} else {
@@ -305,9 +279,6 @@ EXPORT void lf_step(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms,
 			lf->turn_ms = 0;
 		}
 		lf->turn_ms += dt_ms;
-	}
-	if (lf->pivot_dir != 0) {
-		lf->realign_ms = 0;	/* the pivot side, not the turn side */
 	}
 
 	if (on_line) {
@@ -357,17 +328,13 @@ EXPORT void lf_step(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms,
 			   until one of them sees black.  Never gives up. */
 			out->steer = LF_LOST_DIR * LF_LOST_PIVOT_STEER;
 			out->speed_frac = 0;
-		} else if (lf->realign_ms > 0U && lf->err == 0) {
-			/* just found by that turn, centre only: keep turning
-			   gently the same way while moving on */
-			out->steer = LF_LOST_DIR * LF_REALIGN_STEER;
-			out->speed_frac = LF_REALIGN_SPEED;
+
 		} else {
 			INT target = edge_steer(lf, dt_ms);
 
 			out->steer = steer_slew(lf->steer_cmd, target);
 			lf->steer_cmd = out->steer;
-			out->speed_frac = speed_for(lf->err);
+			out->speed_frac = LF_CRUISE_SPEED;
 			if (lf->settle_ms > 0U && out->speed_frac > LF_SETTLE_SPEED) {
 				out->speed_frac = LF_SETTLE_SPEED;
 			}
@@ -381,8 +348,6 @@ EXPORT void lf_step(LINE_FOLLOW *lf, UB black, W odo_mm, UW dt_ms,
 			lf->hold_ms = 0;
 		}
 	}
-	lf->prev_err = lf->err;
 	lf->straight_ms = (lf->straight_ms > dt_ms) ? lf->straight_ms - dt_ms : 0U;
 	lf->settle_ms = (lf->settle_ms > dt_ms) ? lf->settle_ms - dt_ms : 0U;
-	lf->realign_ms = (lf->realign_ms > dt_ms) ? lf->realign_ms - dt_ms : 0U;
 }

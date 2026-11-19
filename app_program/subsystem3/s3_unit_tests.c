@@ -4,7 +4,7 @@
  *	EVERY supplied barcode sample, the capture state machine at several
  *	speeds, invalid-pattern rejection, duplicate suppression, the
  *	navigation map, line-following decisions and status-word packing.
- *	Runs on the host (host_test/) and in the on-target test image.
+ *	Runs on the host (testing/host/) and in the on-target test image.
  *	Test IDs: S3-Uxx.
  */
 
@@ -13,8 +13,7 @@
 #if APP_TEST || HOST_TEST
 
 #include "../test_report.h"
-#include "code39.h"
-#include "barcode_dec.h"
+#include "barcode.h"
 #include "nav_map.h"
 #include "line_follow.h"
 #include "s3_status.h"
@@ -205,13 +204,13 @@ LOCAL INT test_code39(void)
 					BOOL intact = TRUE;
 
 					bc_init(&capture);
-					bc_edge(&capture, now, level, 32, 0, &result);
+					bc_edge(&capture, now, level, &result);
 					for (k = 0; k < 29U; k++) {
 						UINT pos = direction ? 28U - k : k;
 						UW duration = el[pos] * narrow_us / 40U;
 
 						for (UW tick = 20000U; tick < duration; tick += 20000U) {
-							bc_poll(&capture, now + tick, 32, 0, &result);
+							bc_poll(&capture, now + tick, &result);
 							intact = intact && result.result == BCR_NONE;
 						}
 						if (duration > widest) {
@@ -219,10 +218,10 @@ LOCAL INT test_code39(void)
 						}
 						now += duration;
 						level ^= 1U;
-						bc_edge(&capture, now, level, 32, 0, &result);
+						bc_edge(&capture, now, level, &result);
 						intact = intact && result.result == BCR_NONE;
 					}
-					bc_poll(&capture, now + widest * 25U / 10U + 20000U, 32, 0, &result);
+					bc_poll(&capture, now + widest * 25U / 10U + 20000U, &result);
 					if (intact && result.result == BCR_VALID && result.n_data == 1U
 					    && result.reversed == (direction != 0U)
 					    && c39_char(result.data[0]) == expected) {
@@ -376,7 +375,7 @@ EXPORT void s3_drive_over(BC_DEC *d, char c, W v0_mms, W start_um, W phase_um,
 		if (i > 0U) {
 			pos = target;
 		}
-		bc_edge(d, *t_us, level, v0_mms * 105 / 100, *x_um / 1000, res);
+		bc_edge(d, *t_us, level, res);
 		if (res->result != BCR_NONE) {
 			return;
 		}
@@ -386,7 +385,7 @@ EXPORT void s3_drive_over(BC_DEC *d, char c, W v0_mms, W start_um, W phase_um,
 	for (i = 0; i < 400U && res->result == BCR_NONE; i++) {
 		*x_um += 1000;
 		*t_us += (UW)(1000 * 1000 / v0_mms);
-		bc_poll(d, *t_us, v0_mms, *x_um / 1000, res);
+		bc_poll(d, *t_us, res);
 	}
 }
 
@@ -420,58 +419,58 @@ LOCAL INT test_capture(void)
 	x = 0;
 	s3_drive_over(&d, 'Z', 200, 50000, 0, &t, &x, &res);
 	TEST_CHECK("S3-U11a", res.result == BCR_VALID && c39_char(res.data[0]) == 'Z'
-		   && res.n_diag == 29U && res.element_um[0] > 0U,
+		   && res.n_diag == 29U && res.element_us[0] > 0U,
 		   "first pass over Z: VALID, with 29 diagnostic element widths");
-	/* past the 150 mm lockout, inside the 600 mm duplicate window */
+	/* A second nearby read arrives within the time-based duplicate window. */
 	s3_drive_over(&d, 'Z', 200, x + 200000, 0, &t, &x, &res);
 	TEST_CHECK("S3-U11", res.result == BCR_DUPLICATE,
-		   "same barcode again within 600 mm: DUPLICATE (no second command)");
+		   "same barcode again within 2 s: DUPLICATE (no second command)");
 
 	/* the line itself under the sensor: one 60 mm black run */
 	bc_init(&d);
-	bc_edge(&d, 100000, 1, 200, 100, &res);
-	bc_edge(&d, 400000, 0, 200, 160, &res);
-	bc_poll(&d, 400000 + BC_IDLE_TIMEOUT_US + 1000U, 0, 160, &res);
+	bc_edge(&d, 100000, 1, &res);
+	bc_edge(&d, 400000, 0, &res);
+	bc_poll(&d, 400000 + BC_IDLE_TIMEOUT_US + 1000U, &res);
 	TEST_CHECK("S3-U12", res.result == BCR_INVALID && !bc_capturing(&d),
 		   "isolated black run times out without a complete symbol");
 
 	/* car stops in the middle of a barcode */
 	bc_init(&d);
-	bc_edge(&d, 100000, 1, 200, 100, &res);
-	bc_edge(&d, 115000, 0, 200, 103, &res);
-	bc_poll(&d, 115000 + BC_IDLE_TIMEOUT_US + 1000, 0, 103, &res);
+	bc_edge(&d, 100000, 1, &res);
+	bc_edge(&d, 115000, 0, &res);
+	bc_poll(&d, 115000 + BC_IDLE_TIMEOUT_US + 1000, &res);
 	TEST_CHECK("S3-U13", res.result == BCR_INVALID && res.err == BC_ERR_STALLED,
 		   "no edge for 3 s while capturing: aborted (bounded)");
 
-	/* window exceeded (speed adaptive: distance, not time) */
+	/* A short trailing quiet period must keep capture open. */
 	bc_init(&d);
-	bc_edge(&d, 100000, 1, 200, 100, &res);
-	bc_edge(&d, 115000, 0, 200, 103, &res);
-	bc_poll(&d, 120000, 200, 103 + BC_MAX_LENGTH_UM / 1000 + 5, &res);
+	bc_edge(&d, 100000, 1, &res);
+	bc_edge(&d, 115000, 0, &res);
+	bc_poll(&d, 120000, &res);
 	TEST_CHECK("S3-U14", res.result == BCR_NONE && bc_capturing(&d),
-		   "wheel odometry jump does not affect sensor capture");
+		   "short white gap keeps sensor capture open");
 	{
 		UINT symbol, element;
 		UW now = 100000U;
 		UB level = 1U;
 
 		bc_init(&d);
-		bc_edge(&d, now, level, 0, 0, &res);
+		bc_edge(&d, now, level, &res);
 		for (symbol = 0; symbol < 3U; symbol++) {
 			UH pattern = c39_pattern(symbol == 1U ? 10U : C39_STAR);
 
 			for (element = 0; element < 9U; element++) {
 				now += (pattern & (1U << (8U - element))) ? 90000U : 30000U;
 				level ^= 1U;
-				bc_edge(&d, now, level, 0, 0, &res);
+				bc_edge(&d, now, level, &res);
 			}
 			if (symbol < 2U) {
 				now += 30000U;
 				level ^= 1U;
-				bc_edge(&d, now, level, 0, 0, &res);
+				bc_edge(&d, now, level, &res);
 			}
 		}
-		bc_poll(&d, now + 300000U, 0, 0, &res);
+		bc_poll(&d, now + 300000U, &res);
 		TEST_CHECK("S3-U60", res.result == BCR_VALID && res.n_diag == 29U
 			   && c39_char(res.data[0]) == 'A',
 			   "stationary wheels: digital transition timing decodes A");
@@ -488,18 +487,18 @@ LOCAL INT test_capture(void)
 		BOOL intact = TRUE;
 
 		bc_init(&d);
-		bc_edge(&d, now, level, 0, 0, &res);
+		bc_edge(&d, now, level, &res);
 		for (k = 0; k < 29U; k++) {
 			UW elapsed;
 			for (elapsed = 20000U; elapsed < widths[k]; elapsed += 20000U) {
-				bc_poll(&d, now + elapsed, 0, 0, &res);
+				bc_poll(&d, now + elapsed, &res);
 				if (res.result != BCR_NONE) intact = FALSE;
 			}
 			now += widths[k];
 			level ^= 1U;
-			bc_edge(&d, now, level, 0, 0, &res);
+			bc_edge(&d, now, level, &res);
 		}
-		bc_poll(&d, now + 1100000U, 0, 0, &res);
+		bc_poll(&d, now + 1100000U, &res);
 		TEST_CHECK("S3-U63", intact && res.result == BCR_VALID
 			   && c39_char(res.data[0]) == 'A' && !res.reversed,
 			   "exact recorded A: wide first white space preserved, biased gaps accepted");
@@ -513,7 +512,7 @@ LOCAL INT test_capture(void)
 
 		(void)build_barcode('W', 0, widths);
 		bc_init(&d);
-		bc_edge(&d, now, level, 32, 0, &res);
+		bc_edge(&d, now, level, &res);
 		for (k = 0; k < C39_SINGLE_ELEMENTS; k++) {
 			W width = widths[k];
 			if (k == C39_STRIDE) {
@@ -523,9 +522,9 @@ LOCAL INT test_capture(void)
 			}
 			now += (UW)(width / SIM_NARROW_UM) * narrow;
 			level ^= 1U;
-			bc_edge(&d, now, level, 32, 0, &res);
+			bc_edge(&d, now, level, &res);
 		}
-		bc_poll(&d, now + 1800000U, 32, 0, &res);
+		bc_poll(&d, now + 1800000U, &res);
 		TEST_CHECK("S3-U84", res.result == BCR_VALID && res.n_elements == C39_MERGED_ELEMENTS
 			   && c39_char(res.data[0]) == 'W',
 			   "339 mm W with 2 s merged run finishes capture before the stall timeout");
@@ -659,7 +658,7 @@ LOCAL INT test_line(void)
 	}
 	lf_step(&lf, IR_BIT(IR_C), odo, 20, TRUE, &o);
 	TEST_CHECK("S3-U52", held && !lost && lf.state == LS_ON_LINE
-		   && lf.pivot_dir == 0 && o.steer == LF_EDGE_STEER_MIN
+		   && o.steer == LF_EDGE_STEER_MIN
 		   && o.speed_frac == LF_NEAR_SPEED,
 		   "white corridor straight; centre black ramps physical-left correction");
 
@@ -720,16 +719,16 @@ LOCAL INT test_line(void)
 		   "white corridor gradually returns to straight with no loss event");
 
 	/* a short slip off a straight: the arc finds it within
-	   LF_REALIGN_MIN_MS, then straight on (turning on weaved) */
+	   300 ms, then straight on (turning on weaved) */
 	lf_reset_tracking(&lf);
 	lf_step(&lf, IR_BIT(IR_C), odo, 20, TRUE, &o);
-	for (t = 20; t < LF_REALIGN_MIN_MS; t += 20U) {
+	for (t = 20; t < 300U; t += 20U) {
 		odo += 2;
 		lf_step(&lf, 0, odo, 20, TRUE, &o);
 	}
 	ok1 = o.steer == 0;
 	lf_step(&lf, IR_BIT(IR_C), odo, 20, TRUE, &o);
-	TEST_CHECK("S3-U57", ok1 && lf.realign_ms == 0U
+	TEST_CHECK("S3-U57", ok1
 		   && o.steer == LF_EDGE_STEER_MIN
 		   && o.speed_frac == LF_NEAR_SPEED,
 		   "short white corridor remains straight and ramps smoothly at the centre edge");
@@ -768,7 +767,7 @@ LOCAL INT test_line(void)
 	for (t = 0; t < 20000U; t += 20U) {
 		lf_step(&lf, 0, odo, 20, TRUE, &o);
 		fail = fail || (o.events & LF_EV_RECOVERY_FAIL) != 0U;
-		if (t > LF_CENTER_GAP_MS + LF_LOST_ARC_MS) {
+		if (t > 800U) {
 			held = held && o.steer == LF_LOST_DIR * LF_LOST_PIVOT_STEER && o.speed_frac == 0;
 		}
 	}
@@ -821,7 +820,7 @@ LOCAL INT test_line(void)
 	/* Lost-line search, then IR_L sees the line: resume a moving edge correction. */
 	lf_step(&lf, IR_BIT(IR_L), odo, 20, TRUE, &o);
 	found = (o.events & LF_EV_FOUND) != 0U;
-	TEST_CHECK("S3-U54", found && lf.pivot_dir == 0
+	TEST_CHECK("S3-U54", found
 		   && o.steer == -LF_EDGE_STEER_MIN
 		   && o.speed_frac == LF_NEAR_SPEED,
 		   "lost-line turn, then IR_L has the line: FOUND, smooth moving correction");

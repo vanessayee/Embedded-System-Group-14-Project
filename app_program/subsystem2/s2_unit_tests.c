@@ -5,7 +5,7 @@
  *	escalation, vehicle mode FSM, fault policy).
  *
  *	Built into the on-target test image (make TEST=1, called from
- *	subsystem2_test.c) and into the host harness (host_test/), so the
+ *	subsystem2_test.c) and into the host harness (testing/host/), so the
  *	same checks run in both places.  Test IDs: S2-Uxx.
  *	A simple first-order wheel model stands in for the motors.
  */

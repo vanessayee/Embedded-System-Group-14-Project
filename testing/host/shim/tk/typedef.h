@@ -3,8 +3,8 @@
  *
  *	The real header maps W/UW to 'long', which is 64-bit on a 64-bit host.
  *	The pure-logic modules depend on the TARGET widths (32-bit W/UW), so
- *	host tests use exact-width types instead.  Used only by the host test
- *	makefiles under app_program/subsystemN/host_test/ (never by the
+ *	host tests use exact-width types instead.  Used only by
+ *	the Makefile under testing/host/ (never by the
  *	firmware build, which does not compile files below one folder level).
  */
 

@@ -316,8 +316,8 @@ cmd_logs() {
 cmd_test() {
 	local what="${1:-unit}"
 	cd "$HERE"
-	say "== protocol self-test (app_program/subsystem1/docs/nodered_decoder.js)"
-	node ../app_program/subsystem1/docs/nodered_decoder.js
+	say "== protocol self-test (lib/codec.js)"
+	node lib/codec.js
 	if [ "$what" = unit ] || [ "$what" = all ]; then
 		say "== unit tests"
 		node --test "test/unit/*.test.js"

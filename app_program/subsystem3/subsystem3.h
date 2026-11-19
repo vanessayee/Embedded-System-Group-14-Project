@@ -24,7 +24,7 @@
 #include "../app.h"
 #include "../subsystem2/subsystem2.h"
 #include "line_follow.h"
-#include "barcode_dec.h"
+#include "barcode.h"
 #include "nav_map.h"
 #include "s3_status.h"
 

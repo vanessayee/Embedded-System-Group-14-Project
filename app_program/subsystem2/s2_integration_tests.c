@@ -18,7 +18,7 @@
  *	task uses (car_cycle() follows control_cycle() in task_motion.c); the
  *	wheels are the plant model of s2_unit_tests.c.  Telemetry integration
  *	(INT-15, INT-16) is in subsystem1/s1_integration_tests.c.
- *	Runs on the host (host_test/) and in the on-target test image.
+ *	Runs on the host (testing/host/) and in the on-target test image.
  */
 
 #include <tk/typedef.h>
@@ -34,8 +34,7 @@
 #include "s2_tests.h"
 #include "../subsystem1/mqtt_proto.h"
 #include "../subsystem1/comm_fsm.h"
-#include "../subsystem3/code39.h"
-#include "../subsystem3/barcode_dec.h"
+#include "../subsystem3/barcode.h"
 #include "../subsystem3/nav_map.h"
 #include "../subsystem3/line_follow.h"
 #include "../subsystem3/s3_status.h"
@@ -1043,10 +1042,10 @@ LOCAL INT int_queue_full(void)
 
 	bc_init(&bc);
 	t = 100000;
-	bc_edge(&bc, t, 1, 200, 100, &res);		/* capture starts */
+	bc_edge(&bc, t, 1, &res);		/* capture starts */
 	for (k = 0; k < BC_MAX_EDGES + 2U && res.result == BCR_NONE; k++) {
 		t += 15000;				/* 3 mm at 200 mm/s */
-		bc_edge(&bc, t, (UB)(k & 1U), 200, 100, &res);
+		bc_edge(&bc, t, (UB)(k & 1U), &res);
 	}
 	TEST_CHECK("INT-19b", res.result == BCR_INVALID && res.err == BC_ERR_OVERFLOW
 		   && !bc_capturing(&bc),

@@ -28,8 +28,8 @@ The target image also runs Subsystem 2 integration checks (`s2_integration_tests
 2. Run the host simulation suite first. From the repository root, with GNU Make and a C compiler available:
 
    ```sh
-   make -C app_program/subsystem2/host_test clean
-   make -C app_program/subsystem2/host_test SUITES=s2
+   make -C testing/host clean
+   make -C testing/host SUITES=s2
    ```
 
    Require a successful exit and PASS output for the S2 checks. This uses a simulated wheel plant; it does not verify physical motor/encoder behavior or the Pico scheduler.

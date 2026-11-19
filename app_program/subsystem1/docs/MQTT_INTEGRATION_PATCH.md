@@ -188,10 +188,10 @@ Notes on the change:
 3. On the broker host: `mosquitto_sub -h <broker> -t 'csc14/#' -v` should
    show `csc14/tlm` twice a second and `csc14/hb` once a second, as binary.
 4. Node-RED: `mqtt in` (topic `csc14/#`, output "a Buffer") → Function node
-   containing `nodered_decoder.js` → debug. The decoded objects should match
+   containing `telemetry/lib/codec.js` → debug. The decoded objects should match
    the console (`S1_CONSOLE_TELEMETRY` in `subsystem1.h` prints hex frames
    when set to N > 0).
-5. Send a PING: `node -e "process.stdout.write(require('./nodered_decoder.js')
+5. Send a PING: `node -e "process.stdout.write(require('./telemetry/lib/codec.js')
    .encodeCommand('PING',0,1,1))" | mosquitto_pub -h <broker> -t csc14/cmd -s`.
    Expect an ACK OK on `csc14/ack`.
 6. Disconnect the access point for 30 s while the car runs on the bench.

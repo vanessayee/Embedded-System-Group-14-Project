@@ -1,6 +1,6 @@
 # Barcode analysis: what the supplied samples establish
 
-Owner: Buddy 3. Code: `code39.c` (symbology), `barcode_dec.c` (capture
+Owner: Buddy 3. Code: `barcode.c` (symbology and capture
 state machine), `drv_ir.c` (edge capture), `nav_map.c` (meanings),
 `task_barcode.c` (task). Tests: `s3_unit_tests.c` S3-U01..U17.
 
@@ -48,7 +48,7 @@ common symbologies do not fit:
 * **EAN/UPC:** 4 widths, fixed guard patterns, digits only.
 * **Interleaved 2 of 5:** characters in pairs, no `*` frame.
 
-`code39.c` builds its table from the Code 39 rule (bar pattern × wide-space
+`barcode.c` builds its table from the Code 39 rule (bar pattern × wide-space
 group) rather than from a typed list. S3-U01 checks the table: 44 unique
 patterns, 3 wide each, and `*`, `A` and `Z` equal to the measured patterns.
 
@@ -115,10 +115,10 @@ measured** on the car):
 * Ultrasonic echo: 33 edges/s.
 
 That is well under 300 interrupts/s, and each handler only timestamps. The
-handler count `gpio_irq_count()` and `ir_edge_count()` let the team measure
+handler count `gpio_irq_count()` and the barcode task’s edge diagnostics let the team measure
 the real rate (Tribunal 1 risk R3).
 
-## 5. Decoding method (`barcode_dec.c`, `code39.c`)
+## 5. Decoding method (`barcode.c`)
 
 1. **Start:** a white→black edge after at least 12 mm of white (quiet
    zone).

@@ -1,21 +1,21 @@
 /*
- * nodered_decoder.js
+ * codec.js
  * CSC14 binary MQTT protocol v1 -- server-side codec (decoder, validator,
- * frame encoder).  Specification: MQTT_BINARY_PROTOCOL.md (same folder).
+ * frame encoder).  Specification: app_program/subsystem1/docs/MQTT_BINARY_PROTOCOL.md.
  * Mirrors app_program/subsystem1/mqtt_proto.c field for field: the field
  * tables below are the ONLY JavaScript copy of the wire layout, and the
  * telemetry backend (telemetry/lib) loads this file instead of keeping its
  * own.
  *
  * Three ways to use this one file:
- *   1. Node.js: const csc14 = require('./nodered_decoder.js');
+ *   1. Node.js: const csc14 = require('./codec.js');
  *      csc14.decode(buffer), csc14.encodeCommand('SET_SPEED', 250, id, seq),
  *      csc14.encodeFrame(csc14.TYPE.TELEMETRY, seq, rawFields)
  *   2. Node-RED: telemetry/nodered loads it through functionGlobalContext.
  *      Pasting the whole file into a Function node still works: valid
  *      frames leave with msg.payload = decoded object, invalid ones are
  *      dropped with a warning.
- *   3. Self test against the golden frames: node nodered_decoder.js
+ *   3. Self test against the golden frames: node telemetry/lib/codec.js
  *
  * The firmware is the reference: if this file and mqtt_proto.c ever
  * disagree, the golden frames in MQTT_BINARY_PROTOCOL.md decide.

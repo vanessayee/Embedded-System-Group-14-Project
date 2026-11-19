@@ -4,7 +4,7 @@
  */
 
 #include "s3_status.h"
-#include "barcode_dec.h"
+#include "barcode.h"
 
 #define F(v, mask, sh)	(((UW)(v) & (mask)) << (sh))
 #define G(w, mask, sh)	((UB)(((w) >> (sh)) & (mask)))

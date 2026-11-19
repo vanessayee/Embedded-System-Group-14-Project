@@ -34,10 +34,10 @@
 #define LP_LEFT_NEAR	1U
 #define LP_LEFT_FAR	2U
 #define LP_RIGHT	3U	/* no longer produced (IR_R does not steer) */
-#define LP_LOST_LEFT	4U	/* no longer produced */
+#define LP_LOST_LEFT	4U	/* known loss: search towards tracking gap */
 #define LP_LOST_RIGHT	5U	/* line lost: turning towards IR_R */
 #define LP_JUNCTION	6U
-#define LP_RIGHT_NEAR	7U	/* no longer produced */
+#define LP_RIGHT_NEAR	7U	/* centre sensor on black */
 
 /* Line state (2 bits) */
 #define LS_ON_LINE	0U
@@ -49,11 +49,10 @@
 #define LF_EV_LOST		0x01U
 #define LF_EV_FOUND		0x02U
 #define LF_EV_JUNCTION		0x04U
-#define LF_EV_RECOVERY_FAIL	0x08U
+#define LF_EV_RECOVERY_FAIL	0x08U /* reserved; recovery does not emit this */
 
 /* Calibration results */
 #define LF_CAL_OK		0
-#define LF_CAL_AMBIGUOUS	(-1)	/* retained for interface compatibility */
 #define LF_CAL_UNSTABLE		(-2)	/* readings flickered while still   */
 
 /* Tuning [CAL] */
@@ -87,12 +86,9 @@
 					   unless a sensor sees black first    */
 #define LF_HOLD_STEER		LF_EDGE_STEER_MIN
 #define LF_STEER_SLEW_STEP	8	/* first correction in one 20 ms cycle */
-#define LF_EDGE_GAP_MAX_MS	400	/* legacy compatibility; no white-corridor timeout */
 #define LF_EDGE_GAP_ERR		0	/* corridor is a straight-ahead deadband */
-#define LF_CENTER_GAP_MS	LF_EDGE_GAP_MAX_MS /* compatibility/test alias */
 #define LF_LOST_CONFIRM_MM	40	/* lost after this much travel ... (was 25) */
 #define LF_LOST_CONFIRM_MS	250	/* ... or this long without line (was 300, 400) */
-#define LF_JUNCTION_MM		8	/* all-black run to call a junction */
 #define LF_JUNCTION_CONFIRM_MS	60U /* both GP6 and GP2 black, reject flicker */
 #define LF_LOST_DIR		(-1)	/* search towards the C-to-IR_L tracking
 					   corridor, never towards the barcode sensor */
@@ -101,27 +97,7 @@
 #define LF_LOST_ARC_MM		40	/* ... for this much travel ... */
 #define LF_LOST_ARC_MS		400	/* ... or this long, then ... */
 #define LF_LOST_PIVOT_STEER	12	/* ... pivoting on the spot at this
-					   steer (as LF_SIDE_PIVOT_STEER) */
-#define LF_REALIGN_MIN_MS	300	/* found by a turn at least this long (a
-					   curve or corner, not a small slip off
-					   a straight): keep turning the same way
-					   for LF_REALIGN_MS ... */
-#define LF_REALIGN_MS		0	/* centre sensor wins immediately: once
-					   it sees black, command straight */
-#define LF_REALIGN_STEER	0
-#define LF_REALIGN_SPEED	LF_CRUISE_SPEED
-#define LF_SIDE_PIVOT_STEER	12	/* only IR_L on the line: stop and pivot
-					   towards it at this steer (24 mm/s
-					   per wheel at the 158 mm/s cruise)
-					   until the centre is back on it, so the
-					   car never drives off the path.  The
-					   pivot is held even when IR_L goes white
-					   again (the line passes between the
-					   sensors) instead of turning back */
-#define LF_SIDE_PIVOT_MAX_MS	9000	/* ~a full turn at ~40 deg/s: the pivot
-					   always finishes first; only if the
-					   centre never finds the line does the
-					   lost-line turn take over (was 1500) */
+					   steer (same magnitude as post-turn correction) */
 #define LF_SETTLE_MS		300	/* after a side pivot: drive on ...   */
 #define LF_SETTLE_SPEED		3	/* ... at about 32 mm/s this long     */
 #define LF_RIGHT_TURN_STRAIGHT_MS 150	/* short straight handoff on GP6 */
@@ -131,7 +107,7 @@
    black then means the car points past the line: pivot on the spot
    towards that sensor until it is white again (line back between the
    two sensors), then drive straight and resume normal tracking. */
-#define LF_POST_TURN_PIVOT_STEER LF_SIDE_PIVOT_STEER
+#define LF_POST_TURN_PIVOT_STEER 12 /* corrective pivot after a barcode turn */
 #define LF_POST_TURN_PIVOT_MAX_MS 2000	/* give up the pivot after this    */
 #define LF_POST_TURN_MS		400	/* both white this long right after the
 					   turn: already aligned, realign done */
@@ -142,7 +118,6 @@ typedef struct {
 	UB	state;		/* LS_* */
 	UB	pos;		/* LP_* */
 	INT	err;		/* last error, -2..3 */
-	INT	prev_err;
 	INT	steer_cmd;	/* slew-limited steering sent last cycle */
 	INT	edge_side;	/* +1 C black, -1 IR_L black, 0 neither */
 	UW	edge_ms;	/* how long that sensor has been black */
@@ -151,17 +126,13 @@ typedef struct {
 	UW	lost_ms;	/* time without the line */
 	W	lost_start_mm;
 	BOOL	lost_pending;
-	UW	center_gap_ms;	/* legacy field; not used to declare line loss */
 	UW	settle_ms;	/* half-speed time left after a pivot */
 	UW	straight_ms;	/* drive straight after GP6 finds the right branch */
 	BOOL	turning;	/* lost-line turn under way ... */
 	W	turn_start_mm;	/* ... since this odometer reading ... */
 	UW	turn_ms;	/* ... and this long */
-	UW	realign_ms;	/* turn-on time left after it found the line */
-	INT	pivot_dir;	/* side pivot under way: -1 towards IR_L */
-	UW	pivot_ms;	/* time since the centre last saw the line */
 	BOOL	in_junction;
-	W	junction_start_mm;
+	BOOL	junction_reported; /* one event per continuous crossing */
 	UW	junction_ms;
 	BOOL	post_turn;	/* realigning after a barcode turn ... */
 	UW	post_turn_ms;	/* ... for this long so far ... */

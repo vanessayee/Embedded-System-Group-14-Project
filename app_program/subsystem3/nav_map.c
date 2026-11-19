@@ -7,7 +7,7 @@
 #include "../subsystem2/motion_msg.h"
 
 typedef struct {
-	UB	symbol;		/* Code 39 index (code39.h) */
+	UB	symbol;		/* Code 39 index (barcode.h) */
 	UB	nav;		/* NAV_* */
 } NAV_ENTRY;
 

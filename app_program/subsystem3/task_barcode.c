@@ -6,7 +6,7 @@
  *
  *	Woken by the IR_RIGHT edge ISR (tk_wup_tsk), and every S3_BC_POLL_MS
  *	while a capture is open so that completion (trailing quiet zone) and
- *	the speed-adaptive window are detected without an edge.  It does not
+ *	the capture timeout are detected without an edge.  It does not
  *	read the sensor itself and never touches the motors (Tribunal 1
  *	interface map): an invalid barcode produces no command, a valid one
  *	is sent to Buddy 2 as a BARCODE-source command and the task waits for
@@ -70,7 +70,7 @@ LOCAL void print_widths(const BC_RESULT *res)
 		}
 		tm_printf((UB*)"  s%d:", (INT)symbol);
 		for (j = 0; j < count; j++) {
-			UW	w = res->element_um[i + j];
+			UW	w = res->element_us[i + j];
 			sym[j] = w;
 
 			tm_printf((UB*)" %d", (INT)w);
@@ -88,12 +88,12 @@ LOCAL void print_widths(const BC_RESULT *res)
 		}
 		i += count;
 		if (count == C39_ELEMENTS && i < res->n_diag) {
-			UW	gap = res->element_um[i++];
+			UW	gap = res->element_us[i++];
 			INT pattern;
 
 			if (res->reversed && i + C39_ELEMENTS <= res->n_diag) {
 				for (j = 0; j < C39_ELEMENTS; j++) {
-					sym[j] = res->element_um[i + C39_ELEMENTS - 1U - j];
+					sym[j] = res->element_us[i + C39_ELEMENTS - 1U - j];
 				}
 			}
 			pattern = c39_classify(sym);
@@ -240,8 +240,9 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 {
 	BC_RESULT	res;
 	UW		rec;
-	W		odo = 0, spd = 0;
+
 #if S3_BARCODE_DIAG
+	W		spd = 0;
 	UW		diag_next_us = 0;
 	UW		diag_edges = 0;
 	UW		diag_last_edge_us = 0;
@@ -293,7 +294,9 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 #endif
 		(void)tk_slp_tsk(wait);
 		mode = sys_mode();
-		motion_get_odometry(&odo, &spd);
+#if S3_BARCODE_DIAG
+		motion_get_odometry(NULL, &spd);
+#endif
 		black_level = (UB)app_load(&s3_black_level);
 		/* Keep the decoded command intact until its junction. Later
 		   barcode/line edges must not overwrite it or issue another turn. */
@@ -343,7 +346,7 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 				  (INT)(diag_last_edge_us ? IR_EDGE_TIME(rec) - diag_last_edge_us : 0U));
 			diag_last_edge_us = IR_EDGE_TIME(rec);
 #endif
-			bc_edge(&dec, IR_EDGE_TIME(rec), black, spd, odo, &res);
+			bc_edge(&dec, IR_EDGE_TIME(rec), black, &res);
 			if (!was_capturing && bc_capturing(&dec)) {
 				capture_junctions = junction_count();
 			}
@@ -352,7 +355,7 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 				break;
 			}
 		}
-		bc_poll(&dec, hw_time_us(), spd, odo, &res);
+		bc_poll(&dec, hw_time_us(), &res);
 		handle(&res);
 		check_pending(mode);
 

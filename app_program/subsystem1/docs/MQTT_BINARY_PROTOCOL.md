@@ -2,7 +2,7 @@
 
 Owner: Buddy 1 (subsystem 1). Firmware reference implementation:
 `app_program/subsystem1/mqtt_proto.c` + `bitpack.c`. Server reference
-implementation: `nodered_decoder.js` (this folder).
+implementation: `telemetry/lib/codec.js` (repository root).
 
 This protocol replaces the JSON telemetry of the Week 6 design (section 6.1:
 "formatted as JSON and published through Mosquitto to Node-RED").
@@ -12,7 +12,7 @@ specification with known-value tests (risk R1: payload tags and error
 handling).
 
 > **Server.** The telemetry backend in `telemetry/` (Node-RED flow,
-> PostgreSQL, Grafana) loads `nodered_decoder.js` and receives every topic
+> PostgreSQL, Grafana) loads `telemetry/lib/codec.js` and receives every topic
 > with the `mqtt in` output set to **"a Buffer"**. Week 6 JSON flows cannot
 > read these frames. Section 11 lists how the server interprets fields
 > whose meaning depends on the firmware build.
@@ -262,7 +262,7 @@ These frames were generated from this specification by an independent
 implementation: Python with its own bit packer and `binascii.crc_hqx` for
 the CRC (generator in section 9). The firmware must produce them byte for
 byte (S1-U03..S1-U06, run on the host and in the `TEST=1` image), and
-`nodered_decoder.js` must decode them (`node nodered_decoder.js`). Both pass.
+`telemetry/lib/codec.js` must decode them (`node telemetry/lib/codec.js`). Both pass.
 
 | Frame | Content | Bytes (hex) |
 |---|---|---|
@@ -332,13 +332,13 @@ print(frame(4, 7, p.data()).hex(" "))                     # 14 07 03 d4 47 0b 59
 * The robot answers a command of an unknown version with nothing; the
   server sees no ACK and must not retry faster than the rate limit.
 * Keep `TLM_FIELDS` (`mqtt_proto.c`), the table in section 5.1 and
-  `nodered_decoder.js` in step. The firmware's compile-time size check
+  `telemetry/lib/codec.js` in step. The firmware's compile-time size check
   catches a width change that is not reflected in `MP_TLM_BITS`.
 
 ## 11. Server-side interpretation (telemetry backend)
 
 Some meanings depend on how the firmware was built, not on the frame.
-`nodered_decoder.js` takes them as options; the backend sets them in
+`telemetry/lib/codec.js` takes them as options; the backend sets them in
 `telemetry/.env`. Keep them in step with the flashed image.
 
 | Topic | Firmware fact | Server interpretation |

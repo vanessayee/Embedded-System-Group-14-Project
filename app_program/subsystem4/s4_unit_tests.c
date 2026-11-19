@@ -3,7 +3,7 @@
  *	Unit tests of subsystem 4's pure logic: integer maths, calibration,
  *	filtering, tilt, collision, motion classification, data validation,
  *	hump detection / height / maximum, quantisation and packing.
- *	Runs on the host (host_test/) and in the on-target test image.
+ *	Runs on the host (testing/host/) and in the on-target test image.
  *	Test IDs: S4-Uxx.
  */
 

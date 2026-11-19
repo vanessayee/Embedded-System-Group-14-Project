@@ -1,9 +1,9 @@
 /*
  * tlm_monitor.js
  * Live console view of the robot's MQTT frames, decoded with
- * nodered_decoder.js.  Needs mosquitto_sub on the PATH.
+ * ../lib/codec.js.  Needs mosquitto_sub on the PATH.
  *
- *   node tlm_monitor.js [broker-ip]        (default 127.0.0.1)
+ *   node telemetry/tools/tlm_monitor.js [broker-ip]        (default 127.0.0.1)
  *
  * One line per telemetry frame (mode, faults, speeds, line, IMU, range),
  * events and acks in full, and a banner on every mode change.  Every
@@ -14,7 +14,7 @@
 
 const { spawn } = require('child_process');
 const fs = require('fs');
-const csc14 = require('./nodered_decoder.js');
+const csc14 = require('../lib/codec');
 
 const host = process.argv[2] || '127.0.0.1';
 const log = fs.createWriteStream('tlm_log.jsonl', { flags: 'a' });

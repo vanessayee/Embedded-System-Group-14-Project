@@ -10,7 +10,7 @@
  *	an independent implementation (Python with its own LSB-first packer
  *	and binascii.crc_hqx for the CRC), not from this C code.  The
  *	generator is listed in docs/MQTT_BINARY_PROTOCOL.md.
- *	Runs on the host (subsystem2/host_test/) and in the on-target test
+ *	Runs on the host (testing/host/) and in the on-target test
  *	image.  Test IDs: S1-Uxx.
  */
 

@@ -21,7 +21,6 @@
 #define NAV_RIGHT	1U
 #define NAV_STRAIGHT	2U
 #define NAV_UTURN	3U
-#define NAV_BITS	2U
 
 #define NAV_MAP_SIZE	43	/* direct indexed runtime table; '*' excluded */
 #define NAV_UNMAPPED	4U
@@ -38,8 +37,7 @@ IMPORT const char *nav_name(UB nav);
    STRAIGHT = MOVE forward S3_STRAIGHT_MM (cross the junction).
    Buddy 2 runs a 90 deg barcode turn in two parts (motion_cfg.h): drive
    on to the turn point, measured from where the right IR sensor leaves
-   the crossing line, then turn (outer wheel forward, inner wheel slowly
-   backward) until the crossing line lies between the centre and right
+   the crossing line, then pivot with equal opposite wheel speeds until the crossing line lies between the centre and right
    sensors, at about 90 deg.  U-turns turn on the spot. */
 #define S3_TURN_DEG		90
 #define S3_UTURN_DEG		180

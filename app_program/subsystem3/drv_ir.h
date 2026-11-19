@@ -65,7 +65,6 @@ IMPORT UB   ir_read_raw(void);		/* bit0 L, bit1 C, bit2 R (raw levels) */
 IMPORT BOOL ir_edge_get(UW *rec);	/* consumer side; FALSE when empty     */
 IMPORT BOOL ir_edge_overflow_take(void);	/* TRUE once after an overflow */
 IMPORT void ir_edge_flush(void);
-IMPORT UW   ir_edge_count(void);	/* edges recorded (diagnostics)        */
 #if S3_BARCODE_ANALOG
 IMPORT UW   ir_barcode_adc(void);
 #endif

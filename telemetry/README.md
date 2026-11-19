@@ -126,8 +126,8 @@ Logs are in `telemetry/.runtime/logs/`.
 | `.env` | your settings and passwords (not in git) |
 | `.runtime/` | Grafana program, logs, Node-RED state, firmware images (not in git) |
 
-The protocol codec is shared with the firmware documentation:
-`../app_program/subsystem1/docs/nodered_decoder.js`.
+The backend and command tools share one protocol codec:
+`lib/codec.js`.
 
 ## Undo
 
@@ -137,3 +137,8 @@ The protocol codec is shared with the firmware documentation:
 - Remove everything else: delete `telemetry/.runtime`, `telemetry/node_modules`
   and `telemetry/.env`. Your Mosquitto, PostgreSQL and their settings were
   not modified, apart from the database and roles above.
+
+The shared MQTT codec is `lib/codec.js`. For an optional decoded terminal
+monitor, run `node telemetry/tools/tlm_monitor.js [broker-ip]` from the
+repository root (requires `mosquitto_sub`). Firmware host tests for all five
+buddies live in `testing/host/`.

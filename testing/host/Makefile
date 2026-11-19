@@ -2,7 +2,7 @@
 # Host-side tests of the pure-logic modules of all five subsystems.
 #
 # NOT part of the firmware: the firmware makefile only compiles
-# app_program/*.c and app_program/*/*.c, never this folder.  The same test
+# app_program/*.c and app_program/*/*.c, never testing/host.  The same test
 # functions (sN_unit_tests.c, sN_integration_tests.c) also run on the Pico
 # in the "make TEST=1" image.
 #
@@ -15,7 +15,7 @@
 ################################################################################
 
 CC	?= cc
-APP	:= ../..
+APP	:= ../../app_program
 OUT	?= ./build
 SUITES	?=
 
@@ -36,8 +36,7 @@ SRCS := host_main.c \
 	$(APP)/subsystem2/vehicle_fsm.c \
 	$(APP)/subsystem2/s2_unit_tests.c \
 	$(APP)/subsystem2/s2_integration_tests.c \
-	$(APP)/subsystem3/code39.c \
-	$(APP)/subsystem3/barcode_dec.c \
+	$(APP)/subsystem3/barcode.c \
 	$(APP)/subsystem3/nav_map.c \
 	$(APP)/subsystem3/line_follow.c \
 	$(APP)/subsystem3/s3_status.c \
