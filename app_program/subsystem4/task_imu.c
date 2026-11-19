@@ -98,22 +98,8 @@ LOCAL void publish(BOOL valid)
 
 LOCAL BOOL read_sample(IMU_IN *in)
 {
-	IMU_SAMPLE	s;
-	UINT		i;
-
-	if (imu_read(&s) < E_OK) {
-		return FALSE;
-	}
-	for (i = 0; i < 3U; i++) {
-		in->acc_mg[i] = s.acc_mg[i];
-		in->gyr_mdps[i] = s.gyr_mdps[i];
-		in->mag_mgauss[i] = s.mag_mgauss[i];
-	}
-	in->has_gyro = s.has_gyro;
-	in->mag_valid = s.mag_valid;
-	in->saturated = s.saturated;
-	in->raw_hash = s.raw_hash;
-	return TRUE;
+	/* Driver and processing share the raw sample type; no conversion needed. */
+	return (imu_read(in) >= E_OK) ? TRUE : FALSE;
 }
 
 #if S4_MAG_LOG

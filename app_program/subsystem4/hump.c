@@ -11,26 +11,7 @@ LOCAL W iabs(W v)
 	return (v < 0) ? -v : v;
 }
 
-EXPORT void hump_init(HUMP *h)
-{
-	h->state = HS_IDLE;
-	h->rise_count = 0;
-	h->level_count = 0;
-	h->pre_elev_um = 0;
-	h->elev_um = 0;
-	h->peak_um = 0;
-	h->travel_um = 0;
-	h->last_height_um = -1;
-	h->max_height_um = -1;
-	h->last_len_mm = 0;
-	h->count = 0;
-}
-
-EXPORT BOOL hump_active(const HUMP *h)
-{
-	return (h->state == HS_CLIMB || h->state == HS_DESCENT) ? TRUE : FALSE;
-}
-
+/* Reset only the candidate; retain the last result and highest peak. */
 LOCAL void restart(HUMP *h)
 {
 	h->state = HS_IDLE;
@@ -40,6 +21,20 @@ LOCAL void restart(HUMP *h)
 	h->elev_um = 0;
 	h->peak_um = 0;
 	h->travel_um = 0;
+}
+
+EXPORT void hump_init(HUMP *h)
+{
+	restart(h);
+	h->last_height_um = -1;
+	h->max_height_um = -1;
+	h->last_len_mm = 0;
+	h->count = 0;
+}
+
+EXPORT BOOL hump_active(const HUMP *h)
+{
+	return (h->state == HS_CLIMB || h->state == HS_DESCENT) ? TRUE : FALSE;
 }
 
 LOCAL void complete(HUMP *h, HUMP_EVT *ev)
@@ -73,16 +68,9 @@ EXPORT void hump_step(HUMP *h, W pitch_cdeg, W ds_um, BOOL valid, HUMP_EVT *ev)
 	ev->height_um = 0;
 	ev->length_mm = 0;
 
-	if (!valid) {
+	if (!valid || ds_um < 0) {
 		if (h->state != HS_IDLE) {
-			ev->rejected = TRUE;		/* never measure on bad data */
-		}
-		restart(h);
-		return;
-	}
-	if (ds_um < 0) {
-		if (h->state != HS_IDLE) {
-			ev->rejected = TRUE;		/* forward integral is no longer valid */
+			ev->rejected = TRUE; /* invalid/reverse samples invalidate the integral */
 		}
 		restart(h);
 		return;

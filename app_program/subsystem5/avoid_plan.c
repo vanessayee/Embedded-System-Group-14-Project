@@ -6,14 +6,12 @@
 #include "avoid_plan.h"
 #include "obstacle_profile.h"
 
-EXPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock, BOOL release,
+EXPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock,
 			       BOOL centre_black, BOOL right_black)
 {
 	BOOL match;
 
-	if (centre_black) lock->contact = TRUE;
-	match = release ? (lock->contact && !centre_black && !right_black)
-			: (centre_black && !right_black);
+	match = centre_black && !right_black;
 	lock->run = match ? lock->run + 1U : 0U;
 	return lock->run >= AV_LINE_LOCK_SAMPLES;
 }
@@ -287,7 +285,6 @@ EXPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan)
 	plan->turn_deg = 0;
 	plan->required_front_mm = 0;
 	plan->forward_before_pass_mm = 0;
-	plan->return_approach_mm = 0;
 	plan->return_turn_deg = 0;
 
 	if (p->status != PRF_VALID || p->dist_mm < 0) {
@@ -352,10 +349,6 @@ EXPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan)
 		return AVP_NO_CLEARANCE;
 	}
 	plan->return_turn_deg = return_turn;
-	/* The profile edge allowance cannot also be spent on an early return.
-	   Keep a conservative fallback in the plan; PASS replaces it with the
-	   live side-ultrasonic gap through av_return_approach_mm(). */
-	plan->return_approach_mm = av_return_approach_mm(return_turn, plan->side_gap_mm);
 	/* These are actuator/command limits, not assumptions about board size. */
 	if (d1 > MCMD_MOVE_MAX_MM || d_return + AV_SEARCH_EXTRA_MM > MCMD_MOVE_MAX_MM
 	    || plan->approach_mm > MCMD_MOVE_MAX_MM) {

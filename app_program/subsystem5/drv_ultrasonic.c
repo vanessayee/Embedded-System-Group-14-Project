@@ -16,8 +16,8 @@ LOCAL volatile UW	echo_fall_us;
 LOCAL volatile UW	echo_seen;
 LOCAL ID		done_flgid;
 LOCAL UINT		done_ptn;
-LOCAL UW		us_seq;
 #if US_DEBUG
+LOCAL UW		us_seq;
 LOCAL BOOL		us_debug_near;
 LOCAL INT		us_debug_last_result;
 LOCAL UW		us_debug_last_mm;
@@ -98,8 +98,8 @@ EXPORT ER us_init(ID done_flg, UINT done_bit)
 	done_flgid = done_flg;
 	done_ptn = done_bit;
 	echo_seen = 0;
-	us_seq = 0;
 #if US_DEBUG
+	us_seq = 0;
 	us_debug_near = FALSE;
 	us_debug_last_result = US_OK;
 	us_debug_last_mm = 0;

@@ -42,6 +42,14 @@ LOCAL void publish(void)
 	app_store(&s5_scan_word, s5_scan_status_pack(&sst));
 }
 
+/* Shared by raw measurements and the filtered sweep result. */
+LOCAL void set_range_status(INT result, UW mm)
+{
+	sst.us_result = (UB)result;
+	sst.dist_code = (result == US_OK) ? s5_dist_code(mm)
+		      : (result == US_NO_ECHO) ? (UH)S5_DIST_NO_ECHO : (UH)S5_DIST_INVALID;
+}
+
 /* One ranging with fault bookkeeping; returns US_* and the distance */
 LOCAL INT range(UW *mm)
 {
@@ -68,9 +76,7 @@ LOCAL INT range(UW *mm)
 	} else if (r == US_OK) {
 		sys_fault_clear(SYS_FLT_US_INVALID);
 	}
-	sst.us_result = (UB)r;
-	sst.dist_code = (r == US_OK) ? s5_dist_code(*mm)
-		      : (r == US_NO_ECHO) ? (UH)S5_DIST_NO_ECHO : (UH)S5_DIST_INVALID;
+	set_range_status(r, *mm);
 	sst.seq = (UB)((sst.seq + 1U) & 0xFU);
 	return r;
 }
@@ -120,9 +126,7 @@ LOCAL INT scan_range(UW *mm)
 
 	/* range() recorded the last raw ping; replace it with the filtered
 	   result so telemetry and the packed sample describe the same value. */
-	sst.us_result = (UB)r;
-	sst.dist_code = (r == US_OK) ? s5_dist_code(*mm)
-		      : (r == US_NO_ECHO) ? (UH)S5_DIST_NO_ECHO : (UH)S5_DIST_INVALID;
+	set_range_status(r, *mm);
 	return r;
 }
 

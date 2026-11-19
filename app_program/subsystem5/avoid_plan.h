@@ -52,12 +52,11 @@
 #define AV_SEARCH_EXTRA_MM	150
 #define AV_LINE_LOCK_SAMPLES	3U
 
-/* A white pair only proves the corridor after observing its black edge. */
+/* Confirm the centre-only black edge using consecutive fresh IR samples. */
 typedef struct {
-	BOOL contact;
 	UINT run;
 } AV_LINE_LOCK;
-IMPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock, BOOL release,
+IMPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock,
 			       BOOL centre_black, BOOL right_black);
 IMPORT W av_post_edge_advance_mm(W body_path, W edge_allowance);
 #define AV_LINE_SENSOR_AHEAD_MM	80	/* [CAL] centre IR sensor to wheel axle */
@@ -94,7 +93,6 @@ typedef struct {
 	W	turn_deg;	/* calculated outward turn, 30..75 */
 	W	required_front_mm; /* geometry needed at maximum turn */
 	W	forward_before_pass_mm; /* approach + diagonal forward progress */
-	W	return_approach_mm; /* conservative fallback before live side range */
 	W	return_turn_deg;	/* configured encoder-reliable return */
 } AV_PLAN;
 

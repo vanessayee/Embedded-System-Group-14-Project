@@ -166,7 +166,7 @@ LOCAL BOOL search_line(INT dist)
 LOCAL BOOL turn_to_line(INT direction, INT limit)
 {
 	S3_LINE_STATUS ls;
-	AV_LINE_LOCK lock = { FALSE, 0 };
+	AV_LINE_LOCK lock = { 0 };
 	UW cmd, res, start = app_now_ms(), last;
 	BOOL acquired = FALSE;
 
@@ -181,7 +181,7 @@ LOCAL BOOL turn_to_line(INT direction, INT limit)
 		if (!ls.calibrated || (UW)(app_now_ms() - ls.time_ms) > 100U) break;
 		if (ls.time_ms != last) {
 			last = ls.time_ms;
-			if (av_line_lock_sample(&lock, FALSE,
+			if (av_line_lock_sample(&lock,
 				(ls.ir_black & IR_BIT(IR_C)) != 0U,
 				(ls.ir_black & IR_BIT(IR_SIDES_MIRRORED ? IR_L : IR_R)) != 0U)) {
 				acquired = TRUE;
@@ -360,7 +360,6 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 	motion_get_odometry(&odo0, NULL);
 	if (motion_command(MCMD_MOVE, MSRC_AVOID, AV_SIDE_PASS_MAX_MM,
 			   S5_AVOID_SPEED_LVL, &cmd) != E_OK) {
-		request_scan(SREQ_MONITOR, 0, 0, 0);
 		fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
 		return EXEC_FAILED;
 	}
@@ -426,7 +425,6 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 
 		if (bad_run >= S5_SIDE_BAD_MAX) {
 			motion_stop(MSRC_AVOID);
-			request_scan(SREQ_MONITOR, 0, 0, 0);
 			tm_printf((UB*)"avoid: side ultrasonic unusable during pass\n");
 			fail(AVF_SENSOR, SYS_FLT_AVOID_FAILED);
 			return EXEC_FAILED;
@@ -452,7 +450,6 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			if (motion_wait_result(cmd, 1000, &res) != E_OK
 			    || (mres_status(res) != MRES_ABORTED
 				&& mres_status(res) != MRES_DONE)) {
-				request_scan(SREQ_MONITOR, 0, 0, 0);
 				fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
 				return EXEC_FAILED;
 			}
@@ -482,7 +479,6 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 
 		res = motion_last_result(MSRC_AVOID);
 		if ((res & MRES_VALID) != 0U && mres_seq(res) == mcmd_seq(cmd)) {
-			request_scan(SREQ_MONITOR, 0, 0, 0);
 			if (mres_status(res) == MRES_DONE) {
 				tm_printf((UB*)"avoid: no far edge within %d mm pass limit\n",
 					  AV_SIDE_PASS_MAX_MM);

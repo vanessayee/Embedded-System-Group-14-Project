@@ -49,7 +49,6 @@
 LOCAL ID		done_flgid;
 LOCAL UINT		done_ptn;
 LOCAL volatile UW	irq_status;	/* writer: handler; reader: task (after wake) */
-LOCAL volatile UW	last_abort;
 
 LOCAL void i2c0_handler(UINT intno)
 {
@@ -57,7 +56,8 @@ LOCAL void i2c0_handler(UINT intno)
 
 	(void)intno;
 	if ((st & INT_TX_ABRT) != 0U) {
-		last_abort = in_w(IC_TX_ABRT_SOURCE);
+		/* Preserve the abort-register read/acknowledgement sequence. */
+		(void)in_w(IC_TX_ABRT_SOURCE);
 		(void)in_w(IC_CLR_TX_ABRT);
 	}
 	if ((st & INT_STOP_DET) != 0U) {
@@ -235,9 +235,4 @@ EXPORT void i2c0_bus_recover(void)
 	(void)hw_delay_us(5);
 	out_w(GPIO_CTRL(I2C0_SDA_PIN), FUNCSEL_I2C);
 	out_w(GPIO_CTRL(I2C0_SCL_PIN), FUNCSEL_I2C);
-}
-
-EXPORT UW i2c0_last_abort(void)
-{
-	return last_abort;
 }

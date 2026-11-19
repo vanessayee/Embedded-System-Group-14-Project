@@ -27,28 +27,16 @@
 #define DRV_IMU_H
 
 #include <tk/tkernel.h>
+#include "imu_proc.h" /* shared raw sample type: IMU_IN */
 
 #define IMU_CHIP_NONE		0U
 #define IMU_CHIP_MPU		1U	/* InvenSense family */
 #define IMU_CHIP_LSM6		2U	/* ST family         */
 #define IMU_CHIP_LSM303		3U	/* ST LSM303DLHC, accel + mag, no gyro */
 
-#define IMU_ACC_FS_MG		8000	/* +-8 g configured      */
-#define IMU_GYR_FS_MDPS		500000	/* +-500 dps configured  */
-
-typedef struct {
-	W	acc_mg[3];	/* chip X, Y, Z */
-	W	gyr_mdps[3];	/* 0 when has_gyro is FALSE */
-	W	mag_mgauss[3];	/* chip X, Y, Z; meaningful when mag_valid */
-	BOOL	has_gyro;
-	BOOL	mag_valid;	/* chip has a magnetometer and it did not overflow */
-	BOOL	saturated;	/* a raw value hit full scale */
-	UH	raw_hash;	/* changes when any raw byte changes (stuck check) */
-} IMU_SAMPLE;
 
 IMPORT ER   imu_probe(UB *chip, UB *addr, UB *whoami);
 IMPORT ER   imu_configure(void);
-IMPORT ER   imu_read(IMU_SAMPLE *s);
-IMPORT UB   imu_chip(void);
+IMPORT ER   imu_read(IMU_IN *s);
 
 #endif /* DRV_IMU_H */

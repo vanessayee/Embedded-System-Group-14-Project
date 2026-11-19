@@ -34,6 +34,5 @@ IMPORT ER   i2c0_init(ID done_flg, UINT done_bit);
 IMPORT ER   i2c0_write_reg(UB addr, UB reg, UB val);
 IMPORT ER   i2c0_read_regs(UB addr, UB reg, UB *buf, UINT n);
 IMPORT void i2c0_bus_recover(void);	/* 9 SCL pulses + STOP */
-IMPORT UW   i2c0_last_abort(void);	/* TX_ABRT_SOURCE of the last failure */
 
 #endif /* DRV_I2C0_H */

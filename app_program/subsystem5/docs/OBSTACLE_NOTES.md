@@ -209,7 +209,9 @@ The heading error comes mostly from the 10 mm encoder tick (20 slots/rev
 2. Servo: calibrate `SERVO_CENTER_US`, `SERVO_US_PER_DEG_X10` and
    `SERVO_DIR`; measure the settle time per degree.
 3. Scan known boxes at several distances: profile width and edges against
-   the tape measure; set `US_BEAM_COMP_DEG`.
+   the tape measure; calibrate production `S5_BEAM_COMP_DEG`. Keep the
+   optional raw-geometry `US_BEAM_COMP_DEG` at zero to avoid applying
+   beam compensation twice.
 4. Measure the car's width, length, turning behaviour and the margins in
    `avoid_plan.h`.
 5. Full avoidance on the track (FR8–FR12), including the recovery timeout

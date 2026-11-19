@@ -97,53 +97,53 @@ A 3 mm narrow bar under the sensor lasts **10 ms at 300 mm/s** and 7.5 ms
 at 400 mm/s. The Week 6 plan polled the IR sensors every 20–50 ms, so whole
 bars would be missed. That was the reason for Tribunal 1's change:
 
-* **Primary:** the IR_RIGHT (GP27) edge interrupt, a callback of the one
-  shared GPIO handler, stores a 32-bit record per edge (31-bit µs time + 1
-  level bit) in a 64-entry single-producer/single-consumer ring. Overflow is
-  flagged (`SYS_FLT_BARCODE_OVERFLOW`), never silent.
-* **Backup:** `-DS3_CAPTURE_POLL_1MS=1` samples GP27 every 1 ms from RP2040
-  TIMER alarm 3. The 10 ms kernel tick is too coarse for this. At 300 mm/s,
-  1 ms is 0.3 mm, so a 3 mm bar spans about 10 samples. This variant was
-  build-tested (normal and `TEST=1` images); it is not hardware-tested.
-
-Estimated interrupt load at 400 mm/s (an engineering estimate, **to be
-measured** on the car):
-
-* Barcode: ≤ 133 edges/s.
-* Encoders: 2 × 39 rising edges/s, with 20 slots per revolution `[CAL]` and
-  a 65 mm wheel.
-* Ultrasonic echo: 33 edges/s.
-
-That is well under 300 interrupts/s, and each handler only timestamps. The
-handler count `gpio_irq_count()` and the barcode task’s edge diagnostics let the team measure
-the real rate (Tribunal 1 risk R3).
+* **Current default:** digital GP26 is sampled every 1 ms using RP2040
+  TIMER alarm 3. A new level must remain stable for 3 ms; the first
+  candidate timestamp is retained so filtering does not add to element widths.
+* **Optional capture modes:** GPIO edge capture when
+  `S3_CAPTURE_POLL_1MS=0`, or ADC capture when `S3_BARCODE_ANALOG=1`
+  with the 1 ms timer. These alternatives are retained; the current robot
+  uses digital capture.
+* Each recorded edge has a 2 us-resolution timestamp and a raw level in a
+  64-entry single-producer/single-consumer ring. Overflow is reported through
+  `SYS_FLT_BARCODE_OVERFLOW`. The barcode task owns decoding; it never
+  controls motor hardware directly.
+* `gpio_irq_count()` and the barcode task's serial diagnostics provide
+  timing/edge observations. Measure actual rates on the configured robot;
+  older estimates based on a 20-slot encoder do not describe its current setup.
 
 ## 5. Decoding method (`barcode.c`)
 
-1. **Start:** a white→black edge after at least 12 mm of white (quiet
-   zone).
-2. **Element widths:** each width is the time between edges × the wheel
-   speed from Buddy 2's encoders (Tribunal 1: "consider vehicle speed and
-   encoder distance"). Encoder ticks (about 10 mm) are coarser than a 3 mm
-   bar, so distance alone cannot measure one.
-3. **Glitch merge:** an interior element shorter than 0.8 mm is merged into
+1. **Start:** a white-to-black edge after at least 30 ms of observed white.
+   An initial black edge with no known previous level can also begin capture.
+2. **Element widths:** elapsed microseconds between sensor transitions.
+   Wheel speed and odometry are not decoder inputs. Keep movement reasonably
+   steady within each symbol; relative-width classification tolerates print
+   scaling, but arbitrary hand-pull acceleration can distort a symbol.
+3. **Glitch merge:** an interior element shorter than 1 ms is merged with
    its neighbours.
-4. **Classification:** each 9-element group is classified by **ratio**,
-   bars against bars and spaces against spaces. This makes it independent
-   of print scale, speed drift, and a constant black/white bias from blur
-   or threshold. The wide/narrow split must exceed 1.5:1, otherwise
-   `C39_ERR_WIDTH`.
-5. **Validation:** the run must be 10k − 1 elements and start and end with
-   `*`, with no `*` inside, narrow inter-character gaps and valid patterns.
-   It is tried forwards, then **reversed** (car driving the other way).
-6. **End:** white for at least 20 mm and 2.5× the widest element. The
-   capture window is a **distance** (450 mm), so the timeout adapts to speed
-   (Week 6 statechart); a 3 s stall also aborts.
-7. **Duplicates:** the same symbol within 600 mm is reported `DUPLICATE`,
-   with no second command. Starts are ignored for 150 mm after a decode.
-8. **Invalid input never produces a command** (Tribunal 1 interface map). It
-   increments the invalid count, sets the degraded fault
-   `BARCODE_INVALID`, and line following continues.
+4. **Classification:** compare bars with bars and spaces with spaces within
+   each nine-element symbol. The minimum wide/narrow ratio is 1.3 for bars
+   and 1.5 for spaces; ambiguous widths are rejected.
+5. **Validation:** ordinary runs have 10k - 1 elements, valid patterns,
+   `*` start/stop delimiters and narrow inter-character gaps. Both forward
+   and reversed reading are supported. A 27-element `*<letter>*` scan can
+   recover one merged group only when the uppercase-letter template match
+   is unambiguous; this is not general acceptance of missing elements.
+6. **End:** after at least one complete symbol has been observed, trailing
+   white must last at least 100 ms and 2.5 times the reference widest
+   element, capped at 3 s. A 27-element run uses the second-longest element
+   for this reference. A capture with no edge for more than 3 s times out.
+7. **Duplicates:** the same decoded first symbol within 2 s of the previous
+   successful read is reported as `DUPLICATE` and produces no new command.
+   There is no wheel-distance lockout.
+8. **Navigation:** a valid mapped letter queues its instruction until a
+   confirmed GP6 + GP2 junction. Later sensor edges cannot replace the
+   pending instruction. Buddy 2 executes the movement and reports completion.
+   During capture, line tracking continues at its configured reduced speed.
+9. **Invalid input never produces a command.** It increments the invalid
+   count, raises the degraded `BARCODE_INVALID` fault, and leaves normal
+   line following in control.
 
 ## 6. Evidence and remaining tests
 
@@ -153,10 +153,10 @@ the real rate (Tribunal 1 risk R3).
 | S3-U03/U04: reversed sample; 3.5× print scale | decode | software test |
 | S3-U05..U09: wrong element count, no contrast, corrupted start, wide gap, missing start/stop | rejected | software test |
 | S3-U10: drive simulation, 15 trials × 100/200/300 mm/s, ±15 % speed ripple, encoder speed 5 % high, 0.6 mm blur | 45/45 correct | **simulation** |
-| S3-U11..U14: duplicate, line under sensor, stall, window | as specified | simulation |
+| S3-U11..U14: duplicate, line under sensor, stall, trailing quiet | as specified | simulation |
 | INT-11: barcode → navigation → Buddy 2 turn/move → NORMAL | pass | simulation |
 
-**Not yet done:** physical tests on the track (Tribunal 1 test plan: 15
-consecutive correct reads at each of 3 speeds; assumption A4, barcode vs
-curve). Also not yet done: checking GP27 wiring and the black level, and
-measuring the edge rate.
+The table records earlier software evidence. After cleanup, physical checks
+should cover GP26 polarity and capture, all printed barcode sizes, forward
+and reversed reads, junction handoff, and return to line tracking. Host
+simulation does not replace track testing or sensor calibration.

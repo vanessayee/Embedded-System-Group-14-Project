@@ -381,34 +381,29 @@ LOCAL INT test_plan(void)
 
 	TEST_INIT();
 	{
-		AV_LINE_LOCK lock = { FALSE, 0 };
-		BOOL ok;
+		AV_LINE_LOCK lock = { 0 };
+		BOOL ok = FALSE;
 		UINT k;
 
 		for (k = 0; k < 5U; k++)
-			(void)av_line_lock_sample(&lock, TRUE, FALSE, FALSE);
-		TEST_CHECK("S5-U14a", lock.run == 0 && !lock.contact,
+			(void)av_line_lock_sample(&lock, FALSE, FALSE);
+		TEST_CHECK("S5-U14a", lock.run == 0,
 			   "all-white surface cannot prove return-to-line alignment");
-		(void)av_line_lock_sample(&lock, TRUE, TRUE, FALSE);
-		(void)av_line_lock_sample(&lock, TRUE, FALSE, FALSE);
-		(void)av_line_lock_sample(&lock, TRUE, FALSE, TRUE);
-		TEST_CHECK("S5-U14b", lock.contact && lock.run == 0,
-			   "right sensor touching black interrupts corridor confirmation");
-		ok = FALSE;
+		(void)av_line_lock_sample(&lock, TRUE, FALSE);
+		(void)av_line_lock_sample(&lock, FALSE, FALSE);
+		TEST_CHECK("S5-U14b", lock.run == 0,
+			   "white pair interrupts centre-edge confirmation");
 		for (k = 0; k < AV_LINE_LOCK_SAMPLES; k++) {
-			BOOL result = av_line_lock_sample(&lock, TRUE, FALSE, FALSE);
-			if (k + 1U < AV_LINE_LOCK_SAMPLES && result) ok = TRUE;
-			if (k + 1U == AV_LINE_LOCK_SAMPLES && !result) ok = TRUE;
+			BOOL result = av_line_lock_sample(&lock, TRUE, FALSE);
+			if (result != (k + 1U == AV_LINE_LOCK_SAMPLES)) ok = TRUE;
 		}
 		TEST_CHECK("S5-U14c", !ok,
-			   "black edge followed by three white pairs locks the corridor");
-		lock.contact = FALSE;
-		lock.run = 0;
-		(void)av_line_lock_sample(&lock, FALSE, TRUE, TRUE);
+			   "centre-only black requires three consecutive samples");
+		(void)av_line_lock_sample(&lock, TRUE, TRUE);
 		TEST_CHECK("S5-U14d", lock.run == 0,
 			   "junction black on both sensors is not the centre-only edge");
 		for (k = 0; k < AV_LINE_LOCK_SAMPLES; k++)
-			ok = av_line_lock_sample(&lock, FALSE, TRUE, FALSE);
+			ok = av_line_lock_sample(&lock, TRUE, FALSE);
 		TEST_CHECK("S5-U14e", ok,
 			   "confirmed centre-only black establishes the recovery edge");
 		TEST_CHECK("S5-U14f", av_post_edge_advance_mm(10, 90) == 50
@@ -432,7 +427,7 @@ LOCAL INT test_plan(void)
 			 / op_sin_q15(pl.turn_deg));
 	near_approach = pl.approach_mm;
 	{
-		W actual_forward = pl.return_approach_mm
+		W actual_forward = av_return_approach_mm(pl.return_turn_deg, pl.side_gap_mm)
 			+ (W)((D)pl.offset_mm * op_cos_q15(pl.return_turn_deg)
 			      / op_sin_q15(pl.return_turn_deg));
 		W shallow_forward = av_return_approach_mm(AV_RETURN_TURN_MIN_DEG, pl.side_gap_mm)
@@ -453,8 +448,8 @@ LOCAL INT test_plan(void)
 		   && pl.forward_before_pass_mm <= pl.front_gap_mm
 		   && pl.return_turn_deg >= AV_RETURN_TURN_MIN_DEG
 		   && pl.return_turn_deg <= AV_RETURN_TURN_MAX_DEG
-		   && pl.return_approach_mm > 0
-		   && pl.return_approach_mm <= AV_ROBOT_LENGTH_MM,
+		   && av_return_approach_mm(pl.return_turn_deg, pl.side_gap_mm) > 0
+		   && av_return_approach_mm(pl.return_turn_deg, pl.side_gap_mm) <= AV_ROBOT_LENGTH_MM,
 		   "calculated path preserves the configured side gap and clears the front face");
 
 	/* More front clearance is used as forward approach rather than reverse. */

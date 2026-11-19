@@ -109,6 +109,7 @@
 #define IMU_CAL_NOT_STILL	(-2)
 #define IMU_CAL_ORIENTATION	(-3)
 
+/* Raw chip-frame sample shared by the hardware driver and processing. */
 typedef struct {
 	W	acc_mg[3];	/* chip axes */
 	W	gyr_mdps[3];

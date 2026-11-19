@@ -81,11 +81,6 @@ LOCAL BOOL id_in(UB v, const UB *list, UINT n)
 	return FALSE;
 }
 
-EXPORT UB imu_chip(void)
-{
-	return chip;
-}
-
 EXPORT ER imu_probe(UB *out_chip, UB *out_addr, UB *out_who)
 {
 	static const UB	mpu_addr[2] = { 0x68, 0x69 };
@@ -179,7 +174,7 @@ LOCAL BOOL at_full_scale(H v)
 }
 
 /* LSM303DLHC: accelerometer and magnetometer read back to back */
-LOCAL ER read_lsm303(IMU_SAMPLE *s)
+LOCAL ER read_lsm303(IMU_IN *s)
 {
 	UB	b[6], m[6];
 	H	a[3], mx, my, mz;
@@ -220,7 +215,7 @@ LOCAL ER read_lsm303(IMU_SAMPLE *s)
 	return E_OK;
 }
 
-EXPORT ER imu_read(IMU_SAMPLE *s)
+EXPORT ER imu_read(IMU_IN *s)
 {
 	UB	b[14];
 	H	a[3], g[3];
