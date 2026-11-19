@@ -285,3 +285,21 @@ test('virtual robot scenario end to end through the ingestor (130 s, outage, col
 	assert.ok(rows.some((r) => r.comm_state === 5), 'queued frames show RETRY_WAIT');
 	assert.equal(ing.stats.rejected, 0);
 });
+
+test('explicit boot identity detects quick RUN resets and survives reconnect, repeat, and backend restart', () => {
+ const ing = new Ingestor(CFG), b = robot(ing, T0);
+ const first = b.evt(T0 + 1000, 7, { uptime_ds:10, boot_token:123 });
+ const id = ofTable(first,'boot_session')[0].boot_id;
+ assert.equal(ofTable(b.tlm(T0+1500),'telemetry')[0].boot_id,id);
+ assert.equal(ofTable(b.evt(T0+2000,7,{uptime_ds:20,boot_token:123}),'boot_session').length,0);
+ const reset = b.evt(T0+2500,7,{uptime_ds:5,boot_token:456});
+ const id2 = ofTable(reset,'boot_session')[0].boot_id;
+ assert.notEqual(id,id2); assert.ok(kinds(reset).includes('BOOT_DETECTED'));
+ assert.equal(ofTable(b.tlm(T0+3000,{uptime_ds:10}),'telemetry')[0].boot_id,id2);
+ const restored = new Ingestor(CFG); restored.importState(ing.exportState());
+ const again = robot(restored,T0+2000);
+ const repeated = again.evt(T0+3500,7,{uptime_ds:15,boot_token:456}); assert.ok(ofTable(repeated,'boot_session').every(row=>row.boot_id===id2)); assert.equal(restored.stats.sessions,0);
+ assert.equal(ofTable(again.tlm(T0+4000),'telemetry')[0].boot_id,id2);
+ const event = again.evt(T0+4100,3,{symbol:10,result:1,nav:1,nav_valid:1});
+ assert.equal(ofTable(event,'event').filter(e=>e.kind==='EVENTS_MISSED').length,0);
+});

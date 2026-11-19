@@ -49,9 +49,15 @@ EXPORT void plant_step(PLANT *p, W duty_l, W duty_r, UW dt_ms)
 {
 	W	ssl = p->stuck_l ? 0 : wheel_ss(duty_l);
 	W	ssr = p->stuck_r ? 0 : wheel_ss(duty_r);
+	W	dl = (ssl - p->v_l) * (W)dt_ms / (60 + (W)dt_ms);
+	W	dr = (ssr - p->v_r) * (W)dt_ms / (60 + (W)dt_ms);
 
-	p->v_l += (ssl - p->v_l) * (W)dt_ms / (60 + (W)dt_ms);
-	p->v_r += (ssr - p->v_r) * (W)dt_ms / (60 + (W)dt_ms);
+	/* Integer division otherwise leaves an unpowered wheel drifting at
+	   +/-3 mm/s forever, preventing a real stationary alignment check. */
+	if (dt_ms != 0U && ssl == 0 && dl == 0 && p->v_l != 0) dl = (p->v_l > 0) ? -1 : 1;
+	if (dt_ms != 0U && ssr == 0 && dr == 0 && p->v_r != 0) dr = (p->v_r > 0) ? -1 : 1;
+	p->v_l += dl;
+	p->v_r += dr;
 	if (p->stuck_l) {
 		p->v_l = 0;
 	}
@@ -108,8 +114,8 @@ LOCAL W iabs(W v)
 	return (v < 0) ? -v : v;
 }
 
-/* Barcode TURN of 'deg' with simulated IR sensors.  Heading is in 0.1 deg
-   (227 um of wheel difference each at the 130 mm track), magnitude only.
+/* Barcode TURN of 'deg' with simulated IR sensors. Heading is in 0.1 deg,
+   derived from the configured wheel-centre spacing, magnitude only.
    While driving to the turn point both sensors are on the junction line
    until 'line_mm' of travel (0 = never).  While turning the right sensor
    sees black for headings in [r0, r1], the centre for [c0, c1]. */
@@ -119,6 +125,8 @@ typedef struct {
 	W	adv_um;		/* mean travel before the turn began */
 	W	tl_um;		/* wheel travel during the turn */
 	W	tr_um;
+	UW	elapsed_ms;
+	UW	align_drive_run;
 } SEEK_RUN;
 
 LOCAL void seek_turn(PLANT *p, INT deg, BOOL ir, W line_mm, W r0, W r1,
@@ -128,6 +136,7 @@ LOCAL void seek_turn(PLANT *p, INT deg, BOOL ir, W line_mm, W r0, W r1,
 	MC_IN		in;
 	MC_OUT		out;
 	UW		t, settle = 0;
+	UW		drive_run = 0;
 	BOOL		turning = FALSE;
 	W		l0 = 0, r0w = 0;
 
@@ -135,11 +144,13 @@ LOCAL void seek_turn(PLANT *p, INT deg, BOOL ir, W line_mm, W r0, W r1,
 	mc_init(&mc);
 	mc_out_clear(&out);
 	s->res = 0;
+	s->align_drive_run = 0;
 	s->adv_um = 0;
 	(void)mc_submit(&mc, mcmd_pack(MCMD_TURN, MSRC_BARCODE, 1, 0, 2, deg),
 			VM_NORMAL, 0, &out);
 	for (t = 0; t < 20000U && settle < 25U; t += MOTION_PERIOD_MS) {
-		W	h = iabs(p->d_l_um - p->d_r_um) / 227;
+		W	h = (W)((D)iabs(p->d_l_um - p->d_r_um) * 57296
+				/ ((D)TRACK_WIDTH_MM * 100000));
 		W	trav = (p->d_l_um + p->d_r_um) / 2;
 		BOOL	jl = !turning && trav < line_mm * 1000;
 
@@ -150,6 +161,12 @@ LOCAL void seek_turn(PLANT *p, INT deg, BOOL ir, W line_mm, W r0, W r1,
 		in.line_seen_fresh = ir;
 		mc_out_clear(&out);
 		mc_step(&mc, &in, MOTION_PERIOD_MS, &out);
+		if (mc.turn_align && out.duty_l_pm != 0 && out.duty_r_pm != 0) {
+			drive_run++;
+			if (drive_run > s->align_drive_run) s->align_drive_run = drive_run;
+		} else {
+			drive_run = 0;
+		}
 		if (!turning && !mc.advancing) {
 			turning = TRUE;		/* turn point reached */
 			s->adv_um = trav;
@@ -164,9 +181,11 @@ LOCAL void seek_turn(PLANT *p, INT deg, BOOL ir, W line_mm, W r0, W r1,
 			settle++;
 		}
 	}
-	s->h = iabs(p->d_l_um - p->d_r_um) / 227;
+	s->h = (W)((D)iabs(p->d_l_um - p->d_r_um) * 57296
+			/ ((D)TRACK_WIDTH_MM * 100000));
 	s->tl_um = p->d_l_um - l0;
 	s->tr_um = p->d_r_um - r0w;
+	s->elapsed_ms = t;
 }
 
 /* ------------------------------------------------------------------ */
@@ -274,8 +293,15 @@ LOCAL INT test_execution(void)
 	UINT		k;
 
 	TEST_INIT();
-	TEST_CHECK("S2-U08", iabs(arc - 102101) <= 1 && mc_turn_arc_um(-90) == arc,
-		   "turn arc for 90 deg = pi*track/4 (102.1 mm at 130 mm track)");
+	TEST_CHECK("S2-U08", iabs(arc - (W)((D)TRACK_WIDTH_MM * 3141593 / 4000)) <= 1
+		   && mc_turn_arc_um(-90) == arc,
+		   "turn arc for 90 deg = pi*track/4 using the measured wheel spacing");
+	plant_init(&pl);
+	pl.v_l = 3;
+	pl.v_r = -3;
+	for (k = 0; k < 25U; k++) plant_step(&pl, 0, 0, MOTION_PERIOD_MS);
+	TEST_CHECK("S2-U08a", pl.v_l == 0 && pl.v_r == 0,
+		   "unpowered simulated wheels decay to rest without integer-rounding drift");
 
 	/* MOVE 500 mm in Obstacle Handling (AVOID source), at an explicit
 	   200 mm/s (level 8) so the check does not depend on the cruise
@@ -323,32 +349,71 @@ LOCAL INT test_execution(void)
 	   90 deg the encoders expect).  Stop when the centre sees tape. */
 	{
 		SEEK_RUN	s;
+		W		right_advance;
+		W		right_outer, right_inner, right_heading;
 		W		adv = 15000 + (TURN_ADVANCE_RIGHT_MM
 					       - TURN_LINE_WIDTH_MM / 2) * 1000;
 
-		seek_turn(&pl, 90, TRUE, 15, 700, 760, 850, 900, &s);
+		seek_turn(&pl, 90, TRUE, 15, 840, 890, 980, 1030, &s);
+		right_advance = s.adv_um;
+		right_outer = s.tl_um;
+		right_inner = s.tr_um;
+		right_heading = s.h;
 		TEST_CHECK("S2-U10b", mres_status(s.res) == MRES_DONE
 			   && iabs(s.adv_um - adv) <= 3000
-			   && s.h >= 850 && s.h <= 900
+			   && s.h > 890 && s.h < 980
 			   && s.tl_um > 0 && s.tr_um < 0
-			   && -s.tr_um * 100 < s.tl_um * 60,
-			   "barcode RIGHT: advance past the crossing and keep turning until the centre sensor sees the outgoing line");
+			   && iabs(s.tl_um + s.tr_um) < 6000,
+			   "barcode RIGHT: equal wheel arcs, right-leading contact then confirmed white gap");
 		adv = 15000 + (TURN_ADVANCE_LEFT_MM - TURN_LINE_WIDTH_MM / 2) * 1000;
-		seek_turn(&pl, -90, TRUE, 15, 700, 760, 840, 950, &s);
+		/* Left has the opposite order: centre first, then GP2. The
+		   successful stop is in the white gap, after centre leaves. */
+		seek_turn(&pl, -90, TRUE, 15, 980, 1030, 840, 890, &s);
 		TEST_CHECK("S2-U10c", mres_status(s.res) == MRES_DONE
 			   && iabs(s.adv_um - adv) <= 3000
-			   && s.h >= 840 && s.h <= 930
+		   && s.h > 890 && s.h < 980
+		   && s.elapsed_ms < 15000U
 			   && s.tr_um > 0 && s.tl_um < 0
-			   && -s.tl_um * 100 < s.tr_um * 60,
-			   "barcode LEFT: advance past junction, settle near 90 deg and confirm centre on tape");
+		   && iabs(s.tl_um + s.tr_um) < 6000,
+			   "barcode LEFT: cross the centre black edge and stop in the centre-right white gap");
+		TEST_CHECK("S2-U10s", s.align_drive_run >= 3U,
+			   "final alignment sustains motor drive instead of ineffective one-tick pulses");
+		TEST_CHECK("S2-U10o", iabs(s.adv_um - right_advance) <= 3000,
+			   "left and right physically advance the same distance before pivoting");
+		TEST_CHECK("S2-U10p", iabs(s.tr_um - right_outer) < 3000
+			   && iabs(s.tl_um - right_inner) < 3000 && iabs(s.h - right_heading) < 20,
+			   "mirrored sensor order produces mirrored left/right wheel paths and equal turn angle");
+		/* Hardware trace: outgoing centre contact happened before the
+		   former 70-degree window, followed by white and then right black. */
+		seek_turn(&pl, -90, TRUE, 15, 800, 850, 600, 650, &s);
+		TEST_CHECK("S2-U10q", mres_status(s.res) == MRES_DONE
+			   && s.h > 650 && s.h < 800,
+			   "LEFT outgoing line before 70 encoder degrees is accepted after clearing junction");
+		seek_turn(&pl, 90, TRUE, 15, 600, 650, 800, 850, &s);
+		TEST_CHECK("S2-U10r", mres_status(s.res) == MRES_DONE
+			   && s.h > 650 && s.h < 800,
+			   "RIGHT uses the same early contact acquisition with mirrored sensors");
 		seek_turn(&pl, -90, TRUE, 15, 840, 950, 0, 0, &s);
-		TEST_CHECK("S2-U10j", mres_status(s.res) == MRES_DONE
-			   && s.h >= 840 && s.h <= 930,
-			   "barcode LEFT: GP2 alone on the outgoing tape completes the turn");
+		TEST_CHECK("S2-U10j", mres_status(s.res) == MRES_FAULT
+			   && s.h > 1020 && s.h < 1110,
+			   "barcode LEFT: GP2 alone cannot falsely complete the turn");
 		seek_turn(&pl, -90, TRUE, 15, 0, 0, 0, 0, &s);
 		TEST_CHECK("S2-U10h", mres_status(s.res) == MRES_FAULT
-			   && s.tl_um > 0 && s.tr_um > 0,
-			   "barcode LEFT: missing tape triggers a bounded forward search before fault");
+			   && s.h > 1020 && s.h < 1110,
+			   "barcode LEFT: missing tape faults at the angle limit");
+		seek_turn(&pl, -90, TRUE, 15, 1040, 1100, 950, 980, &s);
+		TEST_CHECK("S2-U10k", mres_status(s.res) == MRES_DONE
+		   && s.h > 980 && s.h < 1040,
+			   "barcode LEFT: late centre contact must release before turn completion");
+		seek_turn(&pl, -90, TRUE, 15, 0, 0, 800, 1100, &s);
+		TEST_CHECK("S2-U10l", mres_status(s.res) == MRES_FAULT,
+			   "barcode LEFT: centre remaining black cannot report corridor alignment");
+		seek_turn(&pl, -90, TRUE, 15, 0, 0, 300, 400, &s);
+		TEST_CHECK("S2-U10m", mres_status(s.res) == MRES_FAULT,
+			   "barcode LEFT: early crossing contact cannot validate later white space");
+		seek_turn(&pl, -90, TRUE, 15, 800, 900, 800, 900, &s);
+		TEST_CHECK("S2-U10n", mres_status(s.res) == MRES_FAULT,
+			   "barcode LEFT: both-black junction cannot validate a white corridor");
 		seek_turn(&pl, 90, TRUE, 15, 750, 790, 750, 790, &s);
 		TEST_CHECK("S2-U10d", mres_status(s.res) == MRES_FAULT
 			   && s.h > 1020 && s.h < 1110,
@@ -679,6 +744,7 @@ LOCAL void vstep(VFSM *f, UW ev, UW faults, BOOL armed, BOOL ns, BOOL nf,
 	in.faults = faults;
 	in.crit_mask = sys_fault_critical_mask();
 	in.armed = armed;
+	in.ready = SYS_READY_ALL;
 	in.nav_started = ns;
 	in.nav_finished = nf;
 	in.resume = resume;
@@ -738,6 +804,39 @@ LOCAL INT test_vehicle_fsm(void)
 	TEST_CHECK("S2-U39", (sys_fault_event_mask() & SYS_FLT_US_NO_RESPONSE) == 0
 		   && (sys_fault_event_mask() & SYS_FLT_COLLISION) != 0,
 		   "condition faults clear themselves; event faults need CLEAR");
+    {
+        VFSM_IN in = {0};
+        UW bit;
+        BOOL gates = TRUE;
+        in.armed = TRUE;
+        in.dt_ms = MOTION_PERIOD_MS;
+        in.crit_mask = crit;
+        in.events = SYS_EV_IR_CAL_OK | SYS_EV_IMU_CAL_OK;
+        for (bit = 1; bit <= SYS_READY_B5; bit <<= 1) {
+            vfsm_init(&f);
+            in.ready = SYS_READY_ALL & ~bit;
+            vfsm_step(&f, &in, &o);
+            gates = gates && f.mode == VM_INIT;
+        }
+        TEST_CHECK("S2-U60", gates, "each of five buddies independently gates startup");
+        vfsm_init(&f);
+        in.ready = SYS_READY_LOCAL;
+        in.dt_ms = INIT_TIMEOUT_MS + 5000U;
+        vfsm_step(&f, &in, &o);
+        TEST_CHECK("S2-U61", f.mode == VM_INIT && o.flt_set == 0,
+                   "calibrated local buddies wait indefinitely for hotspot and MQTT");
+        in.events = 0; in.ready = SYS_READY_ALL; in.dt_ms = MOTION_PERIOD_MS;
+        vfsm_step(&f, &in, &o);
+        TEST_CHECK("S2-U62", f.mode == VM_NORMAL, "MQTT ready automatically releases startup hold");
+        in.ready = SYS_READY_LOCAL; in.faults = SYS_FLT_WIFI_LOSS;
+        vfsm_step(&f, &in, &o);
+        TEST_CHECK("S2-U63", f.mode == VM_NORMAL, "later network outage retains existing autonomous policy");
+        vfsm_init(&f); in.faults = 0; in.events = SYS_EV_IR_CAL_OK | SYS_EV_IMU_CAL_OK;
+        in.ready = SYS_READY_ALL & ~SYS_READY_B5; in.dt_ms = INIT_TIMEOUT_MS + 1;
+        vfsm_step(&f, &in, &o);
+        TEST_CHECK("S2-U64", f.mode == VM_SAFE_STOP && (o.flt_set & SYS_FLT_INIT),
+                   "missing local ultrasonic readiness times out safely");
+    }
 	TEST_SUMMARY("s2 vehicle fsm");
 	return test_fail_;
 }

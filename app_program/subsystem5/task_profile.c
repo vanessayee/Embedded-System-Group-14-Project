@@ -46,6 +46,7 @@ EXPORT void profile_task(INT stacd, void *exinf)
 
 	(void)stacd;
 	(void)exinf;
+	sys_task_ready(SYS_TASK_PROFILE);
 	for (;;) {
 		if (tk_rcv_mbf(mbf_scan_samples, &w, TMO_FEVR) != (INT)sizeof(w)) {
 			continue;

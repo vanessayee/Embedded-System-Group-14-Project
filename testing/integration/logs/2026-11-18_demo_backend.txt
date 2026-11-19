@@ -1,0 +1,48 @@
+✔ flows.json and the dashboard JSON are generated from the current sources (10.9611ms)
+✔ flow: subscribes as Buffer, never publishes, every Function node compiles (8.4577ms)
+✔ dashboard: provisioned data source, known variables, allowed refresh (2.8391ms)
+✔ all 26 letters and five actions round-trip through the wire codec (16.1886ms)
+✔ complete mapping validation rejects incomplete, extra and unsupported assignments (1.1315ms)
+✔ mapping is confirmed only by matching robot ACK, with non-retained binary publishing and audit row (9.0935ms)
+✔ rejected and missing acknowledgements cannot appear as applied mappings (49.0813ms)
+✔ configuration blocks resume and overlapping changes while STOP bypasses the batch (7.0043ms)
+✔ HTTP controls reject cross-origin or missing-header requests before any command (1.3351ms)
+✔ topics: live, simulated and foreign topics (14.9524ms)
+✔ first frame opens a session; telemetry rows carry columns, frame and decoded record (4.135ms)
+✔ uptime wrap (16-bit, 6553.6 s) stays in one session and is unwrapped (12.447ms)
+✔ a reboot (uptime restarts) opens a new session; a backend restart with saved state does not (3.876ms)
+✔ frames queued during an outage arrive late without starting a new session (8.2065ms)
+✔ sequence numbers: gaps, wrap, duplicates and ambiguous long gaps (3.2571ms)
+✔ humps: baseline at first sight, increments, several between snapshots, saturation (6.1378ms)
+✔ derived events: faults per bit, tilt, line state, avoidance failure, comm state (2.5122ms)
+✔ the first FAULTS event of a boot is labelled as the since-boot union (1.6784ms)
+✔ link: online -> stale -> offline -> online, and UNKNOWN when the broker is lost (2.6671ms)
+✔ malformed frames are rejected (and their storage rate-limited); nothing reaches telemetry (2.5575ms)
+✔ a command frame seen on an observed topic is logged as a bus event; ACKs are routed (1.4114ms)
+✔ virtual robot scenario end to end through the ingestor (130 s, outage, collision) (89.4029ms)
+✔ golden frames decode to the documented values and re-encode byte for byte (8.0307ms)
+✔ random records survive encode -> decode with every field intact (signed fields included) (103.7973ms)
+✔ scaling and units (1.3414ms)
+✔ invalid codes become NULL in the typed columns, with their status kept (2.907ms)
+✔ structural errors reject the whole frame (1.2847ms)
+✔ values v1 never produces are reported as issues (4.8862ms)
+✔ fault severity follows sys_state_logic.c and its policy flags (1.7603ms)
+✔ IR sensors and line position use the car's real sides (3.9187ms)
+✔ ultrasonic meaning depends on the avoidance phase; zero profile words mean no profile (5.4474ms)
+✔ event and heartbeat interpretation (2.2602ms)
+✔ rows are written in arrival order with parameterized multi-row INSERTs and JSONB casts (35.1016ms)
+✔ database outage: rows are buffered, retried, and all written after recovery (193.9462ms)
+✔ a full buffer drops the oldest bulk rows, keeps priority rows, and reports the loss (15.1376ms)
+✔ a row the database refuses as bad data is isolated and dropped; the rest is written (15.9255ms)
+✔ missing table or permission is not "bad data": rows are kept and retried (136.8733ms)
+✔ keyed upserts (link state) coalesce while queued (46.9296ms)
+✔ rows left at shutdown are spilled to disk and queued again on the next start (27.6266ms)
+✔ deque keeps order through shift and unshiftAll (2.6388ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2252.0252

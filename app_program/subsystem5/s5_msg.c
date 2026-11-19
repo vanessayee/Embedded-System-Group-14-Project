@@ -77,8 +77,11 @@ EXPORT void s5_profile_pack(const S5_PROFILE *p, UW w[2])
 		   : (UW)clamp((p->clear_left_mm + 5) / 10, 0, 254);
 	UW	cr = (p->clear_right_mm < 0) ? S5_CLEAR_UNKNOWN
 		   : (UW)clamp((p->clear_right_mm + 5) / 10, 0, 254);
-	W	le = clamp(p->left_mm / 10, -127, 127);
-	W	re = clamp(p->right_mm / 10, -127, 127);
+	/* Packing must not shrink the measured obstacle. */
+	W	le = clamp(p->left_mm < 0 ? -((-p->left_mm + 9) / 10)
+					    : p->left_mm / 10, -127, 127);
+	W	re = clamp(p->right_mm > 0 ? (p->right_mm + 9) / 10
+					     : p->right_mm / 10, -127, 127);
 
 	w[0] = F(p->scan_id, 0x7UL, 0) | F(p->status, 0x3UL, 3)
 	     | F(dist, 0x3FFUL, 5) | F(clamp(p->bearing_deg, -127, 127), 0xFFUL, 15)

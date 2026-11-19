@@ -132,6 +132,7 @@ typedef struct {
 #define EVT_HUMP		4U
 #define EVT_OBSTACLE		5U
 #define EVT_COLLISION		6U
+#define EVT_BOOT 7U /* uptime_ds 16 | per-boot token 16; repeated, same token */
 typedef struct {
 	UB	code;		/*  4 */
 	UW	data;		/* 32 */
@@ -145,7 +146,9 @@ typedef struct {
 #define CMD_CLEAR		3U
 #define CMD_SET_SPEED		4U	/* arg = cruise speed, mm/s */
 #define CMD_REQ_STATUS		5U	/* send telemetry now       */
-#define CMD_COUNT		6U
+#define CMD_SET_NAV_MAP		6U	/* arg: Code39 symbol 6 | action 3; 4=unmapped */
+#define CMD_GET_NAV_MAP		7U	/* arg: A-Z Code39 index; ACK detail=action */
+#define CMD_COUNT		8U
 typedef struct {
 	UB	cmd;		/*  3 */
 	UH	arg;		/* 10 */

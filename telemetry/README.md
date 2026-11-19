@@ -1,5 +1,17 @@
 # CSC14 telemetry backend
 
+## Demonstration console on the Windows laptop
+
+Open [Mission Control in Grafana](http://127.0.0.1:3000/d/csc14-robot?theme=light&kiosk) for the ten
+demonstration capabilities, live measurements, motor controls and
+dashboard-configurable A–Z barcode instructions.
+Follow [the demonstration guide](docs/DEMONSTRATION.md) for startup,
+acknowledged letter changes and pickup-detection limits.
+Flash the latest UF2 once to enable these controls; letter changes then
+require no code edits or rebuild. Reapply saved letters after a power cycle.
+
+Grafana is now the main entry point and embeds the live HTML console. Node-RED on port 1880 remains its backend and page source. The former detailed dashboard, design previews and their generators have been removed. Historical data remains in PostgreSQL.
+
 The robot (Pico W) sends small binary messages to an MQTT broker
 (Mosquitto). **Node-RED** checks and decodes them and writes them into a
 **PostgreSQL** database. **Grafana** shows the database as a live and
@@ -106,7 +118,7 @@ Logs are in `telemetry/.runtime/logs/`.
 | `nodered/flows.json`, `nodered/build-flows.js` | the Node-RED flow (generated from build-flows.js) |
 | `lib/` | decoding, validation, storage (loaded by Node-RED) |
 | `db/migrations/` | database tables (applied in order, never edited once applied) |
-| `grafana/` | data source, dashboard (generated from build-dashboard.js) |
+| `grafana/` | Grafana settings, provisioning and the single live dashboard JSON |
 | `deploy/pi/` | Raspberry Pi installation |
 | `docs/DESIGN.md` | why it is built this way, limits of the data |
 | `docs/FIRMWARE.md` | robot-side changes, live check |

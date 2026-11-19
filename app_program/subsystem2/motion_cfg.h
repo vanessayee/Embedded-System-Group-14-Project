@@ -23,7 +23,8 @@
 					   1256 edges on both edges of A, so 628 on
 					   rising edges only (motor-shaft encoder
 					   behind the gearbox, ~0.33 mm per edge) */
-#define TRACK_WIDTH_MM		130	/* [CAL] wheel centre to wheel centre */
+#define TRACK_WIDTH_MM		130	/* [CAL] effective turn spacing from the working setup;
+					   physical wheel-centre measurement is about 110 mm */
 
 /* Wheel travel per counted encoder edge, micrometres (pi*D/N) */
 #define ENC_UM_PER_TICK		((WHEEL_DIAMETER_MM * 3141593UL / 1000UL) \
@@ -68,47 +69,34 @@
 #define HEADING_GAIN		3	/* mm/s correction per mm L/R mismatch */
 
 /* ---- Barcode junction turns (90 deg) [CAL] ----------------------------
- *  At the junction the IR sensors are on the crossing line, ~80 mm ahead
- *  of the wheels.  Turning there would leave the crossing line beside
- *  the car, not under its sensors.  So a 90 deg barcode turn:
- *    1. drives on until the RIGHT IR sensor leaves the crossing line
- *       (reference point), then TURN_ADVANCE_x_MM - half a line width
- *       more, so the turn point is where the turn must happen;
- *    2. turns: outer wheel forward, inner wheel slowly backward, about a
- *       point TURN_PIVOT_OFFSET_MM from the axle centre;
- *    3. ends when the centre sensor meets the outgoing tape on a right
- *       turn. A left turn settles near 90 deg, then seeks the tape while
- *       moving forward until the centre sensor finds it.
- *  Advance to align with the outgoing line:
- *    right turn: IR_AHEAD - PIVOT_OFFSET + IR_GAP
- *    left turn:  IR_AHEAD - PIVOT_OFFSET + left course adjustment
- *  U-turns turn on the spot with no advance.
+ * Both directions use the same GP2 junction-exit reference and advance,
+ * then pivot about the axle centre with equal opposite wheel speeds.
+ * Near the outgoing branch both slow identically and settle/trim the
+ * sensor gap. RIGHT acquires GP2 first; LEFT acquires GP6 first. Only
+ * confirmed centre/right-white after that contact completes the turn.
+ * Both resume normal moving edge correction immediately. U-turns keep
+ * their existing on-the-spot path without junction advance.
  * --------------------------------------------------------------------- */
 #define TURN_IR_AHEAD_MM	80	/* [CAL] centre IR sensor ahead of the
 					   wheel axle (= AV_LINE_SENSOR_AHEAD_MM) */
 #define TURN_IR_GAP_MM		20	/* [CAL] centre to right IR sensor,
 					   measured sideways                  */
 #define TURN_LINE_WIDTH_MM	18	/* [CAL] black tape width             */
-#define TURN_PIVOT_OFFSET_MM	25	/* turn point this far towards the inner
-					   wheel: inner wheel backward at
-					   (65-25)/(65+25) = 44 % of the outer */
 #define TURN_ADVANCE_TRIM_MM	0	/* [CAL] + if the line ends up nearer the
 					   centre sensor, - if nearer the right */
-#define TURN_ADVANCE_RIGHT_MM	(TURN_IR_AHEAD_MM - TURN_PIVOT_OFFSET_MM \
-				 + TURN_IR_GAP_MM + TURN_ADVANCE_TRIM_MM)
-#define TURN_ADVANCE_LEFT_EXTRA_MM 0	/* [CAL] correction after measuring sensor/axle geometry */
-#define TURN_ADVANCE_LEFT_MM	(TURN_IR_AHEAD_MM - TURN_PIVOT_OFFSET_MM \
-				 + TURN_ADVANCE_TRIM_MM + TURN_ADVANCE_LEFT_EXTRA_MM)
-#define TURN_LEFT_COAST_DEG	3	/* release drive before 90 deg */
-#define TURN_LEFT_SEARCH_MM	60	/* bounded forward search after pivot */
-#define TURN_LEFT_STRAIGHT_MM	20	/* then gently arc back toward the junction */
+#define TURN_ADVANCE_MM		(TURN_IR_AHEAD_MM + TURN_ADVANCE_TRIM_MM)
+#define TURN_ADVANCE_RIGHT_MM	TURN_ADVANCE_MM
+#define TURN_ADVANCE_LEFT_MM	TURN_ADVANCE_RIGHT_MM /* shared junction turn point */
+#define TURN_CONFIRM_SAMPLES	2U
+#define TURN_SETTLE_MS		200U
+#define TURN_CONTACT_MIN_DEG	45	/* reject initial-junction contact; allow
+					   a real branch before 70 encoder deg */
 #define TURN_LINE_SEEK		1	/* 1 = use Buddy 3's line-seen word for
 					   the reference point and the end of
 					   the turn; 0 = distances/encoders only */
 #define TURN_SEEK_EARLY_DEG	20	/* sensors end the turn only from
 					   90 - 20 = 70 deg ...               */
 #define TURN_SEEK_EXTRA_DEG	15	/* ... and at the latest at 105 deg   */
-#define TURN_SEEK_SETTLE_MS	120	/* PWM off before forward search    */
 #define LSEEN_STALE_MS		100	/* line-seen word freshness           */
 #define TURN_JUNCTION_EDGE_MS	200	/* keep a recently cleared crossing for command handoff */
 

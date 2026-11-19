@@ -148,7 +148,7 @@ test('values v1 never produces are reported as issues', () => {
 	assert.deepEqual(codec.decode(codec.encodeEvent(1, { old_mode: 1, new_mode: 6 }, 1)).issues, ['new_mode=6']);
 	assert.deepEqual(codec.decode(codec.encodeEvent(5, { fail: 7, distance: 900 }, 1)).issues, ['fail=7', 'distance=900']);
 	assert.deepEqual(codec.decode(codec.encodeFrame(T.ACK, 1, { cmd_id: 1, cmd: 6, result: 12, detail: 0 })).issues,
-		['cmd=6', 'result=12']);
+		['result=12']);
 });
 
 test('fault severity follows sys_state_logic.c and its policy flags', () => {

@@ -35,7 +35,12 @@ module.exports = {
 	uiPort: parseInt(process.env.CSC14_NODERED_PORT || '1880', 10),
 	adminAuth,
 	functionGlobalContext: {
-		csc14: require('../lib/nodered-api.js')
+		csc14: require('../lib/nodered-api.js'),
+		demo: new (require('../lib/demo-service').DemoService)(cfg),
+		demoAssets: {
+			html: require('fs').readFileSync(path.join(__dirname, '../dashboard/index.html'), 'utf8'),
+			js: require('fs').readFileSync(path.join(__dirname, '../dashboard/dashboard.js'), 'utf8')
+		}
 	},
 	functionExternalModules: false,
 	exportGlobalContextKeys: false,

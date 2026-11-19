@@ -189,8 +189,8 @@ Fail reasons: 0 NONE, 1 PROFILE, 2 CLEARANCE, 3 MOTION, 4 LINE, 5 TIMEOUT,
 
 | Field | Bits | Meaning |
 |---|---|---|
-| cmd | 3 | 0 PING, 1 STOP, 2 RESUME, 3 CLEAR, 4 SET_SPEED, 5 REQ_STATUS; 6, 7 invalid |
-| arg | 10 | SET_SPEED: cruise speed 50..400 mm/s; all others: must be 0 |
+| cmd | 3 | 0 PING, 1 STOP, 2 RESUME, 3 CLEAR, 4 SET_SPEED, 5 REQ_STATUS, 6 SET_NAV_MAP, 7 GET_NAV_MAP |
+| arg | 10 | SET_SPEED: 50..400 mm/s; SET_NAV_MAP: symbol bits 0..5 + action bits 6..8; GET_NAV_MAP: symbol; others: 0 |
 | cmd_id | 8 | chosen by the server; echoed in the ACK; duplicates refused |
 | reserved | 3 | must be 0 |
 
@@ -209,6 +209,16 @@ whether each is safe in the current mode:
 * SET_SPEED is refused during obstacle avoidance.
 * PING and REQ_STATUS are answered by Buddy 1 itself. REQ_STATUS triggers an
   immediate telemetry frame.
+
+SET_NAV_MAP accepts Code 39 indices 10..35 (A..Z). Actions are 0 LEFT,
+1 RIGHT, 2 STRAIGHT, 3 U-TURN, 4 NONE/unmapped. It is accepted only in
+INIT or SAFE_STOP with no pending/executing barcode instruction. GET_NAV_MAP
+accepts an A..Z index in any mode. Both acknowledge the resulting action in
+ACK.detail (0..4). Each table entry is published atomically across cores.
+Mappings are RAM-only and survive RESUME, but reset to firmware defaults on
+power-up. The dashboard saves desired choices on the laptop and explicitly
+reapplies them after a restart. Old firmware rejects these extended commands;
+the wire frame and schema widths are unchanged.
 
 ### 5.5 Acknowledgement (type 5): 20 bits, 3-byte payload
 

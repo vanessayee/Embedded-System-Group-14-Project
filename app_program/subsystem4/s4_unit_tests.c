@@ -413,6 +413,78 @@ LOCAL INT test_nogyro(void)
 	}
 	TEST_CHECK("S4-U43", last.completed && iabs(last.height_um - 40000) <= 4000 && h.count == 1,
 		   "no gyro: 40 mm hump at 30 mm/s (0.3 mm per sample) within +-4 mm");
+	imu_proc_init(&p, &cal);
+	for (k = 0; k < 100U; k++) {
+		make_in_nogyro(&s, 0, 0, 1000, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+	}
+	TEST_CHECK("S4-U50", !p.handling, "level 1g remains normal; gentle level lifting cannot be inferred");
+	for (k = 0; k < 10U; k++) {
+		make_in_nogyro(&s, 0, 0, 1600, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+	}
+	TEST_CHECK("S4-U51", p.handling, "sustained vertical pickup jolt triggers handling stop");
+	imu_proc_init(&p, &cal);
+	for (k = 0; k < 8U; k++) {
+		make_in_nogyro(&s, 0, 0, 200, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+	}
+	TEST_CHECK("S4-U52", p.handling, "sustained low-g/free-fall triggers handling stop");
+	imu_proc_init(&p, &cal);
+	for (k = 0; k < 60U; k++) {
+		make_in_nogyro(&s, -1000, 0, 0, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+	}
+	TEST_CHECK("S4-U53", p.handling && p.tilt, "robot held on its side triggers severe-tilt handling stop");
+	imu_proc_init(&p, &cal);
+	for (k = 0; k < 60U; k++) {
+		make_in_nogyro(&s, -342, 0, 940, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+	}
+	TEST_CHECK("S4-U54", !p.handling, "ordinary 20-degree hump tilt does not trigger severe handling stop");
+	/* Production path: whole-mm odometry, published every 20 ms, read
+	   by a 10 ms IMU task. At 30 mm/s most increments are zero. */
+	imu_proc_init(&p, &cal);
+	hump_init(&h);
+	last.completed = FALSE;
+	{
+		W previous_mm = -100, published_mm = -100;
+		UINT tick = 0;
+		for (yaw = -1000; yaw < 4000; yaw += 3, tick++) {
+			W pc = (yaw < 0 || yaw > 3000) ? 0 : s4_hump_pitch_cdeg(40, 300, yaw / 10);
+			W delta_mm;
+			if ((tick & 1U) == 0U) published_mm = yaw / 10;
+			delta_mm = published_mm - previous_mm;
+			previous_mm = published_mm;
+			make_pose(&s, pc, 0);
+			(void)imu_proc_step(&p, &s, 10);
+			hump_step(&h, p.pitch_cdeg, delta_mm * 1000, TRUE, &ev);
+			if (ev.completed) last = ev;
+		}
+	}
+	TEST_CHECK("S4-U55", last.completed && h.count == 1 && iabs(last.height_um - 40000) <= 4000,
+		   "30 mm/s hump survives real 20 ms whole-mm odometry sampled at 10 ms");
+	imu_proc_init(&p, &cal);
+	hump_init(&h);
+	last.completed = FALSE;
+	for (k = 0; k < 240U; k++) {
+		S4_HUMP_SAMPLE packed, unpacked;
+		W roll = k < 40U ? 0 : k < 80U ? (W)(k - 40U) * 50
+			: k < 140U ? 2000 : k < 180U ? (W)(180U - k) * 50 : 0;
+		make_in_nogyro(&s, -1000 * imath_sin_q15(roll) / 32768, 0,
+			1000 * imath_sin_q15(roll + 9000) / 32768, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+		packed.tilt_ddeg = (H)(p.roll_cdeg / 10);
+		packed.ds_100um = (k % 4U == 0U) ? 10U : 0U;
+		packed.valid = 1;
+		packed.seq = (UB)(k & 15U);
+		s4_sample_unpack(s4_sample_pack(&packed), &unpacked);
+		hump_roll_step(&h, (W)unpacked.tilt_ddeg * 10,
+			(W)unpacked.ds_100um * 100, unpacked.valid, &ev);
+		if (ev.completed) last = ev;
+	}
+	TEST_CHECK("S4-U64", last.completed && h.count == 1 && iabs(last.height_um - 37622) < 1500,
+		   "LSM303 roll filter and packed queue measure a one-wheel hump at slow speed");
 	TEST_SUMMARY("s4 no gyro");
 	return test_fail_;
 }
@@ -498,6 +570,53 @@ LOCAL INT test_hump(void)
 	hump_step(&h, 300, -1000, TRUE, &ev);
 	TEST_CHECK("S4-U45", ev.rejected && !hump_active(&h),
 		   "reverse motion rejects an active forward hump measurement");
+	hump_init(&h);
+	for (k = 0; k < 400U; k++) hump_step(&h, 800, 0, TRUE, &ev);
+	TEST_CHECK("S4-U56", !hump_active(&h) && h.count == 0,
+		   "sustained uphill tilt without wheel travel cannot start a hump");
+	hump_step(&h, 800, 1000, TRUE, &ev);
+	TEST_CHECK("S4-U57", hump_active(&h) && h.elev_um > 0 && h.travel_um == 1000,
+		   "confirmed uphill tilt starts with actual forward travel after zero increments");
+	{
+		W sign;
+		BOOL both_sides = TRUE;
+		for (sign = -1; sign <= 1; sign += 2) {
+			hump_init(&h);
+			any = FALSE;
+			for (k = 0; k < 180U; k++) {
+				W roll = k < 20U ? 0 : k < 60U ? (W)(k - 20U) * 50
+					: k < 80U ? 2000 : k < 120U ? (W)(120U - k) * 50 : 0;
+				hump_roll_step(&h, sign * roll, (k % 4U == 0U) ? 1000 : 0, TRUE, &ev);
+				any = any || ev.completed;
+			}
+			both_sides = both_sides && any && h.count == 1 && iabs(h.last_height_um - 37622) < 600;
+		}
+		TEST_CHECK("S4-U58", both_sides,
+			   "one-wheel 20-degree roll on either side measures about 37.6 mm with sparse odometry");
+	}
+	hump_init(&h);
+	for (k = 0; k < 100U; k++) hump_roll_step(&h, 2000, 0, TRUE, &ev);
+	TEST_CHECK("S4-U59", !hump_active(&h) && h.count == 0,
+		   "stationary sideways tilt cannot start a terrain measurement");
+	for (k = 0; k < 5U; k++) hump_roll_step(&h, 2000, 1000, TRUE, &ev);
+	TEST_CHECK("S4-U60", hump_active(&h) && h.count == 0 && h.peak_um > 37000,
+		   "one-wheel height tracks peak but waits for level before publishing a completed hump");
+	hump_roll_step(&h, 2000, 1000, FALSE, &ev);
+	any = ev.rejected;
+	for (k = 0; k < 10U; k++) hump_roll_step(&h, 2000, 1000, TRUE, &ev);
+	for (k = 0; k < 5U; k++) hump_roll_step(&h, 0, 1000, TRUE, &ev);
+	TEST_CHECK("S4-U61", any && h.count == 0 && !hump_active(&h),
+		   "lost IMU sample discards the side hump and blocks partial remeasurement until level");
+	hump_init(&h);
+	for (k = 0; k < 10U; k++) hump_roll_step(&h, 2000, 1000, TRUE, &ev);
+	hump_roll_step(&h, 9000, 1000, TRUE, &ev);
+	TEST_CHECK("S4-U62", ev.rejected && h.count == 0 && !hump_active(&h),
+		   "overturn/severe tilt is not reported as a hump");
+	hump_init(&h);
+	for (k = 0; k < 1200U; k++) hump_roll_step(&h, 2000, 1000, TRUE, &ev);
+	for (k = 0; k < 5U; k++) hump_roll_step(&h, 0, 1000, TRUE, &ev);
+	TEST_CHECK("S4-U63", h.count == 0 && !hump_active(&h),
+		   "long sideways slope is rejected without rearming before level");
 	TEST_SUMMARY("s4 hump");
 	return test_fail_;
 }
@@ -542,12 +661,12 @@ LOCAL INT test_packing(void)
 	TEST_CHECK("S4-U27", d.last_code == HUMP_CODE_NONE && d.max_code == 50 && d.count == 15
 		   && d.active == 1 && d.max_sat == 1 && d.last_len_cm == 255,
 		   "hump status word (count saturates at 15)");
-	e.pitch_ddeg = -2000;
+	e.tilt_ddeg = -2000;
 	e.ds_100um = 255;
 	e.valid = 1;
 	e.seq = 15;
 	s4_sample_unpack(s4_sample_pack(&e), &f);
-	TEST_CHECK("S4-U28", f.pitch_ddeg == -1023 && f.ds_100um == 255 && f.valid == 1 && f.seq == 15,
+	TEST_CHECK("S4-U28", f.tilt_ddeg == -1023 && f.ds_100um == 255 && f.valid == 1 && f.seq == 15,
 		   "IMU->hump queue message: pitch clamped to 11-bit range");
 	TEST_CHECK("S4-U29", s4_deg8(-9049) == -90 && s4_deg8(9051) == 90 && s4_deg8(149) == 1
 		   && s4_rate9(300000) == 255 && s4_rate9(-1499) == -1 && s4_shock5(20000) == 31

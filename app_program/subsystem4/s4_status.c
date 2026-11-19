@@ -100,7 +100,7 @@ EXPORT void s4_hump_unpack(UW w, S4_HUMP_STATUS *s)
 
 EXPORT UW s4_sample_pack(const S4_HUMP_SAMPLE *s)
 {
-	W	p = s->pitch_ddeg;
+	W	p = s->tilt_ddeg;
 
 	if (p > 1023) {
 		p = 1023;
@@ -113,7 +113,7 @@ EXPORT UW s4_sample_pack(const S4_HUMP_SAMPLE *s)
 
 EXPORT void s4_sample_unpack(UW w, S4_HUMP_SAMPLE *s)
 {
-	s->pitch_ddeg = (H)sext(w, 11);
+	s->tilt_ddeg = (H)sext(w, 11);
 	s->ds_100um = (UB)((w >> 11) & 0xFFUL);
 	s->valid = (UB)((w >> 19) & 0x1UL);
 	s->seq = (UB)((w >> 20) & 0xFUL);

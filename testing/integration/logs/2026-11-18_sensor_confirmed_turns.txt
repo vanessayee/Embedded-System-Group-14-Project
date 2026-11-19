@@ -1,0 +1,308 @@
+[TEST] S1-U01 PASS  CRC-16/CCITT-FALSE: catalogue check value 0x29B1; empty input 0xFFFF
+[TEST] S1-U02 PASS  LSB-first bit order (known bytes FD BC DA), signed fields, overflow/underflow flagged
+[TEST] s1 bits SUMMARY 2 passed, 0 failed
+[TEST] S1-U03 PASS  heartbeat = golden bytes 12 2A 04 34 12 EC 3D 60 E5; decodes; reconnects saturate at 15
+[TEST] S1-U04 PASS  command frame = golden bytes; decoded and validated (SET_SPEED 250, id 0x5A)
+[TEST] S1-U05 PASS  acknowledgement and event frames = golden bytes; both decode
+[TEST] S1-U06 PASS  telemetry: 279 bits -> 40-byte frame = golden frame; decodes field by field
+[TEST] S1-U07 PASS  telemetry round trip with every field at its maximum and at its minimum
+[TEST] s1 frames SUMMARY 5 passed, 0 failed
+[TEST] S1-U08 PASS  rejected: bad CRC, truncated, version, unknown type, length byte, wrong type, schema size
+[TEST] S1-U09 PASS  command fields: reserved bits / codes 6-7 rejected; SET_SPEED 50..400 only; no stray args
+[TEST] S1-U10 PASS  decoder errors map to distinct acknowledgement codes
+[TEST] S1-U11 PASS  commands map to supervisory requests only; Buddy 2's refusal is acknowledged with its reason
+[TEST] s1 validation SUMMARY 4 passed, 0 failed
+[TEST] S1-U12 PASS  every encoder refuses a buffer one byte too small (no overrun)
+[TEST]   telemetry size: binary frame 40 bytes, same fields as JSON 697 bytes
+[TEST] S1-U13 PASS  binary telemetry frame (40 B) at least 10x smaller than the JSON text form
+[TEST] s1 sizes SUMMARY 2 passed, 0 failed
+[TEST] S1-U14 PASS  no network stack in the image: DISABLED without faults; starts once configured
+[TEST] S1-U15 PASS  connect sequence WIFI -> MQTT -> SUBSCRIBE -> ONLINE
+[TEST] S1-U16 PASS  WiFi lost while online: WIFI_LOSS (degraded) and RECOVERING reported
+[TEST] S1-U17 PASS  retries wait 1, 2, 4, 8, 16, 16 s (capped, non-blocking); every 3rd restarts the client
+[TEST] S1-U18 PASS  automatic reconnection: ONLINE again, counted, back-off reset, faults cleared
+[TEST] S1-U19 PASS  broker lost with WiFi up: MQTT_LOSS only; each wait for the broker bounded to 10 s
+[TEST] s1 comm fsm SUMMARY 6 passed, 0 failed
+[TEST] S1-U20 PASS  communication status word: 17 bits, counters saturate at 15
+[TEST] s1 status word SUMMARY 1 passed, 0 failed
+[TEST] S2-U01 PASS  command word round trip at field limits (arg -2048)
+[TEST] S2-U01b PASS  command word arg +2047
+[TEST] S2-U02 PASS  reserved bits, unknown type and source rules rejected
+[TEST] S2-U03 PASS  argument ranges enforced at the boundaries
+[TEST] S2-U04 PASS  result, steering (clamped -63) and speed-cap words
+[TEST] S2-U05 PASS  motion status 2-word pack/unpack at limits
+[TEST] s2 formats SUMMARY 6 passed, 0 failed
+[TEST] S2-U06 PASS  zero error: output = feed-forward
+[TEST] S2-U07 PASS  saturated output: integrator frozen (anti-windup)
+[TEST] s2 pid SUMMARY 2 passed, 0 failed
+[TEST] S2-U08 PASS  turn arc for 90 deg = pi*track/4 (102.1 mm at 130 mm track)
+[TEST] S2-U09a PASS  MOVE accepted in Obstacle Handling
+[TEST] S2-U09 PASS  MOVE 500 mm: DONE, within 25 mm, wheels within 15 mm
+[TEST] S2-U09b PASS  bounded AVOID reverse accepted only in Obstacle Handling
+[TEST] S2-U09c PASS  negative MOVE drives both wheels backward and completes
+[TEST] S2-U10 PASS  TURN +90: left forward, right backward, arc within 12 mm
+[TEST] S2-U10b PASS  barcode RIGHT: advance past the crossing and keep turning until the centre sensor sees the outgoing line
+[TEST] S2-U10c PASS  barcode LEFT: keep pivoting until centre reacquires the outgoing tape
+[TEST] S2-U10j PASS  barcode LEFT: GP2 alone cannot falsely complete the turn
+[TEST] S2-U10h PASS  barcode LEFT: missing tape faults at the angle limit
+[TEST] S2-U10k PASS  barcode LEFT: a late centre contact is acquired after 90 degrees
+[TEST] S2-U10d PASS  both sensors black together do not confirm the right branch
+[TEST] S2-U10e PASS  line seen only far from 90 deg: fault at the angle limit
+[TEST] S2-U10f PASS  no fresh IR word: stop at encoder target and report unconfirmed turn
+[TEST] S2-U10g PASS  barcode U-turn: no advance, turns on the spot
+[TEST] S2-U10i PASS  left turn uses the recorded GP2 exit 7 mm before command start
+[TEST] S2-U11 PASS  queued TURN starts straight from creep speed (no full stop)
+[TEST] s2 execution SUMMARY 17 passed, 0 failed
+[TEST] S2-U12 PASS  AVOID command rejected outside Obstacle Handling
+[TEST] S2-U13 PASS  BARCODE command rejected in Obstacle Handling
+[TEST] S2-U14 PASS  command from an older mode epoch rejected as stale
+[TEST] S2-U15 PASS  nothing accepted in INIT or SAFE_STOP
+[TEST] S2-U16 PASS  bounded command queue: overflow rejected (QUEUE)
+[TEST] S2-U17 PASS  STOP bypass aborts the running command (ABORTED, nav finished)
+[TEST] S2-U18 PASS  stop(): PWM forced to zero in the very next period
+[TEST] s2 arbitration SUMMARY 7 passed, 0 failed
+[TEST] S2-U19 PASS  stall (duty, no ticks for 400 ms): FAULT result and MOTOR_STALL
+[TEST] S2-U20 PASS  FAULT -> IDLE only after 300 ms clear; motors off meanwhile
+[TEST] S2-U21 PASS  3rd consecutive stall raises MOTION_ESCALATED (bounded recovery)
+[TEST] S2-U22 PASS  one wheel without ticks while driven: motion FAULT raised
+[TEST] s2 faults SUMMARY 4 passed, 0 failed
+[TEST] S2-U23 PASS  positive steer turns right (left wheel faster)
+[TEST] S2-U24 PASS  stale steering: the car stops instead of driving blind
+[TEST] S2-U25 PASS  obstacle speed cap limits line-following speed (FR8)
+[TEST] S2-U26 PASS  steering ignored outside Normal Navigation
+[TEST] S2-U27 PASS  SAFE_STOP: zero motor output whatever the inputs
+[TEST] S2-U40 PASS  stop for an obstacle: wheels coast to rest, no reverse duty (no runaway backwards)
+[TEST] s2 steering SUMMARY 6 passed, 0 failed
+[TEST] S2-U28 PASS  INIT waits for both IR and IMU calibration
+[TEST] S2-U29 PASS  not armed (test image): stays in INIT
+[TEST] S2-U30 PASS  INIT -> NORMAL when calibrated and armed
+[TEST] S2-U31 PASS  barcode command -> NAVIGATION ACTION
+[TEST] S2-U32 PASS  obstacle during a barcode action -> OBSTACLE, new epoch
+[TEST] S2-U33 PASS  avoidance done + line found -> NORMAL
+[TEST] S2-U34 PASS  critical fault (collision) -> SAFE_STOP
+[TEST] S2-U35 PASS  SAFE_STOP holds; events cannot leave it
+[TEST] S2-U36 PASS  validated RESUME -> INIT with calibration required again
+[TEST] S2-U37 PASS  initialisation timeout -> SAFE_STOP with SYS_FLT_INIT
+[TEST] S2-U38 PASS  severity: network/line-lost/stall degraded; FR12 and escalation critical
+[TEST] S2-U39 PASS  condition faults clear themselves; event faults need CLEAR
+[TEST] s2 vehicle fsm SUMMARY 12 passed, 0 failed
+[TEST] S3-U01 PASS  Code 39 table: 44 unique patterns, 3 wide each; * A Z as measured
+[TEST] S3-U02 PASS  every supplied sample decodes (PDF A/Z, PPTX A/F/Z/W/X/Y, photo A)
+[TEST] S3-U03 PASS  barcode read in the opposite direction decodes (reversed flag)
+[TEST] S3-U61 PASS  recorded reverse A with damaged final delimiter rejected as reverse
+[TEST] S3-U62 PASS  measured reverse A decodes when final delimiter is valid
+[TEST] S3-U04 PASS  print-scale independent (ratio classification)
+[TEST] S3-U05 PASS  invalid: element count not 10k-1
+[TEST] S3-U79 PASS  25-element scan shared by A and B cannot queue a turn
+[TEST] S3-U06 PASS  invalid: no wide/narrow contrast
+[TEST] S3-U07 PASS  invalid: corrupted start symbol rejected (no command)
+[TEST] S3-U08 PASS  invalid: wide inter-character gap rejected
+[TEST] S3-U09 PASS  invalid: missing start/stop character
+[TEST] S3-U72 PASS  recorded reverse F survives one short narrow-space measurement
+[TEST] S3-U73 PASS  reverse F still rejects a genuinely oversized gap
+[TEST] S3-U74 PASS  all A–Z decode in forward direction
+[TEST] S3-U75 PASS  all A–Z decode in reverse direction
+[TEST] S3-U78 PASS  A-Z capture and decode both ways at 170, 250 and 339 mm (156 cases)
+[TEST] S3-U80 PASS  27-element recovery covers A-Z both ways with no wrong letter across all merge positions
+[TEST] S3-U81 PASS  ambiguous 27-element captures are rejected
+[TEST] S3-U76 PASS  recorded reverse F with 1.35x bar separation decodes
+[TEST] S3-U77 PASS  recorded forward scan with 1.19x bar separation is rejected
+[TEST] s3 code39 SUMMARY 21 passed, 0 failed
+[TEST] S3-U10 PASS  15/15 reads at 100, 200 and 300 mm/s (+-15 % ripple, 5 % speed bias, 0.6 mm blur)
+[TEST] S3-U11a PASS  first pass over Z: VALID, with 29 diagnostic element widths
+[TEST] S3-U11 PASS  same barcode again within 600 mm: DUPLICATE (no second command)
+[TEST] S3-U12 PASS  isolated black run times out without a complete symbol
+[TEST] S3-U13 PASS  no edge for 3 s while capturing: aborted (bounded)
+[TEST] S3-U14 PASS  wheel odometry jump does not affect sensor capture
+[TEST] S3-U60 PASS  stationary wheels: digital transition timing decodes A
+[TEST] S3-U63 PASS  exact recorded A: wide first white space preserved, biased gaps accepted
+[TEST] S3-U84 PASS  339 mm W with 2 s merged run finishes capture before the stall timeout
+[TEST] s3 capture SUMMARY 9 passed, 0 failed
+[TEST] S3-U15 PASS  default barcode mapping: A=RIGHT, F=LEFT, U=LEFT, X=STRAIGHT, Y=U-TURN; Z unmapped
+[TEST] S3-U16 PASS  mapping overrides work; '*' and nav > 3 rejected; reset restores defaults
+[TEST] S3-U17 PASS  LEFT/RIGHT/U-TURN/STRAIGHT -> encoder TURN/MOVE commands
+[TEST] s3 nav map SUMMARY 3 passed, 0 failed
+[TEST] S3-U18 PASS  stable centre-on-black start: configured black-high polarity
+[TEST] S3-U19 PASS  all-white start is stable and immediately qualifies IR startup
+[TEST] S3-U20 PASS  all-black start is stable and immediately qualifies IR startup
+[TEST] S3-U59 PASS  physical-right-only black start qualifies and preserves its position
+[TEST] S3-U21 PASS  flickering sensor while still -> calibration failure
+[TEST] S3-U22 PASS  centre black: gradual physical-left correction through mirrored steering
+[TEST] S3-U23 PASS  wide line filling the C-to-IR_L corridor: drive straight
+[TEST] S3-U24 PASS  line on outer boundary: smooth moving correction, never a pivot
+[TEST] S3-U52 PASS  white corridor straight; centre black ramps physical-left correction
+[TEST] S3-U25 PASS  explicit known loss uses an arc, then pivot; normal white corridor does not trigger it
+[TEST] S3-U26 PASS  line reacquired on centre -> FOUND and gradual physical-left correction
+[TEST] S3-U58 PASS  white corridor gradually returns to straight with no loss event
+[TEST] S3-U57 PASS  short white corridor remains straight and ramps smoothly at the centre edge
+[TEST] S3-U55 PASS  lost-line arc ends after LF_LOST_ARC_MM of travel, then pivot
+[TEST] S3-U56 PASS  line spanning both corridor edges after a find: drive straight
+[TEST] S3-U27 PASS  line never found: keeps pivoting towards IR_R; no RECOVERY_FAIL
+[TEST] S3-U28 PASS  GP6 + GP2 black for 60 ms, barcode white: one JUNCTION event
+[TEST] S3-U29 PASS  black under the barcode sensor (IR_R) beside the line does not disturb steering
+[TEST] S3-U53 PASS  black under IR_R alone is not the line: lost, turning towards IR_R, search not ended
+[TEST] S3-U54 PASS  lost-line turn, then IR_L has the line: FOUND, smooth moving correction
+[TEST] S3-U64 PASS  barcode toggles on GP26 do not block stable GP6/GP2 startup
+[TEST] S3-U65 PASS  barcode input cannot change line steering, speed, junction or recovery events
+[TEST] S3-U66 PASS  30 s both-white corridor remains straight; barcode toggling never triggers search
+[TEST] S3-U67 PASS  centre LEFT -> right sensor RIGHT -> white: hold, then STRAIGHT; fixed speed
+[TEST] S3-U68 PASS  edge correction in the first 20 ms; reverse correction within 40 ms, wheels keep moving
+[TEST] S3-U69 PASS  centre stays black (curve): correction grows to LF_EDGE_STEER_MAX, never beyond
+[TEST] S3-U70 PASS  short contact -> straight; sustained contact -> turn held LF_HOLD_MS, then straight
+[TEST] S3-U71 PASS  held turn ends at once when the other sensor sees black or at a junction
+[TEST] S3-U82 PASS  after a barcode turn: GP2 on the line -> pivot right until white, then straight
+[TEST] S3-U85 PASS  right branch under GP6: drive straight briefly then resume normal steering
+[TEST] s3 line SUMMARY 30 passed, 0 failed
+[TEST] S3-U30 PASS  line status word round trip at limits (steer -63)
+[TEST] S3-U31 PASS  barcode status word round trip at limits
+[TEST] s3 status words SUMMARY 2 passed, 0 failed
+[TEST] S4-U01 PASS  integer square root exact (floor) incl. 32-bit maximum
+[TEST] S4-U02 PASS  sine within 0.002 at 0/30/90/-30/180/270 deg
+[TEST] S4-U03 PASS  atan2 within 0.3 deg (0, 45, 90, -135, 10 deg)
+[TEST] s4 math SUMMARY 3 passed, 0 failed
+[TEST] S4-U04 PASS  stationary calibration recovers gyro bias and level offsets
+[TEST] S4-U05 PASS  car moving during calibration: rejected (retry)
+[TEST] S4-U06 PASS  gravity not on the configured up axis: calibration failure
+[TEST] S4-U07 PASS  no samples: failure
+[TEST] s4 calibration SUMMARY 4 passed, 0 failed
+[TEST] S4-U08 PASS  static 10 deg pitch measured within 0.5 deg
+[TEST] S4-U09 PASS  short braking/bump spike: pitch error < 1 deg (filter)
+[TEST] S4-U10 PASS  tilt event only after 200 ms beyond 15 deg (no false tilt)
+[TEST] S4-U11 PASS  2.5 g impact detected once (refractory), peak recorded
+[TEST] S4-U12 PASS  0.9 g bump below the collision threshold
+[TEST] S4-U13 PASS  still for 300 ms: STATIONARY
+[TEST] S4-U14 PASS  +30 dps yaw: TURN_LEFT, turn rate reported
+[TEST] S4-U15 PASS  -30 dps yaw: TURN_RIGHT
+[TEST] S4-U16 PASS  vibration/acceleration: MOVING
+[TEST] S4-U17 PASS  frozen raw data -> invalid run -> IMU fault
+[TEST] S4-U18 PASS  saturated sample rejected, never used
+[TEST] s4 monitoring SUMMARY 11 passed, 0 failed
+[TEST] S4-U33 PASS  no gyro: static 10 deg pitch from the accelerometer within 0.5 deg
+[TEST] S4-U34 PASS  no gyro: single bump spike rejected, pitch error < 1 deg
+[TEST] S4-U35 PASS  no gyro: tilt only after the filter settles and 200 ms beyond 15 deg
+[TEST] S4-U36 PASS  no gyro: 2.5 g impact detected once, peak recorded
+[TEST] S4-U37 PASS  no gyro: left turn from the magnetometer, rate within 3 dps, heading within 2 deg
+[TEST] S4-U38 PASS  no gyro: right turn gives a negative yaw rate
+[TEST] S4-U39 PASS  no gyro: heading tilt-compensated, climbing 10 deg moves it < 2 deg, no false turn
+[TEST] S4-U40 PASS  no gyro: magnetometer overflow invalidates heading only, not the IMU
+[TEST] S4-U41 PASS  no gyro: still for 300 ms: STATIONARY
+[TEST] S4-U42 PASS  no gyro: 40 mm hump through the accelerometer filter within +-4 mm, no false turn
+[TEST] S4-U43 PASS  no gyro: 40 mm hump at 30 mm/s (0.3 mm per sample) within +-4 mm
+[TEST] s4 no gyro SUMMARY 11 passed, 0 failed
+[TEST] S4-U19 PASS  40 mm hump measured within +-4 mm (Tribunal 1 success criterion)
+[TEST] S4-U20 PASS  highest hump of the run tracked at full resolution
+[TEST] S4-U21 PASS  flat track with vibration: no hump
+[TEST] S4-U22 PASS  long ramp (> 1 m) is not reported as a hump
+[TEST] S4-U23 PASS  invalid sample mid-hump: measurement discarded
+[TEST] S4-U24 PASS  6-bit hump code: 2 mm steps, saturation flag, 63 = none
+[TEST] S4-U25 PASS  quantisation error <= 1 mm over 0..100 mm
+[TEST] S4-U44 PASS  shallow road grade is not accumulated into a later hump candidate
+[TEST] S4-U45 PASS  reverse motion rejects an active forward hump measurement
+[TEST] s4 hump SUMMARY 9 passed, 0 failed
+[TEST] S4-U26 PASS  IMU status words round trip at limits and invalid codes
+[TEST] S4-U27 PASS  hump status word (count saturates at 15)
+[TEST] S4-U28 PASS  IMU->hump queue message: pitch clamped to 11-bit range
+[TEST] S4-U29 PASS  compaction rounds to nearest and saturates
+[TEST] s4 packing SUMMARY 4 passed, 0 failed
+[TEST] S5-U01 PASS  10-bit distance code: 5 mm steps, 0..4 m, 1022/1023 reserved
+[TEST] S5-U02 PASS  scan sample message round trip at limits
+[TEST] S5-U02b PASS  scan sample positive limits
+[TEST] S5-U03 PASS  scan request message round trip
+[TEST] S5-U04 PASS  profile message: limits kept, 'unknown' clearance stays unknown
+[TEST] S5-U05 PASS  scan and avoidance status words round trip
+[TEST] s5 codes SUMMARY 6 passed, 0 failed
+[TEST] S5-U06 PASS  width within 10 % and distance within 1 cm (4 boxes, full fine scan)
+[TEST] S5-U07 PASS  obstacle left of the path: negative bearing, more room on the right
+[TEST] S5-U08 PASS  no echo anywhere: path clear (NO_OBSTACLE)
+[TEST] S5-U09 PASS  object beyond 700 mm is not an obstacle to avoid
+[TEST] S5-U10 PASS  wall across the whole scan: edges unknown (INSUFFICIENT)
+[TEST] S5-U11 PASS  identical range at every angle: servo suspect (INVALID)
+[TEST] S5-U12 PASS  too few valid samples: INVALID
+[TEST] S5-U13 PASS  wall beside the obstacle limits that side's clearance
+[TEST] S5-U13b PASS  single 3-deg dropout stays in one obstacle; open sides ignore deep background
+[TEST] S5-U13c PASS  extreme-angle near echoes stay outside the symmetric front-plane band
+[TEST] S5-U13d PASS  captured production profile has two known edges for open-board planning
+[TEST] S5-U13e PASS  measured beam compensation removes false width and preserves clearance
+[TEST] S5-U13f PASS  narrow obstacle width comes from one angular scan cell, not a fixed millimetre clamp
+[TEST] S5-U13g PASS  central median rejects one short reflection in the front-gap estimate
+[TEST] S5-U13h PASS  central three-ray median retains a narrow obstacle despite background echoes
+[TEST] s5 profile SUMMARY 15 passed, 0 failed
+[TEST] S5-U14 PASS  plan uses forward space, calculated departure, pass, shallow return and align
+[TEST] S5-U15 PASS  calculated path gives 10 cm side gap and clears front face before PASS
+[TEST] S5-U15b PASS  more measured front clearance produces a longer forward approach
+[TEST] S5-U15c PASS  live side gap adaptively shortens return while preserving 10 cm clearance
+[TEST] S5-U16 PASS  right-shifted obstacle: shorter calculated route bypasses on the left
+[TEST] S5-U16b PASS  open-road planning has no hardcoded 320 mm board-width limit
+[TEST] S5-U16c PASS  route beyond the motion-command capacity is rejected safely
+[TEST] S5-U17 PASS  bumper gap below minimum: no plan; Safe Stop
+[TEST] S5-U17b PASS  100 mm close stop reverses only to the calculated safe path gap
+[TEST] S5-U17d PASS  minimum calculated bumper gap plans directly without reverse
+[TEST] S5-U17c PASS  reverse beyond the 150 mm bound is refused
+[TEST] S5-U18a PASS  open-board mode ignores captured 240/130 mm echo reach; equal geometry prefers right
+[TEST] S5-U18 PASS  no known safe side: no plan (Safe Stop), never an invented bypass
+[TEST] S5-U19 PASS  no valid profile: no plan
+[TEST] S5-U20 PASS  every planned step is valid and every avoidance MOVE is forward
+[TEST] s5 plan SUMMARY 15 passed, 0 failed
+[TEST]   plan: offset 261 mm, approach 180 mm, turn 68 deg, forward before pass 286 mm, required front 120 mm
+[TEST] INT-10a PASS  box 150 mm wide at 300 mm: packed profile -> plan; obstacle event -> OBSTACLE
+[TEST]   bypass: closest 255 mm beside the box, end heading 1045 mdeg, end offset 0 mm, travelled 1198 mm
+[TEST] INT-10b PASS  every planned step crosses the interface packed and completes; search stops on the line
+[TEST] INT-10c PASS  car edge keeps the configured gap; back on line, heading within 10 deg
+[TEST] INT-10d PASS  AVOID_DONE -> NORMAL: line steering drives the car again
+[TEST] int avoidance SUMMARY 4 passed, 0 failed
+[TEST] INT-11a PASS  valid unmapped barcode is decoded and reported without motion
+[TEST]   barcode 'A' -> RIGHT: heading change 97952 mdeg
+[TEST]   barcode 'F' -> LEFT: heading change -83986 mdeg
+[TEST]   barcode 'U' -> LEFT: heading change -83986 mdeg
+[TEST]   barcode 'X' -> STRAIGHT: heading change 0 mdeg
+[TEST] INT-11d PASS  Y at the junction pivots about 180 degrees in place and returns to NORMAL
+[TEST]   barcode 'Y' -> U-TURN: heading change 179051 mdeg
+[TEST] INT-11b PASS  A/F/U/X/Y wait for GP6+GP2 junction -> RIGHT/LEFT/LEFT/STRAIGHT/U-TURN -> DONE -> NORMAL
+[TEST] INT-11c PASS  barcode status word carries symbol, command and motion result
+[TEST] int barcode nav SUMMARY 4 passed, 0 failed
+[TEST]   junction turn 90: heading 99380 mdeg, crossing line 5 mm from centre sensor, -14 mm from right sensor
+[TEST] INT-21a PASS  'A' RIGHT at a cross junction: outgoing line under the centre sensor
+[TEST]   junction turn -90: heading -85414 mdeg, crossing line 5 mm from centre sensor, 25 mm from right sensor
+[TEST] INT-21b PASS  LEFT at a cross junction: outgoing line under the centre sensor
+[TEST] INT-21d PASS  after LEFT, Buddy 3 steering drives forward along the outgoing branch
+[TEST] INT-21c PASS  no outgoing line: junction turn faults and holds both motors off
+[TEST] int junction turn SUMMARY 4 passed, 0 failed
+[TEST] INT-12a PASS  obstacle during a barcode turn: OBSTACLE wins, turn ABORTED, motors off, line loss kept
+[TEST] INT-12b PASS  then: stale command, barcode command and speed change refused; Buddy 5's command accepted
+[TEST] int simultaneous SUMMARY 2 passed, 0 failed
+[TEST] INT-13a PASS  degraded faults from Buddies 1, 3, 5 are reported; the car keeps driving
+[TEST] INT-13b PASS  IMU fault -> SAFE_STOP in one cycle, motors held off; RESUME refused while it persists
+[TEST] INT-13c PASS  condition gone: RESUME -> INIT; both recalibrations required before NORMAL
+[TEST] INT-13d PASS  collision latched until CLEAR; CLEAR alone never leaves SAFE_STOP, RESUME does
+[TEST] INT-13e PASS  jammed wheels: 3 local motion faults, then escalation to SAFE_STOP (no endless cycling)
+[TEST] int faults SUMMARY 5 passed, 0 failed
+[TEST] INT-14a PASS  during avoidance Buddy 3 reports the loss once and neither steers nor searches
+[TEST] INT-14b PASS  line under the sensors again: FOUND event; AVOID_DONE -> NORMAL
+[TEST] INT-14c PASS  line steering resumes driving only after the hand-back to NORMAL
+[TEST] INT-14d PASS  failed avoidance -> SAFE_STOP; normal both-white corridor continues straight without false loss
+[TEST] int line reacquisition SUMMARY 4 passed, 0 failed
+[TEST] INT-17a PASS  WiFi lost for 9 s while driving: WIFI_LOSS + RECOVERING reported, not critical; car keeps going
+[TEST] INT-17b PASS  link back: automatic reconnection clears the network faults; driving never interrupted
+[TEST] int network loss SUMMARY 2 passed, 0 failed
+[TEST] INT-18a PASS  critical fault in the same cycle as AVOID_DONE: SAFE_STOP wins, manoeuvre ABORTED
+[TEST] INT-18b PASS  in SAFE_STOP no event leaves it and only supervisory requests are accepted
+[TEST] INT-18c PASS  remote STOP: zero output in the next period, held as SAFE_STOP until RESUME
+[TEST] int safe stop SUMMARY 3 passed, 0 failed
+[TEST] INT-19a PASS  motion queue full: the 6th command is refused (QUEUE); the 5 accepted run in order
+[TEST] INT-19b PASS  barcode edge buffer full: capture rejected as INVALID (never a command), decoder idle
+[TEST] int queue full SUMMARY 2 passed, 0 failed
+[TEST] INT-20a PASS  MQTT SET_SPEED 300 -> validated -> supervisory request -> applied, ACK OK
+[TEST] INT-20b PASS  same request during avoidance: refused by Buddy 2, ACK carries the reason (MODE)
+[TEST] INT-20c PASS  out-of-range or corrupted MQTT commands are rejected by Buddy 1, never reach Buddy 2
+[TEST] INT-20d PASS  remote STOP accepted in all 5 modes; RESUME refused outside SAFE_STOP
+[TEST] int remote command SUMMARY 4 passed, 0 failed
+[TEST] INT-15a PASS  Buddies 1-5 at their limits and invalid codes: all 48 fields reach the server unchanged
+[TEST] INT-15b PASS  engineering values arrive within their step: 2 deg, 10 mm/s, 1 deg, 5 mm, 10 mm
+[TEST] int binary interfaces SUMMARY 2 passed, 0 failed
+[TEST] INT-16a PASS  30 mm hump measured by Buddy 4 arrives at the server within +-4 mm
+[TEST] INT-16b PASS  after humps of 30, 20, 45 mm: count 3, highest 45 mm within +-4 mm
+[TEST] INT-16c PASS  one EVT_HUMP frame carries last, highest and count
+[TEST] INT-16d PASS  mode, barcode, obstacle and collision events decode to their fields; no change, no event
+[TEST] INT-16e PASS  a failed avoidance (counter unchanged) sends one OBSTACLE event with its reason
+[TEST] int hump telemetry SUMMARY 5 passed, 0 failed
+[TEST] HOST TOTAL: 0 failed check(s)

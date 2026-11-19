@@ -19,6 +19,7 @@
 #include "subsystem5.h"
 #include "drv_ultrasonic.h"
 #include "drv_servo.h"
+#include "obstacle_profile.h"
 
 EXPORT volatile UW	s5_scan_word;
 EXPORT TASK_STAT	s5_stat_scan;
@@ -27,6 +28,8 @@ LOCAL S5_SCAN_STATUS	sst;
 LOCAL UB		silent_run;
 LOCAL UB		good_run;
 LOCAL UB		detect_run;
+LOCAL UW		side_ranges[3];
+LOCAL UINT		side_count;
 
 EXPORT void s5_get_scan_status(S5_SCAN_STATUS *s)
 {
@@ -75,12 +78,12 @@ LOCAL INT range(UW *mm)
 /* A single HC-SR04 return can jump between the obstacle face and a wide
    off-axis reflection.  During a sweep, take three independent pings at
    each settled servo angle.  Two agreeing valid returns are required and
-   their median is passed to the profile task.  Likewise, two NO_ECHO
+   their consensus is passed to the profile task.  Likewise, two NO_ECHO
    returns establish open space; one isolated echo cannot widen an object. */
 LOCAL INT scan_range(UW *mm)
 {
 	UW	valid[S5_SCAN_PINGS];
-	UINT	i, j, nvalid = 0, no_echo = 0, no_response = 0;
+	UINT	i, nvalid = 0, no_echo = 0, no_response = 0;
 	INT	r = US_INVALID;
 
 	for (i = 0; i < S5_SCAN_PINGS; i++) {
@@ -100,24 +103,10 @@ LOCAL INT scan_range(UW *mm)
 	}
 
 	if (nvalid >= 2U) {
-		/* Tiny insertion sort; S5_SCAN_PINGS is deliberately three. */
-		for (i = 1; i < nvalid; i++) {
-			UW v = valid[i];
-			j = i;
-			while (j > 0U && valid[j - 1U] > v) {
-				valid[j] = valid[j - 1U];
-				j--;
-			}
-			valid[j] = v;
-		}
-		if (nvalid == 2U && valid[1] - valid[0] > S5_SCAN_AGREE_MM) {
-			*mm = 0;		/* face/background pair: no consensus */
-			r = US_INVALID;
-		} else {
-			*mm = (nvalid == 2U) ? (valid[0] + valid[1] + 1U) / 2U
-						 : valid[nvalid / 2U];
-			r = US_OK;
-		}
+		W filtered = op_range_consensus_mm(valid, nvalid);
+
+		*mm = (filtered >= 0) ? (UW)filtered : 0U;
+		r = (filtered >= 0) ? US_OK : US_INVALID;
 	} else if (no_echo >= 2U) {
 		*mm = 0;
 		r = US_NO_ECHO;
@@ -129,7 +118,7 @@ LOCAL INT scan_range(UW *mm)
 		r = US_INVALID;
 	}
 
-	/* range() published the last raw ping; replace it with the filtered
+	/* range() recorded the last raw ping; replace it with the filtered
 	   result so telemetry and the packed sample describe the same value. */
 	sst.us_result = (UB)r;
 	sst.dist_code = (r == US_OK) ? s5_dist_code(*mm)
@@ -203,7 +192,27 @@ LOCAL void side_once(INT angle)
 	if (servo_angle() != angle) {
 		(void)tk_dly_tsk(servo_set(angle));
 	}
-	(void)range(&mm);
+	{
+		INT r = range(&mm);
+
+		if (r == US_OK) {
+			W filtered;
+
+			if (side_count == 3U) {
+				side_ranges[0] = side_ranges[1];
+				side_ranges[1] = side_ranges[2];
+				side_count = 2U;
+			}
+			side_ranges[side_count++] = mm;
+			filtered = op_range_consensus_mm(side_ranges, side_count);
+			sst.us_result = (filtered >= 0) ? US_OK : US_INVALID;
+			sst.dist_code = (filtered >= 0) ? s5_dist_code((UW)filtered)
+						       : S5_DIST_INVALID;
+		} else {
+			/* Clear stale range history at open space or sensor errors. */
+			side_count = 0;
+		}
+	}
 	sst.detected = 0;
 	if (sst.cap != 0U) {
 		motion_set_speed_cap(0);
@@ -284,6 +293,8 @@ EXPORT void scan_task(INT stacd, void *exinf)
 	(void)exinf;
 	if (servo_init() < E_OK) {
 		sys_fault_set(SYS_FLT_SERVO_SUSPECT);
+	} else {
+		sys_task_ready(SYS_TASK_SCAN);
 	}
 	sst.dist_code = S5_DIST_INVALID;
 	sst.mode = SREQ_MONITOR;
@@ -311,6 +322,7 @@ EXPORT void scan_task(INT stacd, void *exinf)
 			continue;
 		}
 		s5_req_unpack(w, &rq);
+		side_count = 0;
 		if (rq.type == SREQ_COARSE || rq.type == SREQ_FINE) {
 			side_active = FALSE;
 			do_scan(&rq);

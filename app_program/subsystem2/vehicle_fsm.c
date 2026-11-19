@@ -63,9 +63,14 @@ EXPORT void vfsm_step(VFSM *f, const VFSM_IN *in, VFSM_OUT *out)
 		if ((ev & SYS_EV_IMU_CAL_OK) != 0UL) {
 			f->imu_ok = TRUE;
 		}
-		if (f->ir_ok && f->imu_ok && in->armed) {
+		if (f->ir_ok && f->imu_ok && in->armed
+		    && (in->ready & SYS_READY_ALL) == SYS_READY_ALL) {
 			enter(f, VM_NORMAL, out);
-		} else if (in->armed && f->in_mode_ms > INIT_TIMEOUT_MS) {
+		} else if (in->armed && f->in_mode_ms > INIT_TIMEOUT_MS
+                   && (!f->ir_ok || !f->imu_ok
+                       || (in->ready & SYS_READY_LOCAL) != SYS_READY_LOCAL)) {
+            /* Hotspot/MQTT can take arbitrarily long; keep motors off
+               in INIT while waiting, without timing out the network. */
 			out->flt_set |= SYS_FLT_INIT;
 			enter(f, VM_SAFE_STOP, out);
 		}

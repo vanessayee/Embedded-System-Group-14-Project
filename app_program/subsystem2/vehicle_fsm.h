@@ -5,7 +5,7 @@
  *	Motion Control task; there is deliberately no separate Vehicle
  *	Controller task (Week 6 section 4).  Pure logic.
  *
- *	    INIT ------ IR + IMU calibrated --------------> NORMAL
+ *	    INIT ------ all five buddies + MQTT ready -----> NORMAL
  *	    INIT ------ init timeout / calibration fail ---> SAFE_STOP
  *	    NORMAL ---- barcode command starts ------------> NAV_ACTION
  *	    NAV_ACTION  command done/aborted --------------> NORMAL
@@ -38,6 +38,7 @@ typedef struct {
 	UW	events;		/* SYS_EV_* consumed this cycle */
 	UW	faults;		/* shared fault bitmask */
 	UW	crit_mask;	/* critical fault bits */
+	UW	ready;		/* SYS_READY_B1..B5, fresh runtime checks */
 	BOOL	armed;		/* motors allowed (FALSE in test builds) */
 	BOOL	nav_started;	/* barcode command began */
 	BOOL	nav_finished;	/* barcode command ended */

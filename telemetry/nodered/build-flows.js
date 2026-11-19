@@ -168,6 +168,51 @@ const flows = [
 	fn('csc14_err_fn', 'count + log', 360, 780, ERRORS, 0, [])
 ];
 
+const DEMO_HTTP = `
+try {
+ const service = global.get('demo');
+ const req = msg.req;
+ const route = req.path;
+ msg.headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
+ if (req.method === 'POST') {
+  const origin = req.headers.origin;
+  if (req.headers['x-csc14-dashboard'] !== '1' || (origin && origin !== req.protocol + '://' + req.headers.host)) {
+   msg.statusCode = 403; msg.payload = { error: 'Dashboard requests must come from this origin.' }; return msg;
+  }
+ }
+ if (route === '/csc14/dashboard') {
+  msg.headers['content-type'] = 'text/html; charset=utf-8';
+  msg.payload = global.get('demoAssets').html;
+ } else if (route === '/csc14/dashboard.js') {
+  msg.headers['content-type'] = 'application/javascript; charset=utf-8';
+  msg.payload = global.get('demoAssets').js;
+ } else if (route === '/csc14/api/snapshot') {
+  msg.payload = await service.snapshot();
+ } else if (route === '/csc14/api/rules') {
+  const body = req.body || {};
+  if (body.action === 'read') msg.payload = await service.syncMap();
+  else if (body.action === 'apply') msg.payload = await service.applyRules(body.rules);
+  else throw new Error('Choose read or apply.');
+ } else if (route === '/csc14/api/command') {
+  const name = (req.body || {}).command;
+  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');
+  msg.payload = await service.command(name);
+ } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }
+} catch (e) {
+ msg.statusCode = 503;
+ msg.payload = { error: e.message };
+}
+if (!msg.headers['content-type']) msg.headers['content-type'] = 'application/json';
+return msg;
+`;
+for (const [i, url, method] of [
+ [0,'/csc14/dashboard','get'], [1,'/csc14/dashboard.js','get'],
+ [2,'/csc14/api/snapshot','get'], [3,'/csc14/api/rules','post'], [4,'/csc14/api/command','post']
+]) {
+ flows.push({ id:'demo_in_'+i, type:'http in', z:Z, name:url, url, method, upload:false, swaggerDoc:'', x:180,y:860+i*65,wires:[['demo_http_'+i]] });
+ flows.push(fn('demo_http_'+i,'demonstration console',450,860+i*65,DEMO_HTTP,1,[['demo_out_'+i]]));
+ flows.push({ id:'demo_out_'+i,type:'http response',z:Z,name:'',statusCode:'',headers:{},x:710,y:860+i*65,wires:[] });
+}
 const file = path.join(__dirname, 'flows.json');
 const text = JSON.stringify(flows, null, 4) + '\n';
 if (require.main === module) {

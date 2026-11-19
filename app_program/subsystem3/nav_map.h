@@ -23,7 +23,9 @@
 #define NAV_UTURN	3U
 #define NAV_BITS	2U
 
-#define NAV_MAP_SIZE	8	/* entries in the runtime table */
+#define NAV_MAP_SIZE	43	/* direct indexed runtime table; '*' excluded */
+#define NAV_UNMAPPED	4U
+IMPORT ER nav_map_remove(UB symbol);
 
 IMPORT void nav_map_reset(void);			/* load the default table */
 IMPORT ER   nav_map_set(UB symbol, UB nav);		/* add/replace one entry  */

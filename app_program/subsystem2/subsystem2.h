@@ -106,6 +106,8 @@ IMPORT void motion_set_armed(BOOL armed);	/* bench / test use */
 /* ---------------------------------------------------------------------
  *  System state API (sys_state.c)
  * --------------------------------------------------------------------- */
+IMPORT void sys_task_ready(UW bits);
+IMPORT UW sys_tasks_ready(void);
 IMPORT UW   sys_vsw(void);
 IMPORT UW   sys_mode(void);
 IMPORT UW   sys_epoch(void);

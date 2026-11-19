@@ -68,4 +68,8 @@ IMPORT W    op_sin_q15(INT deg);	/* integer sine, Q15 */
 IMPORT W    op_cos_q15(INT deg);
 IMPORT INT  op_atan_deg(W y, W x);	/* bearing of lateral y at forward x, deg */
 
+/* Two or three valid pings: require a pair within 10% (minimum 10 mm).
+   Returns -1 for disagreement, insufficient samples or invalid range. */
+IMPORT W op_range_consensus_mm(const UW *ranges, UINT n);
+
 #endif /* OBSTACLE_PROFILE_H */

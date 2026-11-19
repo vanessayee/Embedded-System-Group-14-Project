@@ -47,16 +47,14 @@
 #define S5_FINE_STEP		3	/* one full-resolution sweep        */
 #define S5_SCAN_LIMIT_DEG	75	/* -75..+75 degrees, 51 samples     */
 #define S5_SCAN_PINGS		3	/* majority + median at every angle */
-#define S5_SCAN_AGREE_MM	80	/* two-return maximum disagreement */
 #define S5_SIDE_LOOK_DEG	80	/* near-perpendicular view of obstacle side */
 #define S5_SIDE_ECHO_ALLOWANCE_MM 40	/* [CAL] range/pose tolerance around plan */
 #define S5_FAR_EDGE_ALLOWANCE_MM 10	/* residual beam/edge uncertainty */
 #define S5_SIDE_GAP_MEAS_MARGIN_MM 10	/* subtract live-range error before return */
 #define S5_SIDE_SEEN_CONFIRM	2	/* establish the obstacle before looking for edge */
-#define S5_SIDE_CLEAR_CONFIRM	5	/* consecutive clear side readings */
+#define S5_SIDE_CLEAR_CONFIRM	3	/* consecutive clear side readings */
 #define S5_SIDE_BAD_MAX	10	/* unusable side readings before failure */
 #define S5_SIDE_READY_MS	2000	/* servo reach + first side sample */
-#define S5_SIDE_MIN_TRAVEL_MM	60	/* reject an immediate false edge */
 #define S5_SIDE_CENTER_MS	700	/* centre servo before final forward clearance */
 
 /* Avoidance and recovery (bounded) [CAL] */
@@ -76,6 +74,8 @@
 #define S5_SEARCH_RETRIES	1
 #define S5_SEARCH_RETRY_DEG	20
 #define S5_LINE_END_GRACE_MS	300	/* let final IR sample publish */
+#define S5_LINE_ALIGN_TIMEOUT_MS 8000
+#define S5_LINE_ALIGN_LIMIT_DEG 110	/* travel limit, never success criterion */
 #define S5_REPLANS		1	/* after an emergency stop          */
 
 /* flg_avoid bits */

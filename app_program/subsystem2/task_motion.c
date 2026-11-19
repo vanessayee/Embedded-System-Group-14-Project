@@ -21,6 +21,10 @@
 #include "motion_cfg.h"
 #include "drv_motor.h"
 #include "drv_encoder.h"
+#include "../subsystem1/subsystem1.h"
+#include "../subsystem4/subsystem4.h"
+#include "../subsystem5/subsystem5.h"
+#include "../subsystem5/drv_ultrasonic.h"
 
 /* 1 = print each wheel's target/measured speed, motor duty and encoder
    edge count every 500 ms, plus shared GPIO interrupts per second.
@@ -353,6 +357,38 @@ LOCAL void speed_log(void)
 }
 #endif
 
+/* No movement test is run at startup. These checks verify initialized
+   tasks and fresh sensor/network status; physical alignment needs testing. */
+LOCAL UW startup_ready(void)
+{
+ S1_COMM_STATUS comm;
+ S3_LINE_STATUS line;
+ S4_IMU_STATUS imu;
+ S5_SCAN_STATUS scan;
+ UW tasks = sys_tasks_ready(), ready = 0;
+ static UB scan_seq;
+ static UW scan_ms;
+ s1_get_comm_status(&comm);
+ s3_get_line_status(&line);
+ s4_get_imu_status(&imu);
+ s5_get_scan_status(&scan);
+ if (scan.seq != scan_seq) { scan_seq = scan.seq; scan_ms = app_now_ms(); }
+ if ((tasks & SYS_TASK_TLM) && comm.state == CS_ONLINE) ready |= SYS_READY_B1;
+ if ((tasks & SYS_TASK_MOTION) && enc_valid) ready |= SYS_READY_B2;
+ if ((tasks & SYS_TASK_BARCODE) && line.calibrated
+     && (UW)(app_now_ms() - line.time_ms) < 200U) ready |= SYS_READY_B3;
+ if ((tasks & SYS_TASK_HUMP) && imu.calibrated && imu.valid && imu.status == IMU_ST_OK
+     && (UW)(app_now_ms() - imu.time_ms) < 200U) ready |= SYS_READY_B4;
+ if ((tasks & (SYS_TASK_SCAN | SYS_TASK_PROFILE | SYS_TASK_AVOID))
+          == (SYS_TASK_SCAN | SYS_TASK_PROFILE | SYS_TASK_AVOID)
+     && (UW)(app_now_ms() - scan_ms) < 250U
+     && scan.mode == SREQ_MONITOR && scan.servo_deg == 0
+     && ((scan.us_result == US_OK && scan.dist_code <= S5_DIST_MAX_CODE)
+         || (scan.us_result == US_NO_ECHO && scan.dist_code == S5_DIST_NO_ECHO)))
+  ready |= SYS_READY_B5;
+ return ready;
+}
+
 LOCAL void control_cycle(void)
 {
 	MC_IN		in;
@@ -364,6 +400,8 @@ LOCAL void control_cycle(void)
 	UW		lw = app_load(&s2_line_seen_word);
 	BOOL		armed = (app_load(&s2_armed) != 0U) ? TRUE : FALSE;
 	BOOL		was_advancing = mc.advancing && mc.has_active;
+	static UW	turn_log_bits = 0xFFFFFFFFU;
+	static BOOL	turn_log_align;
 
 	cycle_ms += MOTION_PERIOD_MS;
 	measure();
@@ -392,6 +430,28 @@ LOCAL void control_cycle(void)
 			LSEEN_STALE_MS)
 		: FALSE;
 	mc_step(&mc, &in, MOTION_PERIOD_MS, &mout);
+	if (mc.has_active && !mc.advancing && mcmd_src(mc.active) == MSRC_BARCODE
+	    && mcmd_type(mc.active) == MCMD_TURN
+	    && mcmd_arg(mc.active) > -135 && mcmd_arg(mc.active) < 135) {
+		UW bits = lw & (LSEEN_C | LSEEN_R);
+		if (bits != turn_log_bits || mc.turn_align != turn_log_align) {
+			W dir = (mcmd_arg(mc.active) > 0) ? 1 : -1;
+			W arc = ((mc.last_l_um - mc.start_l_um)
+				- (mc.last_r_um - mc.start_r_um)) * dir / 2;
+			tm_printf((UB*)"motion: %s turn %d encoder deg, C%d R%d, %s, contacts %d/%d\n",
+				  dir > 0 ? "RIGHT" : "LEFT",
+				  (INT)((D)arc * 90 / mc_turn_arc_um(90)),
+				  (bits & LSEEN_C) != 0U, (bits & LSEEN_R) != 0U,
+				  mc.turn_align ? "align" : (!mc.seek_seen ? "clear junction"
+					: (arc < mc.seek_from_um ? "initial-angle guard" : "seek branch")),
+				  (INT)mc.turn_contact_samples, (INT)TURN_CONFIRM_SAMPLES);
+		}
+		turn_log_bits = bits;
+		turn_log_align = mc.turn_align;
+	} else {
+		turn_log_bits = 0xFFFFFFFFU;
+		turn_log_align = FALSE;
+	}
 	if (was_advancing && !mc.advancing && mc.has_active) {
 		tm_printf((UB*)"motion: junction pivot, GP2 edge %s, advance target %d mm\n",
 			  mc.adv_ref ? "used" : "unavailable", (INT)(mc.advance_um / 1000));
@@ -403,6 +463,16 @@ LOCAL void control_cycle(void)
 	vin.faults = sys_fault_get();
 	vin.crit_mask = sys_fault_crit_mask();
 	vin.armed = armed;
+ vin.ready = startup_ready();
+ if (vf.mode == VM_INIT) {
+  static UW last_ready = 0xFFFFFFFFU, last_log_ms;
+  if (vin.ready != last_ready || (UW)(app_now_ms() - last_log_ms) >= 3000U) {
+   tm_printf((UB*)"startup: B1 MQTT %d B2 motion %d B3 IR/barcode %d B4 IMU/hump %d B5 ultrasonic %d; motors held until all ready\n",
+     !!(vin.ready & SYS_READY_B1), !!(vin.ready & SYS_READY_B2),
+     !!(vin.ready & SYS_READY_B3), !!(vin.ready & SYS_READY_B4), !!(vin.ready & SYS_READY_B5));
+   last_ready = vin.ready; last_log_ms = app_now_ms();
+  }
+ }
 	vin.nav_started = pend_nav_started;
 	vin.nav_finished = pend_nav_finished;
 	vin.resume = pend_resume;
@@ -467,6 +537,7 @@ EXPORT void motion_task(INT stacd, void *exinf)
 	publish();
 	wdog_kick = wdog_ticks;
 	app_store(&loop_running, 1U);
+	sys_task_ready(SYS_TASK_MOTION);
 
 	for (;;) {
 		er = tk_wai_flg(flg_motion, MF_ALL, TWF_ORW | TWF_BITCLR, &ptn, TMO_FEVR);

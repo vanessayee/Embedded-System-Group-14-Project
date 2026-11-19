@@ -130,6 +130,16 @@ LOCAL INT test_codes(void)
 	p.clear_right_mm = -1;
 	s5_profile_pack(&p, w);
 	s5_profile_unpack(w, &p2);
+	{
+		S5_PROFILE edge = p, packed;
+
+		edge.left_mm = -61;
+		edge.right_mm = 69;
+		s5_profile_pack(&edge, w);
+		s5_profile_unpack(w, &packed);
+		TEST_CHECK("S5-U04b", packed.left_mm == -70 && packed.right_mm == 70,
+			   "profile packing rounds outward and never narrows the obstacle");
+	}
 	TEST_CHECK("S5-U04", p2.scan_id == 6 && p2.status == PRF_VALID && p2.phase == 1
 		   && p2.dist_mm == 4000 && p2.bearing_deg == -127 && p2.width_mm == 1270
 		   && p2.left_mm == -1270 && p2.right_mm == 1270 && p2.clear_left_mm == 2540
@@ -173,6 +183,31 @@ LOCAL INT test_profile(void)
 	};
 
 	TEST_INIT();
+	{
+		const UW close[3] = { 152, 148, 150 };
+		const UW far_outlier[3] = { 150, 900, 154 };
+		const UW near_outlier[3] = { 25, 151, 149 };
+		const UW disagree[3] = { 150, 300, 700 };
+		const UW pair_ok[2] = { 154, 150 };
+		const UW pair_bad[2] = { 150, 225 };
+		const UW invalid[3] = { 0, 150, 150 };
+
+		TEST_CHECK("S5-U06a", op_range_consensus_mm(close, 3) == 150,
+			   "range consensus preserves median of clustered pings");
+		TEST_CHECK("S5-U06b", op_range_consensus_mm(far_outlier, 3) == 152,
+			   "range consensus rejects isolated background reflection");
+		TEST_CHECK("S5-U06c", op_range_consensus_mm(near_outlier, 3) == 150,
+			   "range consensus rejects isolated short echo");
+		TEST_CHECK("S5-U06d", op_range_consensus_mm(disagree, 3) == -1,
+			   "three inconsistent pings cannot invent a distance");
+		TEST_CHECK("S5-U06e", op_range_consensus_mm(pair_ok, 2) == 152
+			   && op_range_consensus_mm(pair_bad, 2) == -1,
+			   "two pings require relative agreement at short range");
+		TEST_CHECK("S5-U06f", op_range_consensus_mm(close, 1) == -1
+			   && op_range_consensus_mm(close, 4) == -1
+			   && op_range_consensus_mm(invalid, 3) == -1,
+			   "invalid counts and ranges cannot produce a distance");
+	}
 	for (k = 0; k < 4U; k++) {
 		W	truth = cases[k][1] - cases[k][0];
 
@@ -345,6 +380,42 @@ LOCAL INT test_plan(void)
 	W		expect_d1, reverse_mm, near_approach, early_return, tight_return;
 
 	TEST_INIT();
+	{
+		AV_LINE_LOCK lock = { FALSE, 0 };
+		BOOL ok;
+		UINT k;
+
+		for (k = 0; k < 5U; k++)
+			(void)av_line_lock_sample(&lock, TRUE, FALSE, FALSE);
+		TEST_CHECK("S5-U14a", lock.run == 0 && !lock.contact,
+			   "all-white surface cannot prove return-to-line alignment");
+		(void)av_line_lock_sample(&lock, TRUE, TRUE, FALSE);
+		(void)av_line_lock_sample(&lock, TRUE, FALSE, FALSE);
+		(void)av_line_lock_sample(&lock, TRUE, FALSE, TRUE);
+		TEST_CHECK("S5-U14b", lock.contact && lock.run == 0,
+			   "right sensor touching black interrupts corridor confirmation");
+		ok = FALSE;
+		for (k = 0; k < AV_LINE_LOCK_SAMPLES; k++) {
+			BOOL result = av_line_lock_sample(&lock, TRUE, FALSE, FALSE);
+			if (k + 1U < AV_LINE_LOCK_SAMPLES && result) ok = TRUE;
+			if (k + 1U == AV_LINE_LOCK_SAMPLES && !result) ok = TRUE;
+		}
+		TEST_CHECK("S5-U14c", !ok,
+			   "black edge followed by three white pairs locks the corridor");
+		lock.contact = FALSE;
+		lock.run = 0;
+		(void)av_line_lock_sample(&lock, FALSE, TRUE, TRUE);
+		TEST_CHECK("S5-U14d", lock.run == 0,
+			   "junction black on both sensors is not the centre-only edge");
+		for (k = 0; k < AV_LINE_LOCK_SAMPLES; k++)
+			ok = av_line_lock_sample(&lock, FALSE, TRUE, FALSE);
+		TEST_CHECK("S5-U14e", ok,
+			   "confirmed centre-only black establishes the recovery edge");
+		TEST_CHECK("S5-U14f", av_post_edge_advance_mm(10, 90) == 50
+			   && av_post_edge_advance_mm(80, 20) == 80
+			   && av_post_edge_advance_mm(0, 9) == 5,
+			   "post-edge advance halves the former move subject to body clearance");
+	}
 	s5_profile_box(-75, 75, 300, 0, &p);
 	p.clear_left_mm = 400;
 	p.clear_right_mm = 900;
@@ -360,6 +431,17 @@ LOCAL INT test_plan(void)
 	expect_d1 = (W)(((D)pl.offset_mm * 32768 + op_sin_q15(pl.turn_deg) - 1)
 			 / op_sin_q15(pl.turn_deg));
 	near_approach = pl.approach_mm;
+	{
+		W actual_forward = pl.return_approach_mm
+			+ (W)((D)pl.offset_mm * op_cos_q15(pl.return_turn_deg)
+			      / op_sin_q15(pl.return_turn_deg));
+		W shallow_forward = av_return_approach_mm(AV_RETURN_TURN_MIN_DEG, pl.side_gap_mm)
+			+ (W)((D)pl.offset_mm * op_cos_q15(AV_RETURN_TURN_MIN_DEG)
+			      / op_sin_q15(AV_RETURN_TURN_MIN_DEG));
+
+		TEST_CHECK("S5-U15d", actual_forward < shallow_forward,
+			   "calculated return uses less forward travel than the fixed 30 degree return");
+	}
 	TEST_CHECK("S5-U15", pl.step[2].arg == expect_d1
 		   && pl.offset_mm == p.right_mm + AV_ROBOT_WIDTH_MM / 2
 		      + AV_SIDE_GAP_MM + AV_EDGE_UNCERTAINTY_MM
@@ -373,7 +455,7 @@ LOCAL INT test_plan(void)
 		   && pl.return_turn_deg <= AV_RETURN_TURN_MAX_DEG
 		   && pl.return_approach_mm > 0
 		   && pl.return_approach_mm <= AV_ROBOT_LENGTH_MM,
-		   "calculated path gives 10 cm side gap and clears front face before PASS");
+		   "calculated path preserves the configured side gap and clears the front face");
 
 	/* More front clearance is used as forward approach rather than reverse. */
 	s5_profile_box(-75, 75, 400, 0, &p);
@@ -388,7 +470,7 @@ LOCAL INT test_plan(void)
 					    AV_SIDE_GAP_MM);
 	TEST_CHECK("S5-U15c", early_return > 0 && early_return < AV_ROBOT_LENGTH_MM
 		   && tight_return > early_return && tight_return <= AV_ROBOT_LENGTH_MM,
-		   "live side gap adaptively shortens return while preserving 10 cm clearance");
+		   "live side gap shortens return while preserving the configured clearance");
 
 	/* Shift the obstacle to the right: the left route now needs less lateral
 	   deviation.  Acoustic side reach deliberately does not choose the side. */
@@ -409,9 +491,9 @@ LOCAL INT test_plan(void)
 	TEST_CHECK("S5-U16b", av_plan(&p, &pl) == AVP_OK && pl.offset_mm > 320,
 		   "open-road planning has no hardcoded 320 mm board-width limit");
 	p.dist_mm = 700;
-	p.left_mm = -1200;
-	p.right_mm = 1200;
-	p.width_mm = 2400;
+	p.left_mm = -2000;
+	p.right_mm = 2000;
+	p.width_mm = 4000;
 	TEST_CHECK("S5-U16c", av_plan(&p, &pl) == AVP_NO_CLEARANCE && pl.n == 0,
 		   "route beyond the motion-command capacity is rejected safely");
 

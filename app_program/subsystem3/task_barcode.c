@@ -265,6 +265,8 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 	publish();
 	if (ir_capture_start() < E_OK) {
 		sys_fault_set(SYS_FLT_TASK_COMM);
+	} else {
+		sys_task_ready(SYS_TASK_BARCODE);
 	}
 	ir_edge_flush();
 #if S3_BARCODE_DIAG

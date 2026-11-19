@@ -95,8 +95,11 @@ EXPORT void mc_init(MOTION_CTRL *mc)
 	mc->seek_from_um = 0;
 	mc->seek_extra_um = 0;
 	mc->seek_seen = FALSE;
-	mc->seek_pause_ms = 0;
-	mc->seek_forward = FALSE;
+	mc->turn_contact_samples = 0;
+	mc->turn_gap_samples = 0;
+	mc->turn_line_seq = 0xFFU;
+	mc->turn_align = FALSE;
+	mc->turn_wait_ms = 0;
 	mc->advancing = FALSE;
 	mc->advance_um = 0;
 	mc->adv_r_black = FALSE;
@@ -206,8 +209,11 @@ LOCAL void start_cmd(MOTION_CTRL *mc, UW cmd, MC_OUT *out)
 	mc->seek_from_um = 0;
 	mc->seek_extra_um = 0;
 	mc->seek_seen = FALSE;
-	mc->seek_pause_ms = 0;
-	mc->seek_forward = FALSE;
+	mc->turn_contact_samples = 0;
+	mc->turn_gap_samples = 0;
+	mc->turn_line_seq = 0xFFU;
+	mc->turn_align = FALSE;
+	mc->turn_wait_ms = 0;
 	mc->advancing = FALSE;
 	mc->advance_um = 0;
 	mc->adv_r_black = FALSE;
@@ -222,6 +228,9 @@ LOCAL void start_cmd(MOTION_CTRL *mc, UW cmd, MC_OUT *out)
 			mc->seek_extra_um = mc_turn_arc_um(TURN_SEEK_EXTRA_DEG);
 		}
 		if (is_junction_turn(cmd)) {
+			/* Wheel slip/calibration can put the real branch before the
+			   old 70-degree window. Slow and acquire from the same guard. */
+			mc->seek_from_um = mc_turn_arc_um(TURN_CONTACT_MIN_DEG);
 			mc->advancing = TRUE;
 			mc->adv_r_black = mc->junction_black;
 			mc->junction_black = FALSE;
@@ -522,8 +531,54 @@ LOCAL BOOL run_advance(MOTION_CTRL *mc, const MC_IN *in, BOOL seeking,
 	return TRUE;
 }
 
+/* Finish either turn with a continuous controllable-speed edge correction.
+   One-tick pulses caused motor stiction and a repeated start/stop shake. */
+LOCAL void run_turn_align(MOTION_CTRL *mc, const MC_IN *in, W done,
+			W *des_l, W *des_r, MC_OUT *out)
+{
+	UW bits = in->line_seen & (LSEEN_C | LSEEN_R);
+	BOOL fresh = in->line_seen_fresh && (in->line_seen & LSEEN_VALID);
+	BOOL still = iabs(in->speed_l_mms) <= 3 && iabs(in->speed_r_mms) <= 3;
+	BOOL new_sample = lseen_seq(in->line_seen) != mc->turn_line_seq;
+
+	*des_l = *des_r = 0;
+	mc->state = MS_TURNING;
+	if (!fresh || done < mc->seek_from_um
+	    || done > mc->target_um + mc->seek_extra_um) {
+		finish_active(mc, out, MRES_FAULT);
+		out->flt_set |= SYS_FLT_RECOVERY_TIMEOUT;
+		mc->hard_stop = TRUE;
+		return;
+	}
+	if (mc->turn_wait_ms > 0U) {
+		mc->turn_wait_ms = (mc->turn_wait_ms > MOTION_PERIOD_MS)
+			? mc->turn_wait_ms - MOTION_PERIOD_MS : 0;
+		mc->turn_gap_samples = 0;
+		mc->hard_stop = TRUE;
+		return;
+	}
+	mc->turn_line_seq = lseen_seq(in->line_seen);
+	if (bits == 0U) {
+		if (!still) mc->turn_gap_samples = 0;
+		else if (new_sample && ++mc->turn_gap_samples >= TURN_CONFIRM_SAMPLES)
+			finish_active(mc, out, MRES_DONE);
+		mc->hard_stop = TRUE;
+		return;
+	}
+	mc->turn_gap_samples = 0;
+	if (bits == (LSEEN_C | LSEEN_R)) {
+		finish_active(mc, out, MRES_FAULT);
+		out->flt_set |= SYS_FLT_RECOVERY_TIMEOUT;
+		mc->hard_stop = TRUE;
+		return;
+	}
+	/* Centre on black: a little farther left. Right on black: back right. */
+	*des_l = (bits == LSEEN_C) ? -MIN_CTRL_SPEED_MMS : MIN_CTRL_SPEED_MMS;
+	*des_r = -*des_l;
+}
+
 LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
-		    UW dt_ms, MC_OUT *out)
+		    MC_OUT *out)
 {
 	W	dir = isign(mcmd_arg(mc->active));	/* +1 = clockwise */
 	BOOL	junction = is_junction_turn(mc->active);
@@ -531,40 +586,11 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 	BOOL	seeking = bc && TURN_LINE_SEEK && in->line_seen_fresh
 			  && (in->line_seen & LSEEN_VALID) != 0UL;
 	BOOL	require_line = junction && TURN_LINE_SEEK;
-	BOOL	centre_target = require_line && dir > 0;
 	BOOL	line_confirmed = FALSE;
 	W	pl, pr, done, rem;
 	W	vo, vi, corr, outer, inner;
 
 	if (mc->advancing && run_advance(mc, in, seeking, des_l, des_r)) {
-		return;
-	}
-	if (mc->seek_forward) {
-		W travel = (mc->last_l_um - mc->start_l_um
-			  + mc->last_r_um - mc->start_r_um) / 2;
-		W creep = mc_creep_speed(mc);
-		UW seen = in->line_seen & (LSEEN_C | LSEEN_R);
-
-		if (mc->seek_pause_ms > 0U) {
-			mc->seek_pause_ms -= (dt_ms < mc->seek_pause_ms)
-				? dt_ms : mc->seek_pause_ms;
-			mc->hard_stop = TRUE;
-			return;
-		}
-		/* Either tracking sensor can acquire the outgoing edge after
-		   settling. Normal steering can follow from either side. */
-		if (seeking && (seen == LSEEN_C || seen == LSEEN_R)) {
-			finish_active(mc, out, MRES_DONE);
-			mc->hard_stop = TRUE;
-		} else if (!seeking || travel >= TURN_LEFT_SEARCH_MM * 1000) {
-			finish_active(mc, out, MRES_FAULT);
-			out->flt_set |= SYS_FLT_RECOVERY_TIMEOUT;
-			mc->hard_stop = TRUE;
-		} else {
-			*des_l = creep + ((travel >= TURN_LEFT_STRAIGHT_MM * 1000) ? 8 : 0);
-			*des_r = creep;
-			mc->state = MS_STRAIGHT;
-		}
 		return;
 	}
 	/* progress of each wheel in its own turning direction */
@@ -573,31 +599,54 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 	/* (outer + inner) / 2 = angle * track / 2 for any speed split */
 	done = (pl + pr) / 2;
 	rem = mc->target_um + (seeking ? mc->seek_extra_um : 0) - done;
-	if (require_line && dir < 0) {
-		rem = mc->target_um - mc_turn_arc_um(TURN_LEFT_COAST_DEG) - done;
-		if (rem <= DONE_TOL_UM) {
-			mc->seek_forward = TRUE;
-			mc->seek_pause_ms = TURN_SEEK_SETTLE_MS;
-			mc->start_l_um = mc->last_l_um;
-			mc->start_r_um = mc->last_r_um;
-			mc->hard_stop = TRUE;
-			return;
-		}
+	if (mc->turn_align) {
+		run_turn_align(mc, in, done, des_l, des_r, out);
+		return;
 	}
 
 	if (!seeking && require_line) {
 		mc->seek_seen = FALSE;
+		mc->turn_contact_samples = 0;
+		mc->turn_gap_samples = 0;
+		mc->turn_line_seq = 0xFFU;
 	}
-	if (seeking && centre_target) {
-		/* GP6 must clear the original crossing before a new black
-		   reading can identify the branch near the target heading. */
-		if ((in->line_seen & LSEEN_C) == 0UL) {
-			mc->seek_seen = TRUE;
+	if (seeking && require_line) {
+		/* Both tracking sensors must clear the original junction on two
+		   fresh samples before an outgoing leading edge can qualify. */
+		if (lseen_seq(in->line_seen) != mc->turn_line_seq) {
+			UW bits = in->line_seen & (LSEEN_C | LSEEN_R);
+			UW lead = (dir > 0) ? LSEEN_R : LSEEN_C;
+			UW trail = (dir > 0) ? LSEEN_C : LSEEN_R;
+
+			mc->turn_line_seq = lseen_seq(in->line_seen);
+			if (!mc->seek_seen) {
+				mc->turn_gap_samples = (bits == 0U) ? mc->turn_gap_samples + 1U : 0U;
+				if (mc->turn_gap_samples >= TURN_CONFIRM_SAMPLES) {
+					mc->seek_seen = TRUE;
+					mc->turn_gap_samples = 0;
+				}
+			}
+			if (!mc->seek_seen) {
+				mc->turn_contact_samples = 0;
+			} else if (done < mc->seek_from_um || (bits & trail)) {
+				mc->turn_contact_samples = 0;
+				mc->turn_gap_samples = 0;
+			} else if (bits == lead) {
+				if (mc->turn_contact_samples < TURN_CONFIRM_SAMPLES) mc->turn_contact_samples++;
+				if (mc->turn_contact_samples >= TURN_CONFIRM_SAMPLES) {
+					mc->turn_align = TRUE;
+					mc->turn_wait_ms = TURN_SETTLE_MS;
+				}
+			} else {
+				mc->turn_contact_samples = 0;
+			}
 		}
-		line_confirmed = mc->seek_seen && done >= mc->seek_from_um
-			&& (in->line_seen & (LSEEN_C | LSEEN_R)) == LSEEN_C;
 	} else if (!require_line && seeking && done >= mc->seek_from_um) {
 		line_confirmed = line_in_gap(mc, in->line_seen, dir);
+	}
+	if (mc->turn_align) {
+		run_turn_align(mc, in, done, des_l, des_r, out);
+		return;
 	}
 	if (rem <= DONE_TOL_UM || line_confirmed) {
 		if (require_line && !line_confirmed) {
@@ -615,18 +664,14 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 	}
 	vo = approach_speed(mc, cmd_speed(mc, mc->active, TURN_SPEED_MMS), rem);
 	if (junction) {
-		/* outer wheel forward, inner wheel backward slower: turn
-		   about a point TURN_PIVOT_OFFSET_MM towards the inner wheel.
-		   Keep the ratio (and so the turn point) at low speed. */
-		W	ro = TRACK_WIDTH_MM / 2 + TURN_PIVOT_OFFSET_MM;
-		W	ri = TRACK_WIDTH_MM / 2 - TURN_PIVOT_OFFSET_MM;
-
-		vi = vo * ri / ro;
-		if (vi < MIN_CTRL_SPEED_MMS) {
+		/* Same axle-centred motion and acquisition speed in both directions. */
+		vi = vo;
+		corr = balance((dir > 0) ? pl : pr, (dir > 0) ? pr : pl, vo);
+		if (done >= mc->seek_from_um) {
+			vo = MIN_CTRL_SPEED_MMS;
 			vi = MIN_CTRL_SPEED_MMS;
-			vo = vi * ro / ri;
+			corr = 0;
 		}
-		corr = 0;	/* unequal by design: no wheel balancing */
 	} else {
 		/* on the spot: equal speeds, balanced travel */
 		vi = vo;
@@ -850,7 +895,7 @@ EXPORT void mc_step(MOTION_CTRL *mc, const MC_IN *in, UW dt_ms, MC_OUT *out)
 	if (mc->has_active) {
 		mc->elapsed_ms += dt_ms;
 		if (mcmd_type(mc->active) == MCMD_TURN) {
-			run_turn(mc, in, &des_l, &des_r, dt_ms, out);
+			run_turn(mc, in, &des_l, &des_r, out);
 		} else {
 			run_move(mc, &des_l, &des_r, out);
 		}

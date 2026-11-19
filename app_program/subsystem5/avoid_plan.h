@@ -29,11 +29,11 @@
 #include "../subsystem2/motion_msg.h"
 
 /* Vehicle geometry and clearances [CAL]: measured on the actual car */
-#define AV_ROBOT_WIDTH_MM	152
-#define AV_ROBOT_LENGTH_MM	215
+#define AV_ROBOT_WIDTH_MM	125
+#define AV_ROBOT_LENGTH_MM	175
 #define AV_SENSOR_BEHIND_FRONT_MM 0	/* sensor is directly above front bumper */
-#define AV_SIDE_GAP_MM		100	/* requested closest side gap (10 cm) */
-#define AV_EDGE_UNCERTAINTY_MM	25	/* [CAL] scan/turn/odometry allowance */
+#define AV_SIDE_GAP_MM		80	/* requested closest side gap (8 cm) */
+#define AV_EDGE_UNCERTAINTY_MM	15	/* [CAL] reserve beyond the requested body gap */
 #define AV_ASSUME_OPEN_BOARD	1	/* road has no known lateral boundary */
 #define AV_REQUIRED_CORRIDOR_MM	(AV_ROBOT_WIDTH_MM + AV_SIDE_GAP_MM \
 				 + AV_EDGE_UNCERTAINTY_MM)
@@ -41,8 +41,8 @@
 #define AV_TURN_MAX_DEG		75	/* steeper departure reduces reverse distance */
 #define AV_FRONT_PATH_ALLOWANCE_MM 10	/* [CAL] turn/rounding allowance */
 #define AV_RETURN_TURN_MIN_DEG	30	/* encoder-reliable shallow return */
-#define AV_RETURN_TURN_MAX_DEG	30	/* do not cut sharply toward obstacle */
-#define AV_RETURN_PATH_ALLOWANCE_MM 5	/* retain margin during return */
+#define AV_RETURN_TURN_MAX_DEG	60	/* shortest body-clearance-checked return */
+#define AV_RETURN_PATH_ALLOWANCE_MM 10	/* retain margin during return */
 #define AV_DETECT_FRONT_GAP_MM	150	/* stop near 15 cm before planning */
 #define AV_MIN_FRONT_CLEARANCE_MM	120	/* closest calculated turn-start gap */
 #define AV_EMERGENCY_FRONT_CLEARANCE_MM	100	/* bumper gap while moving */
@@ -50,6 +50,16 @@
 #define AV_REVERSE_RESCAN_MARGIN_MM 20	/* absorb profile/odometry variation */
 #define AV_SIDE_PASS_MAX_MM	MCMD_MOVE_MAX_MM /* actuator safety bound, not obstacle length */
 #define AV_SEARCH_EXTRA_MM	150
+#define AV_LINE_LOCK_SAMPLES	3U
+
+/* A white pair only proves the corridor after observing its black edge. */
+typedef struct {
+	BOOL contact;
+	UINT run;
+} AV_LINE_LOCK;
+IMPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock, BOOL release,
+			       BOOL centre_black, BOOL right_black);
+IMPORT W av_post_edge_advance_mm(W body_path, W edge_allowance);
 #define AV_LINE_SENSOR_AHEAD_MM	80	/* [CAL] centre IR sensor to wheel axle */
 #define AV_PREFER_RIGHT		1	/* tie-break when clearances equal */
 #define AV_MAX_STEPS		8

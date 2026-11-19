@@ -3,12 +3,15 @@
  *	Hump detection, height estimation and highest-hump tracking (Buddy 4,
  *	Hump & Terrain Analysis).  Pure logic, host-testable.
  *
- *	Method (Tribunal 1, Buddy 4 position, kept in the interface map):
+ *	Default: one wheel climbs while the opposite wheel stays on level
+ *	ground. Height = physical wheel-centre span * sin(abs(peak roll)).
+ *	Both roll signs are accepted; return to level completes the hump.
+ *	HUMP_SIDEWAYS=0 selects the legacy forward-traversal method:
  *	height = sum of ds * sin(pitch) over the hump, with ds from the wheel
  *	encoders (Buddy 2) and pitch from the IMU complementary filter.
  *	Double-integrating acceleration was rejected by the team (drift).
  *
- *	    IDLE ---- pitch >= HUMP_START for 2 samples -----> CLIMB
+ *	    IDLE ---- pitch >= HUMP_START for 2 samples + forward travel -> CLIMB
  *	    CLIMB --- pitch <= -HUMP_START ------------------> DESCENT
  *	    DESCENT - level again for 3 samples -------------> report, IDLE
  *	    any ----- longer than HUMP_MAX_LEN / invalid ----> discard, IDLE
@@ -37,10 +40,17 @@
 #define HUMP_LEVEL_SAMPLES	3
 #define HUMP_MIN_HEIGHT_UM	3000	/* ignore < 3 mm (noise)          */
 #define HUMP_MAX_LEN_MM		1000	/* longer = a ramp, not a hump    */
+#ifndef HUMP_SIDEWAYS
+#define HUMP_SIDEWAYS		1	/* one wheel climbs; 0 = forward-pitch integration */
+#endif
+#define HUMP_PHYSICAL_TRACK_MM	110	/* measured wheel-centre spacing; not
+					   the effective encoder-turn calibration */
+#define HUMP_ROLL_FALL_UM		1000	/* falling peak hysteresis */
 
 #define HS_IDLE			0U
 #define HS_CLIMB		1U
 #define HS_DESCENT		2U
+#define HS_ROLL_WAIT_LEVEL	3U	/* rejected roll candidate: rearm only on level */
 
 typedef struct {
 	UB	state;
@@ -68,6 +78,10 @@ IMPORT void hump_init(HUMP *h);
    previous sample.  Reverse motion rejects an active candidate because
    its forward height integral is no longer valid. */
 IMPORT void hump_step(HUMP *h, W pitch_cdeg, W ds_um, BOOL valid, HUMP_EVT *ev);
+/* One wheel on a hump, opposite wheel on the original level surface.
+   Height is physical wheel-centre span * sin(abs(roll)); distance gates
+   motion and length, rather than integrating roll along the road. */
+IMPORT void hump_roll_step(HUMP *h, W roll_cdeg, W ds_um, BOOL valid, HUMP_EVT *ev);
 IMPORT BOOL hump_active(const HUMP *h);
 
 /* Storage/transmission code: round to HUMP_STEP_MM, saturate at the top

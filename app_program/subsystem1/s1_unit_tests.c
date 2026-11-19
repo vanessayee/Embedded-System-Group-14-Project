@@ -334,9 +334,9 @@ LOCAL INT test_validation(void)
 	raw_cmd(f, CMD_STOP, 0, 9, 1);
 	ok = mp_cmd_decode(f, 8, &c) == MPE_FIELD && c.cmd_id == 9U;
 	raw_cmd(f, 6, 0, 9, 0);
-	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_FIELD;
+	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_ARG;
 	raw_cmd(f, 7, 0, 9, 0);
-	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_FIELD;
+	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_ARG;
 	raw_cmd(f, CMD_SET_SPEED, 49, 9, 0);
 	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_ARG;
 	raw_cmd(f, CMD_SET_SPEED, 401, 9, 0);
@@ -352,7 +352,24 @@ LOCAL INT test_validation(void)
 	raw_cmd(f, CMD_PING, 0, 9, 0);
 	ok = ok && mp_cmd_decode(f, 8, &c) == 1 && c.cmd == CMD_PING;
 	TEST_CHECK("S1-U09", ok,
-		   "command fields: reserved bits / codes 6-7 rejected; SET_SPEED 50..400 only; no stray args");
+		   "command fields: reserved bits and invalid map args rejected; SET_SPEED 50..400 only");
+	{
+		UINT symbol, action;
+		BOOL maps = TRUE;
+		for (symbol = 10; symbol <= 35; symbol++) {
+			for (action = 0; action <= 4; action++) {
+				raw_cmd(f, CMD_SET_NAV_MAP, symbol | (action << 6), 42, 0);
+				maps = maps && mp_cmd_decode(f, 8, &c) == 1;
+			}
+			raw_cmd(f, CMD_GET_NAV_MAP, symbol, 43, 0);
+			maps = maps && mp_cmd_decode(f, 8, &c) == 1;
+		}
+		raw_cmd(f, CMD_SET_NAV_MAP, 10U | (5U << 6), 42, 0);
+		maps = maps && mp_cmd_decode(f, 8, &c) == MPE_ARG;
+		raw_cmd(f, CMD_GET_NAV_MAP, 36, 42, 0);
+		maps = maps && mp_cmd_decode(f, 8, &c) == MPE_ARG;
+		TEST_CHECK("S1-U09m", maps, "all A-Z runtime map actions and query commands validate; invalid actions rejected");
+	}
 
 	TEST_CHECK("S1-U10", mp_err_to_ack(MPE_VERSION) == ACK_BAD_VERSION
 		   && mp_err_to_ack(MPE_TYPE) == ACK_BAD_TYPE

@@ -6,6 +6,29 @@
 #include "avoid_plan.h"
 #include "obstacle_profile.h"
 
+EXPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock, BOOL release,
+			       BOOL centre_black, BOOL right_black)
+{
+	BOOL match;
+
+	if (centre_black) lock->contact = TRUE;
+	match = release ? (lock->contact && !centre_black && !right_black)
+			: (centre_black && !right_black);
+	lock->run = match ? lock->run + 1U : 0U;
+	return lock->run >= AV_LINE_LOCK_SAMPLES;
+}
+
+/* Halve the former advance, retaining the calculated body-clearance floor. */
+EXPORT W av_post_edge_advance_mm(W body_path, W edge_allowance)
+{
+	W reduced;
+
+	if (body_path < 0) body_path = 0;
+	if (edge_allowance < 0) edge_allowance = 0;
+	reduced = (body_path + edge_allowance + 1) / 2;
+	return (reduced < body_path) ? body_path : reduced;
+}
+
 LOCAL W clamp_move(W mm)
 {
 	if (mm > MCMD_MOVE_MAX_MM) {
@@ -149,7 +172,7 @@ LOCAL void return_corner(W x, W y, W advance, INT deg, W *rx, W *ry)
 
 /* Check both the in-place return pivot and the following diagonal move.  A
    point may move inward only through the calibrated uncertainty reserve; the
-   requested 10 cm obstacle gap and AV_RETURN_PATH_ALLOWANCE_MM remain intact.
+   requested obstacle gap and AV_RETURN_PATH_ALLOWANCE_MM remain intact.
    Checking the four corners plus every y=0 edge intersection is sufficient
    for the convex rectangular body. */
 LOCAL BOOL return_path_safe(W advance, INT deg, W measured_side_gap_mm)
@@ -250,6 +273,8 @@ EXPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan)
 {
 	W	sin_return;
 	W	s, d1, d_return, front_required, remaining, progress;
+	W	best_forward = 0x7FFFFFFF;
+	INT	candidate;
 	INT	pr, turn, return_turn;
 
 	plan->side = AV_SIDE_NONE;
@@ -305,24 +330,32 @@ EXPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan)
 	plan->forward_before_pass_mm = plan->approach_mm + progress;
 	d1 = (W)(((D)plan->offset_mm * 32768
 		  + op_sin_q15(turn) - 1) / op_sin_q15(turn));
-	return_turn = AV_RETURN_TURN_MIN_DEG;
-	for (;;) {
-		if (return_turn > AV_RETURN_TURN_MAX_DEG) {
-			return AVP_NO_CLEARANCE;
+	return_turn = 0;
+	d_return = 0;
+	for (candidate = AV_RETURN_TURN_MIN_DEG; candidate <= AV_RETURN_TURN_MAX_DEG; candidate++) {
+		W distance, forward;
+
+		sin_return = op_sin_q15(candidate);
+		distance = (W)(((D)plan->offset_mm * 32768 + sin_return - 1) / sin_return);
+		if (distance + AV_SEARCH_EXTRA_MM > MCMD_MOVE_MAX_MM) {
+			continue;
 		}
-		sin_return = op_sin_q15(return_turn);
-		d_return = (W)(((D)plan->offset_mm * 32768 + sin_return - 1)
-			 / sin_return);
-		if (d_return + AV_SEARCH_EXTRA_MM <= MCMD_MOVE_MAX_MM) {
-			break;
+		forward = av_return_approach_mm(candidate, plan->side_gap_mm)
+			+ diagonal_forward(plan->offset_mm, candidate);
+		if (forward < best_forward) {
+			best_forward = forward;
+			return_turn = candidate;
+			d_return = distance;
 		}
-		return_turn++;
+	}
+	if (return_turn == 0) {
+		return AVP_NO_CLEARANCE;
 	}
 	plan->return_turn_deg = return_turn;
 	/* The profile edge allowance cannot also be spent on an early return.
 	   Keep a conservative fallback in the plan; PASS replaces it with the
 	   live side-ultrasonic gap through av_return_approach_mm(). */
-	plan->return_approach_mm = AV_ROBOT_LENGTH_MM - AV_SENSOR_BEHIND_FRONT_MM;
+	plan->return_approach_mm = av_return_approach_mm(return_turn, plan->side_gap_mm);
 	/* These are actuator/command limits, not assumptions about board size. */
 	if (d1 > MCMD_MOVE_MAX_MM || d_return + AV_SEARCH_EXTRA_MM > MCMD_MOVE_MAX_MM
 	    || plan->approach_mm > MCMD_MOVE_MAX_MM) {

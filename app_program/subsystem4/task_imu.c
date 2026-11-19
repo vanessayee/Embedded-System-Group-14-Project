@@ -140,7 +140,7 @@ LOCAL void mag_log(const IMU_IN *in)
 }
 #endif
 
-/* Feed the Hump & Terrain task: pitch + actual encoder displacement.
+/* Feed the Hump & Terrain task: selected tilt + actual encoder displacement.
    Reading the cumulative odometer avoids assuming that every IMU wake was
    exactly 10 ms apart.  A delayed/coalesced cyclic tick therefore does not
    make a hump artificially short. */
@@ -170,7 +170,7 @@ LOCAL void send_hump_sample(BOOL valid)
 		ds = (ds_pending_100um > 255) ? 255 : ds_pending_100um;
 		ds_pending_100um -= ds;
 	}
-	hs.pitch_ddeg = (H)(proc.pitch_cdeg / 10);
+	hs.tilt_ddeg = (H)((HUMP_SIDEWAYS ? proc.roll_cdeg : proc.pitch_cdeg) / 10);
 	hs.ds_100um = (UB)ds;
 	hs.valid = valid ? 1U : 0U;
 	hs.seq = hump_seq;
@@ -340,16 +340,18 @@ EXPORT void imu_task(INT stacd, void *exinf)
 				publish(FALSE);
 				break;
 			}
-			if (proc.collision) {
+			if (proc.collision || (proc.handling && !collision_latched)) {
 				collision_latched = TRUE;
 				sys_fault_set(SYS_FLT_COLLISION);
 				sys_post_event(SYS_EV_COLLISION);
-				tm_printf((UB*)"imu: COLLISION %d mg\n", (INT)proc.peak_shock_mg);
+				tm_printf((UB*)"imu: %s %d mg -> latched stop\n",
+					  proc.handling ? "HANDLING" : "COLLISION", (INT)proc.peak_shock_mg);
 			} else if (collision_latched
 				   && (sys_fault_get() & SYS_FLT_COLLISION) == 0U) {
 				collision_latched = FALSE;	/* "cleared" by the operator */
 			}
-			send_hump_sample(TRUE);
+			/* A handling/collision stop is not a completed terrain hump. */
+			send_hump_sample(!collision_latched && !proc.handling);
 			publish(TRUE);
 			break;
 

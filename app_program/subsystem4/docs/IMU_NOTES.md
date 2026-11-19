@@ -165,3 +165,32 @@ puts the vehicle in Safe Stop, latched until a supervisory CLEAR/RESUME
 5. Drive over a hump of known height 5 times (Tribunal 1 test plan):
    estimate within ±4 mm, dashboard equal to what the Pico sent; then decide
    2 mm vs 4 mm steps.
+
+### Current one-wheel sideways configuration
+
+HUMP_SIDEWAYS defaults to 1 for the user's course: one wheel climbs the
+hump and the opposite wheel stays on the original level road. The Hump task
+receives filtered roll (0.1 degree, selected tilt field) in the existing
+24-bit queue word. Height is the measured physical wheel-centre spacing,
+110 mm, multiplied by sin(abs(peak roll)). This is a wheel-height-difference
+estimate, not distance-integrated roll. The 130 mm effective turn calibration
+is unchanged and is not used for this geometry.
+
+Positive and negative roll work identically. Start requires >=3 degrees
+for two samples plus actual accumulated forward travel. Zero-distance
+samples from quantized odometry do not reset valid tilt confirmation.
+Return to <1.5 degrees for three samples completes the measurement; negative
+pitch or opposite-sign roll is not required. Last/highest/count use the same
+MQTT fields and dashboard as before. A 20-degree peak estimates 37.6 mm and
+is transmitted as 38 mm at the existing 2 mm resolution.
+
+Invalid samples, reverse motion and a one-metre traversal limit discard a
+candidate and block partial remeasurement until level. Severe tilt >=60
+degrees and handling/collision events are not terrain measurements. Static
+tilt without forward movement cannot start one. The effective onset height
+at 3 degrees is about 5.8 mm; 3 mm remains the separate height rejection floor.
+
+Power on level and validate against a known-height object. Accuracy depends
+on the true wheel-centre spacing, rigid chassis geometry, tyre compression,
+IMU mounting and acceleration. The forward-pitch method and its tests remain
+available with HUMP_SIDEWAYS=0; the earlier section describes that legacy mode.

@@ -75,7 +75,7 @@ typedef struct {
 } S4_HUMP_STATUS;
 
 typedef struct {
-	H	pitch_ddeg;	/* 0.1 deg */
+	H	tilt_ddeg;	/* 0.1 deg: roll in sideways mode, pitch in forward mode */
 	UB	ds_100um;	/* 0.1 mm */
 	UB	valid;
 	UB	seq;

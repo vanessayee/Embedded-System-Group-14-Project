@@ -544,14 +544,25 @@ LOCAL INT test_nav_map(void)
 	TEST_INIT();
 	nav_map_reset();
 	map_ok = nav_map_lookup((UB)c39_index_of_char('A'), &nav) && nav == NAV_RIGHT
-		 && nav_map_lookup((UB)c39_index_of_char('F'), &nav) && nav == NAV_LEFT
+		 && nav_map_lookup((UB)c39_index_of_char('W'), &nav) && nav == NAV_LEFT
 		 && nav_map_lookup((UB)c39_index_of_char('Y'), &nav) && nav == NAV_UTURN
 		 && nav_map_lookup((UB)c39_index_of_char('X'), &nav) && nav == NAV_STRAIGHT
-		 && nav_map_lookup((UB)c39_index_of_char('U'), &nav) && nav == NAV_LEFT
-		 && !nav_map_lookup((UB)c39_index_of_char('Z'), &nav)
-		 && !nav_map_lookup((UB)c39_index_of_char('W'), &nav);
+		 && nav_map_lookup((UB)c39_index_of_char('Z'), &nav) && nav == NAV_LEFT
+		 && !nav_map_lookup((UB)c39_index_of_char('U'), &nav)
+		 && !nav_map_lookup((UB)c39_index_of_char('F'), &nav);
 	TEST_CHECK("S3-U15", map_ok,
-		   "default barcode mapping: A=RIGHT, F=LEFT, U=LEFT, X=STRAIGHT, Y=U-TURN; Z unmapped");
+		   "default barcode mapping: A=RIGHT, W=LEFT, Z=LEFT, X=STRAIGHT, Y=U-TURN; F/U unmapped");
+	{
+		UINT i;
+		BOOL all_letters = TRUE;
+		for (i = 10; i <= 35; i++)
+			all_letters = all_letters && nav_map_set((UB)i, (UB)(i % 4U)) == E_OK;
+		for (i = 10; i <= 35; i++)
+			all_letters = all_letters && nav_map_lookup((UB)i, &nav) && nav == i % 4U;
+		all_letters = all_letters && nav_map_remove(32) == E_OK && !nav_map_lookup(32, &nav);
+		TEST_CHECK("S3-U15m", all_letters, "runtime mapping holds all 26 letters independently and supports unmapping");
+		nav_map_reset();
+	}
 	t_ok = nav_map_set((UB)c39_index_of_char('A'), NAV_LEFT) == E_OK
 		   && nav_map_lookup((UB)c39_index_of_char('A'), &nav) && nav == NAV_LEFT
 		   && nav_map_set(C39_STAR, NAV_LEFT) == E_PAR
@@ -1001,6 +1012,35 @@ LOCAL INT test_line(void)
 		lf_step(&lf, IR_BIT(IR_C), odo, 20U, TRUE, &o);
 		TEST_CHECK("S3-U85", ok_aligned && o.steer > 0,
 			   "right branch under GP6: drive straight briefly then resume normal steering");
+		/* Left now finishes on a white pair and resets tracking directly. */
+		lf_reset_tracking(&lf);
+		lf_step(&lf, 0, odo, 20U, TRUE, &o);
+		ok_aligned = o.steer == 0 && o.speed_frac > 0;
+		lf_step(&lf, IR_BIT(IR_C), odo, 20U, TRUE, &o);
+		TEST_CHECK("S3-U86", ok_aligned && lf.straight_ms == 0
+			   && o.steer > 0 && o.speed_frac > 0,
+			   "left gap handoff resumes centre-edge correction without straight-only delay");
+		/* Buddy 5 hands back on confirmed centre contact. Contact after
+		   handoff is ordinary forward correction, not another search pivot. */
+		for (k = 0; k < 30U; k++)
+			lf_step(&lf, 0, odo, 20U, FALSE, &o);
+		lf_reset_tracking(&lf); /* task_line NORMAL-entry path */
+		ok_aligned = TRUE;
+		for (k = 0; k < 5U; k++) {
+			lf_step(&lf, IR_BIT(IR_C), odo + (W)k, 20U, TRUE, &o);
+			ok_aligned = ok_aligned && o.steer > 0 && o.speed_frac > 0;
+		}
+		lf_step(&lf, 0, odo + 5, 20U, TRUE, &o);
+		TEST_CHECK("S3-U87", ok_aligned && o.speed_frac > 0 && lf.state == LS_ON_LINE,
+			   "avoidance centre contact hands to forward left correction and white-gap tracking");
+		lf_reset_tracking(&lf);
+		ok_aligned = TRUE;
+		for (k = 0; k < 5U; k++) {
+			lf_step(&lf, IR_BIT(IR_L), odo + (W)k, 20U, TRUE, &o);
+			ok_aligned = ok_aligned && o.steer < 0 && o.speed_frac > 0;
+		}
+		TEST_CHECK("S3-U88", ok_aligned && lf.state == LS_ON_LINE,
+			   "avoidance overshoot onto GP2 uses forward right correction instead of search pivot");
 	}
 	TEST_SUMMARY("s3 line");
 	return test_fail_;

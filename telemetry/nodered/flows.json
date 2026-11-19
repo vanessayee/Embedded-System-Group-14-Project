@@ -486,5 +486,245 @@
         "x": 360,
         "y": 780,
         "wires": []
+    },
+    {
+        "id": "demo_in_0",
+        "type": "http in",
+        "z": "csc14_tab",
+        "name": "/csc14/dashboard",
+        "url": "/csc14/dashboard",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 860,
+        "wires": [
+            [
+                "demo_http_0"
+            ]
+        ]
+    },
+    {
+        "id": "demo_http_0",
+        "type": "function",
+        "z": "csc14_tab",
+        "name": "demonstration console",
+        "func": "try {\n const service = global.get('demo');\n const req = msg.req;\n const route = req.path;\n msg.headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };\n if (req.method === 'POST') {\n  const origin = req.headers.origin;\n  if (req.headers['x-csc14-dashboard'] !== '1' || (origin && origin !== req.protocol + '://' + req.headers.host)) {\n   msg.statusCode = 403; msg.payload = { error: 'Dashboard requests must come from this origin.' }; return msg;\n  }\n }\n if (route === '/csc14/dashboard') {\n  msg.headers['content-type'] = 'text/html; charset=utf-8';\n  msg.payload = global.get('demoAssets').html;\n } else if (route === '/csc14/dashboard.js') {\n  msg.headers['content-type'] = 'application/javascript; charset=utf-8';\n  msg.payload = global.get('demoAssets').js;\n } else if (route === '/csc14/api/snapshot') {\n  msg.payload = await service.snapshot();\n } else if (route === '/csc14/api/rules') {\n  const body = req.body || {};\n  if (body.action === 'read') msg.payload = await service.syncMap();\n  else if (body.action === 'apply') msg.payload = await service.applyRules(body.rules);\n  else throw new Error('Choose read or apply.');\n } else if (route === '/csc14/api/command') {\n  const name = (req.body || {}).command;\n  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');\n  msg.payload = await service.command(name);\n } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }\n} catch (e) {\n msg.statusCode = 503;\n msg.payload = { error: e.message };\n}\nif (!msg.headers['content-type']) msg.headers['content-type'] = 'application/json';\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 860,
+        "wires": [
+            [
+                "demo_out_0"
+            ]
+        ]
+    },
+    {
+        "id": "demo_out_0",
+        "type": "http response",
+        "z": "csc14_tab",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 710,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "demo_in_1",
+        "type": "http in",
+        "z": "csc14_tab",
+        "name": "/csc14/dashboard.js",
+        "url": "/csc14/dashboard.js",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 925,
+        "wires": [
+            [
+                "demo_http_1"
+            ]
+        ]
+    },
+    {
+        "id": "demo_http_1",
+        "type": "function",
+        "z": "csc14_tab",
+        "name": "demonstration console",
+        "func": "try {\n const service = global.get('demo');\n const req = msg.req;\n const route = req.path;\n msg.headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };\n if (req.method === 'POST') {\n  const origin = req.headers.origin;\n  if (req.headers['x-csc14-dashboard'] !== '1' || (origin && origin !== req.protocol + '://' + req.headers.host)) {\n   msg.statusCode = 403; msg.payload = { error: 'Dashboard requests must come from this origin.' }; return msg;\n  }\n }\n if (route === '/csc14/dashboard') {\n  msg.headers['content-type'] = 'text/html; charset=utf-8';\n  msg.payload = global.get('demoAssets').html;\n } else if (route === '/csc14/dashboard.js') {\n  msg.headers['content-type'] = 'application/javascript; charset=utf-8';\n  msg.payload = global.get('demoAssets').js;\n } else if (route === '/csc14/api/snapshot') {\n  msg.payload = await service.snapshot();\n } else if (route === '/csc14/api/rules') {\n  const body = req.body || {};\n  if (body.action === 'read') msg.payload = await service.syncMap();\n  else if (body.action === 'apply') msg.payload = await service.applyRules(body.rules);\n  else throw new Error('Choose read or apply.');\n } else if (route === '/csc14/api/command') {\n  const name = (req.body || {}).command;\n  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');\n  msg.payload = await service.command(name);\n } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }\n} catch (e) {\n msg.statusCode = 503;\n msg.payload = { error: e.message };\n}\nif (!msg.headers['content-type']) msg.headers['content-type'] = 'application/json';\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 925,
+        "wires": [
+            [
+                "demo_out_1"
+            ]
+        ]
+    },
+    {
+        "id": "demo_out_1",
+        "type": "http response",
+        "z": "csc14_tab",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 710,
+        "y": 925,
+        "wires": []
+    },
+    {
+        "id": "demo_in_2",
+        "type": "http in",
+        "z": "csc14_tab",
+        "name": "/csc14/api/snapshot",
+        "url": "/csc14/api/snapshot",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 990,
+        "wires": [
+            [
+                "demo_http_2"
+            ]
+        ]
+    },
+    {
+        "id": "demo_http_2",
+        "type": "function",
+        "z": "csc14_tab",
+        "name": "demonstration console",
+        "func": "try {\n const service = global.get('demo');\n const req = msg.req;\n const route = req.path;\n msg.headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };\n if (req.method === 'POST') {\n  const origin = req.headers.origin;\n  if (req.headers['x-csc14-dashboard'] !== '1' || (origin && origin !== req.protocol + '://' + req.headers.host)) {\n   msg.statusCode = 403; msg.payload = { error: 'Dashboard requests must come from this origin.' }; return msg;\n  }\n }\n if (route === '/csc14/dashboard') {\n  msg.headers['content-type'] = 'text/html; charset=utf-8';\n  msg.payload = global.get('demoAssets').html;\n } else if (route === '/csc14/dashboard.js') {\n  msg.headers['content-type'] = 'application/javascript; charset=utf-8';\n  msg.payload = global.get('demoAssets').js;\n } else if (route === '/csc14/api/snapshot') {\n  msg.payload = await service.snapshot();\n } else if (route === '/csc14/api/rules') {\n  const body = req.body || {};\n  if (body.action === 'read') msg.payload = await service.syncMap();\n  else if (body.action === 'apply') msg.payload = await service.applyRules(body.rules);\n  else throw new Error('Choose read or apply.');\n } else if (route === '/csc14/api/command') {\n  const name = (req.body || {}).command;\n  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');\n  msg.payload = await service.command(name);\n } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }\n} catch (e) {\n msg.statusCode = 503;\n msg.payload = { error: e.message };\n}\nif (!msg.headers['content-type']) msg.headers['content-type'] = 'application/json';\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 990,
+        "wires": [
+            [
+                "demo_out_2"
+            ]
+        ]
+    },
+    {
+        "id": "demo_out_2",
+        "type": "http response",
+        "z": "csc14_tab",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 710,
+        "y": 990,
+        "wires": []
+    },
+    {
+        "id": "demo_in_3",
+        "type": "http in",
+        "z": "csc14_tab",
+        "name": "/csc14/api/rules",
+        "url": "/csc14/api/rules",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 1055,
+        "wires": [
+            [
+                "demo_http_3"
+            ]
+        ]
+    },
+    {
+        "id": "demo_http_3",
+        "type": "function",
+        "z": "csc14_tab",
+        "name": "demonstration console",
+        "func": "try {\n const service = global.get('demo');\n const req = msg.req;\n const route = req.path;\n msg.headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };\n if (req.method === 'POST') {\n  const origin = req.headers.origin;\n  if (req.headers['x-csc14-dashboard'] !== '1' || (origin && origin !== req.protocol + '://' + req.headers.host)) {\n   msg.statusCode = 403; msg.payload = { error: 'Dashboard requests must come from this origin.' }; return msg;\n  }\n }\n if (route === '/csc14/dashboard') {\n  msg.headers['content-type'] = 'text/html; charset=utf-8';\n  msg.payload = global.get('demoAssets').html;\n } else if (route === '/csc14/dashboard.js') {\n  msg.headers['content-type'] = 'application/javascript; charset=utf-8';\n  msg.payload = global.get('demoAssets').js;\n } else if (route === '/csc14/api/snapshot') {\n  msg.payload = await service.snapshot();\n } else if (route === '/csc14/api/rules') {\n  const body = req.body || {};\n  if (body.action === 'read') msg.payload = await service.syncMap();\n  else if (body.action === 'apply') msg.payload = await service.applyRules(body.rules);\n  else throw new Error('Choose read or apply.');\n } else if (route === '/csc14/api/command') {\n  const name = (req.body || {}).command;\n  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');\n  msg.payload = await service.command(name);\n } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }\n} catch (e) {\n msg.statusCode = 503;\n msg.payload = { error: e.message };\n}\nif (!msg.headers['content-type']) msg.headers['content-type'] = 'application/json';\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 1055,
+        "wires": [
+            [
+                "demo_out_3"
+            ]
+        ]
+    },
+    {
+        "id": "demo_out_3",
+        "type": "http response",
+        "z": "csc14_tab",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 710,
+        "y": 1055,
+        "wires": []
+    },
+    {
+        "id": "demo_in_4",
+        "type": "http in",
+        "z": "csc14_tab",
+        "name": "/csc14/api/command",
+        "url": "/csc14/api/command",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 1120,
+        "wires": [
+            [
+                "demo_http_4"
+            ]
+        ]
+    },
+    {
+        "id": "demo_http_4",
+        "type": "function",
+        "z": "csc14_tab",
+        "name": "demonstration console",
+        "func": "try {\n const service = global.get('demo');\n const req = msg.req;\n const route = req.path;\n msg.headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };\n if (req.method === 'POST') {\n  const origin = req.headers.origin;\n  if (req.headers['x-csc14-dashboard'] !== '1' || (origin && origin !== req.protocol + '://' + req.headers.host)) {\n   msg.statusCode = 403; msg.payload = { error: 'Dashboard requests must come from this origin.' }; return msg;\n  }\n }\n if (route === '/csc14/dashboard') {\n  msg.headers['content-type'] = 'text/html; charset=utf-8';\n  msg.payload = global.get('demoAssets').html;\n } else if (route === '/csc14/dashboard.js') {\n  msg.headers['content-type'] = 'application/javascript; charset=utf-8';\n  msg.payload = global.get('demoAssets').js;\n } else if (route === '/csc14/api/snapshot') {\n  msg.payload = await service.snapshot();\n } else if (route === '/csc14/api/rules') {\n  const body = req.body || {};\n  if (body.action === 'read') msg.payload = await service.syncMap();\n  else if (body.action === 'apply') msg.payload = await service.applyRules(body.rules);\n  else throw new Error('Choose read or apply.');\n } else if (route === '/csc14/api/command') {\n  const name = (req.body || {}).command;\n  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');\n  msg.payload = await service.command(name);\n } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }\n} catch (e) {\n msg.statusCode = 503;\n msg.payload = { error: e.message };\n}\nif (!msg.headers['content-type']) msg.headers['content-type'] = 'application/json';\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 1120,
+        "wires": [
+            [
+                "demo_out_4"
+            ]
+        ]
+    },
+    {
+        "id": "demo_out_4",
+        "type": "http response",
+        "z": "csc14_tab",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 710,
+        "y": 1120,
+        "wires": []
     }
 ]

@@ -5,6 +5,35 @@
 
 #include "obstacle_profile.h"
 
+EXPORT W op_range_consensus_mm(const UW *ranges, UINT n)
+{
+	UW v[3], t, tolerance, best = 4001U;
+	UINT i, j, pair = 0;
+	BOOL found = FALSE;
+
+	if (n < 2U || n > 3U) return -1;
+	for (i = 0; i < n; i++) {
+		if (ranges[i] < 20U || ranges[i] > 4000U) return -1;
+		v[i] = ranges[i];
+		for (j = i; j > 0U && v[j - 1U] > v[j]; j--) {
+			t = v[j - 1U]; v[j - 1U] = v[j]; v[j] = t;
+		}
+	}
+	for (i = 0; i + 1U < n; i++) {
+		tolerance = (v[i] + v[i + 1U]) / 20U;
+		if (tolerance < 10U) tolerance = 10U;
+		if (v[i + 1U] - v[i] <= tolerance
+		    && v[i + 1U] - v[i] < best) {
+			best = v[i + 1U] - v[i]; pair = i; found = TRUE;
+		}
+	}
+	if (!found) return -1;
+	tolerance = (v[0] + v[n - 1U]) / 20U;
+	if (tolerance < 10U) tolerance = 10U;
+	if (n == 3U && v[2] - v[0] <= tolerance) return (W)v[1];
+	return (W)((v[pair] + v[pair + 1U] + 1U) / 2U);
+}
+
 LOCAL W iabs(W v)
 {
 	return (v < 0) ? -v : v;

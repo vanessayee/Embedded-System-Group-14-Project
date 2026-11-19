@@ -121,6 +121,8 @@ LOCAL BOOL duplicate(UB id)
 	return FALSE;
 }
 
+#include "../subsystem3/subsystem3.h"
+
 /* Accepted command -> Buddy 2 (supervisory source) -> acknowledgement.
    Buddy 2 decides whether the request is safe in the current mode; a
    remote command can never override a safety action. */
@@ -129,6 +131,30 @@ LOCAL void execute(const CMD_RECORD *c)
 	UW	type, cmd, res = 0;
 	INT	arg;
 	UB	result = ACK_OK, detail = 0;
+
+	if (c->cmd == CMD_SET_NAV_MAP || c->cmd == CMD_GET_NAV_MAP) {
+		UB symbol = (UB)(c->arg & 63U), nav = NAV_UNMAPPED;
+		S3_BC_STATUS bc;
+
+		if (c->cmd == CMD_SET_NAV_MAP) {
+			s3_get_barcode_status(&bc);
+			/* A queued instruction keeps its meaning until its junction. */
+			if ((sys_mode() != VM_SAFE_STOP && sys_mode() != VM_INIT)
+			    || bc.state == BCS_DECODING || bc.state == BCS_EXECUTING) {
+				send_ack(c->cmd_id, c->cmd, ACK_REJ_STATE, MREJ_MODE);
+				return;
+			}
+			nav = (UB)(c->arg >> 6);
+			if ((nav == NAV_UNMAPPED ? nav_map_remove(symbol) : nav_map_set(symbol, nav)) != E_OK)
+				result = ACK_BAD_ARG;
+		} else {
+			(void)nav_map_lookup(symbol, &nav);
+		}
+		send_ack(c->cmd_id, c->cmd, result, nav);
+		tm_printf((UB*)"comm: barcode map %c -> %s (ack %d)\n",
+			  (INT)('A' + symbol - 10U), nav == NAV_UNMAPPED ? "NONE" : nav_name(nav), (INT)result);
+		return;
+	}
 
 	if (c->cmd == CMD_REQ_STATUS) {
 		app_store(&s1_status_now, 1U);

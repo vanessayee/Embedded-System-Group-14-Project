@@ -29,6 +29,22 @@ LOCAL UB		prev_avoid_count;
 LOCAL UB		tlm_seq;
 LOCAL UB		evt_seq;
 LOCAL BOOL		boot_report_sent;
+LOCAL UH boot_token;
+LOCAL UW boot_marker_ms;
+LOCAL BOOL boot_marker_sent;
+
+/* RP2040 ROSC RANDOMBIT, datasheet 2.17.7: sample separated oscillator
+   bits. Not a security key; distinguishes quick physical RUN resets. */
+LOCAL UH make_boot_token(void)
+{
+ UH token = 0;
+ UINT i;
+ for (i = 0; i < 16U; i++) {
+  (void)hw_delay_us(2U);
+  token = (UH)((token << 1) | (in_w(0x4006001CUL) & 1U));
+ }
+ return token;
+}
 
 EXPORT void tlm_cyclic_handler(void *exinf)
 {
@@ -138,6 +154,7 @@ EXPORT void telemetry_task(INT stacd, void *exinf)
 
 	(void)stacd;
 	(void)exinf;
+	boot_token = make_boot_token();
 	for (;;) {
 		UW	start;
 		UINT	i, ne;
@@ -149,10 +166,22 @@ EXPORT void telemetry_task(INT stacd, void *exinf)
 		start = task_stat_begin(&s1_stat_tlm);
 
 		collect(&src);
+        /* Repeat the same identity so a dropped QoS-0 boot event is
+           repaired. Reconnection never changes this token. */
+        if (src.comm.state == CS_ONLINE && (!boot_marker_sent
+            || (UW)(src.uptime_ms - boot_marker_ms) >= 5000U)) {
+         EVT_RECORD e;
+         e.code = EVT_BOOT;
+         e.data = ((UW)boot_token << 16) | ((src.uptime_ms / 100U) & 0xFFFFU);
+         send_event(&e);
+         boot_marker_ms = src.uptime_ms;
+         boot_marker_sent = TRUE;
+        }
 		tlm_build(&cur, &src);
 		n = mp_tlm_encode(&cur, tlm_seq++, f, sizeof(f));
 		if (n > 0) {
 			queue_frame(MT_TELEMETRY, f, n);
+			sys_task_ready(SYS_TASK_TLM);
 #if S1_CONSOLE_TELEMETRY
 			if (tlm_seq % S1_CONSOLE_TELEMETRY == 0U) {
 				print_hex(f, n);

@@ -19,6 +19,22 @@
 
 #include <tk/typedef.h>
 
+/* Startup readiness: runtime status is checked as well as task entry. */
+#define SYS_READY_B1 1U
+#define SYS_READY_B2 2U
+#define SYS_READY_B3 4U
+#define SYS_READY_B4 8U
+#define SYS_READY_B5 16U
+#define SYS_READY_ALL 31U
+#define SYS_READY_LOCAL (SYS_READY_ALL & ~SYS_READY_B1)
+#define SYS_TASK_TLM 1U
+#define SYS_TASK_MOTION 2U
+#define SYS_TASK_BARCODE 4U
+#define SYS_TASK_HUMP 8U
+#define SYS_TASK_SCAN 16U
+#define SYS_TASK_PROFILE 32U
+#define SYS_TASK_AVOID 64U
+
 /* ---------------------------------------------------------------------
  *  Vehicle operating mode (Week 6 system-level statechart, section 5).
  *  5 states -> 3 bits.  Codes 5..7 are invalid.

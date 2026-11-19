@@ -7,7 +7,8 @@
  * tests call them directly.
  *
  * What the robot does NOT send, and how it is handled here:
- *   - no boot id: a "boot session" is inferred from uptime continuity.
+ *   - a repeated BOOT event identifies physical resets; legacy firmware
+ *     falls back to a boot session inferred from uptime continuity.
  *     uptime_ds is 16 bits of 0.1 s and wraps every 6553.6 s; frames of the
  *     same session keep uptime and receive time moving together.
  *   - no event time: events carry only a sequence number.  received_at is
@@ -186,7 +187,7 @@ class Ingestor {
 		} else {
 			ops.push(this.event(s, base, 'server', 'BOOT_DETECTED', 'warning',
 				(reason === 'robot_restart')
-					? `Robot restarted (inferred from uptime ${up} s; previous session ${prev.id.slice(0, 8)})`
+					? `Robot restarted (uptime ${up} s; previous session ${prev.id.slice(0, 8)})`
 					: `Robot uptime does not continue the previous session (${reason}); new session from uptime ${up} s`,
 				{ uptime_s: uptimeDs / 10, reason, previous_boot_id: prev ? prev.id : null }));
 		}
@@ -419,6 +420,15 @@ class Ingestor {
 	}
 
 	onEvent(s, d, buf, base, rxMs, ops) {
+        if (d.event === 'BOOT') {
+            if (s.boot && s.boot.token === d.boot_token) {
+                this.seqGap(s, 3, d.seq, rxMs, buf); // account for repeated marker sequence
+                return;
+            }
+            this.newBoot(s, s.boot ? 'robot_restart' : 'first_seen', d.uptime_ds, rxMs, base, ops);
+            s.boot.token = d.boot_token;
+            s.ref = { t: rxMs, U: d.uptime_ds };
+        }
 		const gap = this.seqGap(s, 3, d.seq, rxMs, buf);
 		let sev = 'info';
 		let msg;
@@ -429,6 +439,9 @@ class Ingestor {
 		}
 		const data = Object.assign({ data_word: d.data }, d.fields);
 		switch (d.event) {
+		case 'BOOT':
+			msg = 'Robot boot confirmed; current-run measurements and evidence reset';
+			break;
 		case 'MODE':
 			msg = `Mode ${d.old_mode} -> ${d.new_mode} (epoch ${d.epoch})`;
 			sev = (d.new_mode === 'SAFE_STOP') ? 'critical' : 'info';
@@ -445,7 +458,7 @@ class Ingestor {
 			break;
 		}
 		case 'BARCODE':
-			msg = `Barcode ${d.symbol === null ? '(no symbol)' : "'" + d.symbol + "'"} ${d.result}` +
+			msg = d.result === 'INVALID' ? 'Barcode INVALID' : `Barcode ${d.symbol === null ? '(no symbol)' : "'" + d.symbol + "'"} ${d.result}` +
 				(d.nav ? `, mapped to ${d.nav} (mapping, not confirmed execution)` : ', no navigation mapping');
 			sev = (d.result === 'INVALID') ? 'warning' : 'info';
 			break;

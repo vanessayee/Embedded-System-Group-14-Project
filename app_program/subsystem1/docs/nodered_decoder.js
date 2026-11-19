@@ -63,8 +63,8 @@ const ENUMS = {
 	avoid_fail: ['NONE', 'PROFILE', 'CLEARANCE', 'MOTION', 'LINE', 'TIMEOUT', 'SENSOR'], /* AVF_* */
 	comm_state: ['INIT', 'CONNECTING_WIFI', 'CONNECTING_MQTT', 'SUBSCRIBING',
 		'ONLINE', 'RETRY_WAIT', 'RECOVERY', 'DISABLED'],		/* comm_fsm.h CS_* */
-	event: [null, 'MODE', 'FAULTS', 'BARCODE', 'HUMP', 'OBSTACLE', 'COLLISION'], /* EVT_* */
-	command: ['PING', 'STOP', 'RESUME', 'CLEAR', 'SET_SPEED', 'REQ_STATUS'],	/* CMD_* */
+	event: [null, 'MODE', 'FAULTS', 'BARCODE', 'HUMP', 'OBSTACLE', 'COLLISION', 'BOOT'], /* EVT_* */
+	command: ['PING', 'STOP', 'RESUME', 'CLEAR', 'SET_SPEED', 'REQ_STATUS', 'SET_NAV_MAP', 'GET_NAV_MAP'],	/* CMD_* */
 	ack_result: ['OK', 'BAD_VERSION', 'BAD_TYPE', 'BAD_LENGTH', 'BAD_FIELD', 'BAD_ARG',
 		'REJ_STATE', 'DUPLICATE', 'RATE', 'BUSY'],			/* ACK_* */
 	reject_reason: ['NONE', 'FORMAT', 'RANGE', 'SOURCE', 'MODE', 'STALE', 'PRIORITY', 'QUEUE'] /* MREJ_* */
@@ -162,7 +162,8 @@ const EVT_DATA = {
 	3: [['symbol', 6], ['result', 2], ['nav', 2], ['nav_valid', 1]],
 	4: [['last', 6], ['max', 6], ['count', 4]],
 	5: [['outcome', 2], ['fail', 3], ['side', 2], ['width', 8], ['distance', 10]],
-	6: [['shock', 5]]
+	6: [['shock', 5]],
+	7: [['uptime_ds', 16], ['boot_token', 16]]
 };
 
 /* Values a field can never take in a v1 frame.  Fields not listed use
@@ -192,7 +193,7 @@ const EVT_RANGE = {
 	4: { last: humpOk, max: humpOk },
 	5: { fail: (v) => v <= 6, side: (v) => v <= 2, distance: distOk }
 };
-const ACK_RANGE = { cmd: (v) => v <= 5, result: (v) => v <= 9 };
+const ACK_RANGE = { cmd: (v) => v <= 7, result: (v) => v <= 9 };
 
 /* ------------------------------------------------------------------ */
 /*  CRC and bit packing                                                */
@@ -449,6 +450,7 @@ function interpretEvent(code, data) {
 			 side: name(ENUMS.avoid_side, f.side),
 			 width_mm: (f.width === 255) ? null : f.width * 5, distance_mm: distMm(f.distance) };
 	case 6: return { shock_g: f.shock / 2 };
+	case 7: return { uptime_ds: f.uptime_ds, boot_token: f.boot_token };
 	default: return {};
 	}
 }
@@ -503,7 +505,7 @@ function decode(buf, opts) {
 	default: {				/* a command: validate like the robot */
 		const issues = [];
 		if (raw.reserved !== 0 || raw.cmd >= ENUMS.command.length) { issues.push('FIELD'); }
-		if (raw.cmd === 4 ? (raw.arg < 50 || raw.arg > 400) : raw.arg !== 0) { issues.push('ARG'); }
+		if (!commandArgValid(raw.cmd, raw.arg)) { issues.push('ARG'); }
 		return Object.assign(base, { issues, cmd: name(ENUMS.command, raw.cmd), arg: raw.arg,
 					      cmd_id: raw.cmd_id });
 	}
@@ -549,10 +551,17 @@ function encodeEvent(code, fields, seq) {
 }
 
 /* Build a command frame for csc14/cmd.  The robot validates it again. */
+function commandArgValid(cmd, arg) {
+	if (!Number.isInteger(arg) || arg < 0 || arg > 1023) return false;
+	if (cmd === 4) return arg >= 50 && arg <= 400;
+	if (cmd === 6) return (arg & 63) >= 10 && (arg & 63) <= 35 && (arg >> 6) <= 4;
+	if (cmd === 7) return arg >= 10 && arg <= 35;
+	return arg === 0;
+}
 function encodeCommand(cmdName, arg, cmdId, seq) {
 	const cmd = ENUMS.command.indexOf(cmdName);
 	if (cmd < 0) { throw new Error('unknown command ' + cmdName); }
-	if (cmd === 4 ? (arg < 50 || arg > 400) : arg !== 0) {
+	if (!commandArgValid(cmd, arg)) {
 		throw new Error('argument out of range');
 	}
 	return encodeFrame(TYPE.COMMAND, seq, { cmd, arg, cmd_id: cmdId & 0xFF, reserved: 0 });

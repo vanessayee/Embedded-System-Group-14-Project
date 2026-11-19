@@ -17,15 +17,27 @@ LOCAL volatile UW	sys_fault_word;		/* many writers: atomics only */
 LOCAL volatile UW	sys_fault_seen_word;	/* every bit set since boot */
 LOCAL volatile UW	sys_event_word;		/* many writers: atomics only */
 LOCAL volatile UW	sys_vsw_word;		/* writer: Motion Control */
+LOCAL volatile UW sys_ready_tasks;
 LOCAL UW		sys_crit_mask;		/* constant after init */
 
 EXPORT void sys_state_init(void)
 {
+	sys_ready_tasks = 0;
 	sys_fault_word = 0;
 	sys_fault_seen_word = 0;
 	sys_event_word = 0;
 	sys_vsw_word = (UW)VM_INIT << VSW_MODE_SHIFT;
 	sys_crit_mask = sys_fault_critical_mask();
+}
+
+EXPORT void sys_task_ready(UW bits)
+{
+ (void)app_atomic_or(&sys_ready_tasks, bits);
+}
+
+EXPORT UW sys_tasks_ready(void)
+{
+ return app_load(&sys_ready_tasks);
 }
 
 EXPORT UW sys_fault_get(void)

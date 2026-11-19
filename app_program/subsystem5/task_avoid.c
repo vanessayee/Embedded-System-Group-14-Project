@@ -19,6 +19,7 @@
 
 #include "subsystem5.h"
 #include "drv_ultrasonic.h"
+#include "../subsystem3/drv_ir.h"
 
 EXPORT volatile UW	s5_avoid_word;
 
@@ -110,12 +111,13 @@ LOCAL UW move(UW type, INT arg)
 	return move_at_speed(type, arg, S5_AVOID_SPEED_LVL);
 }
 
-LOCAL BOOL line_centered(void)
+LOCAL BOOL line_contact(void)
 {
 	S3_LINE_STATUS	ls;
 
 	s3_get_line_status(&ls);
-	return ((ls.ir_black & IR_BIT(IR_C)) != 0U) ? TRUE : FALSE;
+	return (ls.calibrated && (UW)(app_now_ms() - ls.time_ms) <= 100U
+		&& (ls.ir_black & IR_BIT(IR_C)) != 0U) ? TRUE : FALSE;
 }
 
 /* SEARCH: drive until the centre sensor, not merely a side sensor, reaches
@@ -133,10 +135,11 @@ LOCAL BOOL search_line(INT dist)
 		(void)tk_wai_flg(flg_line_evt, LEV_FOUND, TWF_ORW | TWF_BITCLR,
 				 &ptn, S3_PERIOD_MS);
 
-		if (line_centered()) {
+		if (line_contact()) {
 			motion_stop(MSRC_AVOID);	/* centre sensor is on the line */
-			(void)motion_wait_result(cmd, 1000, &res);
-			return TRUE;
+			return motion_wait_result(cmd, 1000, &res) == E_OK
+				&& (mres_status(res) == MRES_ABORTED || mres_status(res) == MRES_DONE)
+				&& sys_mode() == VM_OBSTACLE;
 		}
 		res = motion_last_result(MSRC_AVOID);
 		if ((res & MRES_VALID) != 0U && mres_seq(res) == mcmd_seq(cmd)) {
@@ -145,7 +148,7 @@ LOCAL BOOL search_line(INT dist)
 			/* The 20 ms IR task can publish just after the motion result.
 			   Hold still briefly instead of declaring failure one sample early. */
 			do {
-				if (line_centered()) return TRUE;
+				if (line_contact()) return TRUE;
 				(void)tk_dly_tsk(S3_PERIOD_MS);
 			} while (mres_status(res) == MRES_DONE
 				 && (UW)(app_now_ms() - grace) < S5_LINE_END_GRACE_MS);
@@ -158,6 +161,71 @@ LOCAL BOOL search_line(INT dist)
 	}
 }
 
+/* The angle is a bounded search limit. Only fresh IR samples end the turn
+   successfully. GP2 is internal IR_L on the mirrored sensor assembly. */
+LOCAL BOOL turn_to_line(INT direction, INT limit)
+{
+	S3_LINE_STATUS ls;
+	AV_LINE_LOCK lock = { FALSE, 0 };
+	UW cmd, res, start = app_now_ms(), last;
+	BOOL acquired = FALSE;
+
+	s3_get_line_status(&ls);
+	last = ls.time_ms;
+	if (motion_command(MCMD_TURN, MSRC_AVOID, direction * limit,
+			   S5_REVERSE_SPEED_LVL, &cmd) != E_OK) return FALSE;
+	while (!expired() && sys_mode() == VM_OBSTACLE
+	       && (UW)(app_now_ms() - start) < S5_LINE_ALIGN_TIMEOUT_MS) {
+		(void)tk_dly_tsk(S3_PERIOD_MS);
+		s3_get_line_status(&ls);
+		if (!ls.calibrated || (UW)(app_now_ms() - ls.time_ms) > 100U) break;
+		if (ls.time_ms != last) {
+			last = ls.time_ms;
+			if (av_line_lock_sample(&lock, FALSE,
+				(ls.ir_black & IR_BIT(IR_C)) != 0U,
+				(ls.ir_black & IR_BIT(IR_SIDES_MIRRORED ? IR_L : IR_R)) != 0U)) {
+				acquired = TRUE;
+				break;
+			}
+		}
+		res = motion_last_result(MSRC_AVOID);
+		if ((res & MRES_VALID) && mres_seq(res) == mcmd_seq(cmd)) break;
+	}
+	motion_stop(MSRC_AVOID);
+	if (motion_wait_result(cmd, 1000, &res) != E_OK) return FALSE;
+	return acquired && sys_mode() == VM_OBSTACLE
+		&& (mres_status(res) == MRES_ABORTED || mres_status(res) == MRES_DONE);
+}
+
+/* Once the outgoing line is confirmed, Buddy 3 must own the next moving
+   correction. A second in-place left pivot and restart-on-contact loop
+   repeatedly swept past the line instead of resuming forward tracking. */
+LOCAL BOOL align_line(INT side)
+{
+	UW start;
+	MOTION_STATUS ms;
+	S3_LINE_STATUS ls;
+
+	tm_printf((UB*)"avoid: returning %s, seeking GP6 centre contact\n",
+		  side < 0 ? "from left" : "from right");
+	if (!turn_to_line(side, S5_LINE_ALIGN_LIMIT_DEG)) return FALSE;
+	start = app_now_ms();
+	while (!expired() && sys_mode() == VM_OBSTACLE
+	       && (UW)(app_now_ms() - start) < S5_STOP_WAIT_MS) {
+		motion_get_status(&ms);
+		s3_get_line_status(&ls);
+		if (!ls.calibrated || (UW)(app_now_ms() - ls.time_ms) > 100U) return FALSE;
+		if (ms.mstate == MS_IDLE && ms.speed_l_mms >= -10 && ms.speed_l_mms <= 10
+		    && ms.speed_r_mms >= -10 && ms.speed_r_mms <= 10) {
+			tm_printf((UB*)"avoid: line confirmed, GP6=%d GP2=%d; handing to moving line following\n",
+				  (ls.ir_black & IR_BIT(IR_C)) != 0U,
+				  (ls.ir_black & IR_BIT(IR_SIDES_MIRRORED ? IR_L : IR_R)) != 0U);
+			return TRUE;
+		}
+		(void)tk_dly_tsk(S3_PERIOD_MS);
+	}
+	return FALSE;
+}
 LOCAL void fail(UB reason, UW fault_bits)
 {
 	motion_stop(MSRC_AVOID);
@@ -246,8 +314,8 @@ LOCAL BOOL profile_obstacle(S5_PROFILE *p, BOOL *cleared)
 
 /* Drive parallel to the obstacle while the ultrasonic looks toward it.
    The obstacle must first be seen reliably; only then can consecutive clear
-   readings mark its far edge.  Use the 10 cm lateral gap to begin a shallow
-   30-degree return after a geometry-derived corner-clearance move, instead
+   readings mark its far edge. Use the measured gap to calculate the return
+   corner-clearance move, instead
    of waiting for the complete body length to pass while still parallel. */
 LOCAL INT pass_obstacle(const AV_PLAN *plan)
 {
@@ -260,6 +328,7 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 	W		odo0 = 0, odo = 0, travelled, depth;
 	W		clear_start_mm = -1;
 	W		closest_side_mm = 0;
+	W		farthest_side_mm = 0;
 	W		lateral_mm = AV_ROBOT_WIDTH_MM / 2 + plan->side_gap_mm;
 	W		side_sin = op_sin_q15(S5_SIDE_LOOK_DEG);
 	W		side_limit = (W)(((D)lateral_mm * 32768 + side_sin - 1) / side_sin)
@@ -320,11 +389,21 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			side_mm = s5_dist_mm(ss.dist_code);
 			if (ss.us_result == US_OK && side_mm > 0
 			    && side_mm <= side_limit) {
+				if (side_mm > farthest_side_mm) farthest_side_mm = side_mm;
 				if (closest_side_mm == 0 || side_mm < closest_side_mm) {
 					closest_side_mm = side_mm;
 				}
 				if (seen_run < S5_SIDE_SEEN_CONFIRM) seen_run++;
-				if (seen_run >= S5_SIDE_SEEN_CONFIRM) seen = TRUE;
+				if (seen_run >= S5_SIDE_SEEN_CONFIRM && !seen) {
+					W measured_gap = (W)((D)side_mm * side_sin / 32768)
+						- AV_ROBOT_WIDTH_MM / 2;
+
+					seen = TRUE;
+					tm_printf((UB*)"avoid: side obstacle confirmed, measured body gap %d mm, "
+						  "planned %d mm (requested %d + reserve %d)\n",
+						  (INT)measured_gap, (INT)plan->side_gap_mm,
+						  AV_SIDE_GAP_MM, AV_EDGE_UNCERTAINTY_MM);
+				}
 				clear_run = 0;
 				clear_start_mm = -1;
 				bad_run = 0;
@@ -352,11 +431,10 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			fail(AVF_SENSOR, SYS_FLT_AVOID_FAILED);
 			return EXEC_FAILED;
 		}
-		if (seen && clear_run >= S5_SIDE_CLEAR_CONFIRM
-		    && travelled >= S5_SIDE_MIN_TRAVEL_MM) {
+		if (seen && clear_run >= S5_SIDE_CLEAR_CONFIRM) {
 			W clear_travel = (clear_start_mm >= 0)
 				       ? travelled - clear_start_mm : 0;
-			W edge_ahead = (W)(((D)side_limit
+			W edge_ahead = (W)(((D)farthest_side_mm
 						 * op_cos_q15(S5_SIDE_LOOK_DEG)) / 32768)
 				       - clear_travel + S5_FAR_EDGE_ALLOWANCE_MM;
 			W measured_gap = (W)(((D)closest_side_mm * side_sin) / 32768)
@@ -368,7 +446,7 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			if (edge_ahead < 0) edge_ahead = 0;
 			if (measured_gap < 0) measured_gap = 0;
 			body_path = av_return_approach_mm(plan->return_turn_deg, measured_gap);
-			return_move = body_path + edge_ahead;
+			return_move = av_post_edge_advance_mm(body_path, edge_ahead);
 			if (return_move > MCMD_MOVE_MAX_MM) return_move = MCMD_MOVE_MAX_MM;
 			motion_stop(MSRC_AVOID);
 			if (motion_wait_result(cmd, 1000, &res) != E_OK
@@ -383,7 +461,7 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			if (depth < 0) depth = 0;
 			tm_printf((UB*)"avoid: far edge found after %d mm parallel travel; "
 				  "estimated obstacle length %d mm; measured side gap %d mm; "
-				  "edge allowance %d mm + body path %d mm = advance %d mm, "
+				  "edge allowance %d mm, body minimum %d mm; reduced advance %d mm, "
 				  "then return at %d deg\n",
 				  (INT)travelled, (INT)depth, (INT)measured_gap,
 				  (INT)edge_ahead, (INT)body_path, (INT)return_move,
@@ -481,6 +559,13 @@ LOCAL INT execute_plan(const AV_PLAN *plan)
 				return EXEC_FAILED;
 			}
 			set_state(AVST_ALIGNING);	/* REACQUIRE LINE */
+			if (!align_line(s)) {
+				if (sys_mode() != VM_OBSTACLE) return EXEC_ABANDONED;
+				fail(AVF_LINE, SYS_FLT_RECOVERY_TIMEOUT);
+				return EXEC_FAILED;
+			}
+			/* Sensor alignment replaces the final planned encoder turn. */
+			if (i + 1U < plan->n && plan->step[i + 1U].kind == AVS_TURN) i++;
 			continue;
 		}
 		if (st->kind == AVS_PASS) {
@@ -628,6 +713,7 @@ EXPORT void avoid_task(INT stacd, void *exinf)
 	ast.fail = AVF_NONE;
 	set_state(AVST_IDLE);
 	request_scan(SREQ_MONITOR, 0, 0, 0);
+	sys_task_ready(SYS_TASK_AVOID);
 
 	for (;;) {
 		if (tk_wai_flg(flg_avoid, AVEV_DETECTED, TWF_ORW | TWF_BITCLR, &ptn,

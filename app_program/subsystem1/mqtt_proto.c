@@ -251,6 +251,11 @@ EXPORT INT mp_cmd_decode(const UB *frame, UINT len, CMD_RECORD *r)
 		if (r->arg < (UH)MOTION_SPEED_MIN_MMS || r->arg > (UH)MOTION_SPEED_MAX_MMS) {
 			return MPE_ARG;
 		}
+	} else if (r->cmd == CMD_SET_NAV_MAP) {
+		UW symbol = r->arg & 63U, action = r->arg >> 6;
+		if (symbol < 10U || symbol > 35U || action > 4U) return MPE_ARG;
+	} else if (r->cmd == CMD_GET_NAV_MAP) {
+		if (r->arg < 10U || r->arg > 35U) return MPE_ARG;
 	} else if (r->arg != 0U) {
 		return MPE_ARG;
 	}

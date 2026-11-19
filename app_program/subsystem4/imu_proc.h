@@ -83,6 +83,12 @@
 #define IMU_STILL_MS		300
 #define IMU_COLLISION_MG	1500	/* horizontal linear acceleration    */
 #define IMU_COLLISION_HOLD_MS	500	/* refractory period after an impact */
+#define IMU_HANDLE_DEVIATION_MG	400	/* sustained departure from 1g */
+#define IMU_HANDLE_MIN_MS		80
+#define IMU_FREEFALL_MG		350
+#define IMU_FREEFALL_MIN_MS	60
+#define IMU_HANDLE_TILT_CDEG	6000
+#define IMU_HANDLE_TILT_MS	200
 #define IMU_STUCK_SAMPLES	20	/* identical raw data = sensor stuck */
 #define IMU_INVALID_RUN		10	/* 100 ms of bad data = IMU fault    */
 
@@ -155,6 +161,8 @@ typedef struct {
 	UW	still_ms;
 	BOOL	collision;		/* impact detected in this sample */
 	UW	collision_hold_ms;
+	BOOL	handling;		/* pickup jolt/free-fall/severe tilt, not altitude */
+	UW	handling_ms, freefall_ms, severe_tilt_ms;
 	W	peak_shock_mg;		/* largest horizontal impact so far */
 	UH	last_hash;
 	UB	same_count;

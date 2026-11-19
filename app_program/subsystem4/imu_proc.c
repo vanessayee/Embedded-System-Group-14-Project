@@ -200,6 +200,8 @@ EXPORT void imu_proc_init(IMU_PROC *p, const IMU_CAL *cal)
 	p->lin_right_mg = 0;
 	p->motion_class = MCLS_STATIONARY;
 	p->tilt = FALSE;
+	p->handling = FALSE;
+	p->handling_ms = p->freefall_ms = p->severe_tilt_ms = 0;
 	p->tilt_ms = 0;
 	p->still_ms = 0;
 	p->collision = FALSE;
@@ -434,6 +436,18 @@ EXPORT BOOL imu_proc_step(IMU_PROC *p, const IMU_IN *s, UW dt_ms)
 		p->tilt_ms = 0;
 		p->tilt = FALSE;
 	}
+
+	/* Handling stop from accelerometer-observable motion. A gentle level
+	   lift cannot be distinguished from rest without a contact sensor. */
+	p->handling_ms = (iabs(dev) > IMU_HANDLE_DEVIATION_MG)
+		? p->handling_ms + dt_ms : 0;
+	p->freefall_ms = (amag < IMU_FREEFALL_MG) ? p->freefall_ms + dt_ms : 0;
+	p->severe_tilt_ms = (iabs(p->pitch_cdeg) >= IMU_HANDLE_TILT_CDEG
+		|| iabs(p->roll_cdeg) >= IMU_HANDLE_TILT_CDEG) ? p->severe_tilt_ms + dt_ms : 0;
+	p->handling = p->handling_ms >= IMU_HANDLE_MIN_MS
+		|| p->freefall_ms >= IMU_FREEFALL_MIN_MS
+		|| p->severe_tilt_ms >= IMU_HANDLE_TILT_MS;
+	if (p->handling && iabs(dev) > p->peak_shock_mg) p->peak_shock_mg = iabs(dev);
 
 	/* Motion classification (FR18) */
 	if (p->yaw_rate_mdps > IMU_TURN_MDPS) {

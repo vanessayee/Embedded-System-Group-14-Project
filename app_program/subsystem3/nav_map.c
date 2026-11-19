@@ -14,67 +14,53 @@ typedef struct {
 /* Default barcode assignments for Buddy 3. */
 LOCAL const NAV_ENTRY S3_NAV_MAP_DEFAULT[] = {
 	{ 10, NAV_RIGHT },	/* A */
-	{ 15, NAV_LEFT },	/* F */
-	{ 30, NAV_LEFT },	/* U */
+	{ 32, NAV_LEFT },	/* W */
+	{ 35, NAV_LEFT },	/* Z */
 	{ 33, NAV_STRAIGHT },	/* X */
 	{ 34, NAV_UTURN },	/* Y */
 	{ 0xFF, 0 }		/* terminator */
 };
 
-LOCAL NAV_ENTRY	nav_tab[NAV_MAP_SIZE];
-LOCAL UINT	nav_n;
+/* One atomic word per symbol: MQTT and barcode tasks run concurrently. */
+LOCAL UW nav_tab[NAV_MAP_SIZE];
 
 EXPORT void nav_map_clear(void)
 {
-	nav_n = 0;
+	UINT i;
+	for (i = 0; i < NAV_MAP_SIZE; i++) __atomic_store_n(&nav_tab[i], NAV_UNMAPPED, __ATOMIC_RELEASE);
 }
 
 EXPORT void nav_map_reset(void)
 {
-	UINT	i;
-
+	UINT i;
 	nav_map_clear();
-	for (i = 0; S3_NAV_MAP_DEFAULT[i].symbol != 0xFFU; i++) {
-		(void)nav_map_set(S3_NAV_MAP_DEFAULT[i].symbol,
-				  S3_NAV_MAP_DEFAULT[i].nav);
-	}
+	for (i = 0; S3_NAV_MAP_DEFAULT[i].symbol != 0xFFU; i++)
+		(void)nav_map_set(S3_NAV_MAP_DEFAULT[i].symbol, S3_NAV_MAP_DEFAULT[i].nav);
 }
 
 EXPORT ER nav_map_set(UB symbol, UB nav)
 {
-	UINT	i;
+	if (nav > NAV_UTURN || symbol >= NAV_MAP_SIZE) return E_PAR;
+	__atomic_store_n(&nav_tab[symbol], nav, __ATOMIC_RELEASE);
+	return E_OK;
+}
 
-	if (nav > NAV_UTURN || symbol >= 43U) {	/* '*' is never data */
-		return E_PAR;
-	}
-	for (i = 0; i < nav_n; i++) {
-		if (nav_tab[i].symbol == symbol) {
-			nav_tab[i].nav = nav;
-			return E_OK;
-		}
-	}
-	if (nav_n >= NAV_MAP_SIZE) {
-		return E_LIMIT;
-	}
-	nav_tab[nav_n].symbol = symbol;
-	nav_tab[nav_n].nav = nav;
-	nav_n++;
+EXPORT ER nav_map_remove(UB symbol)
+{
+	if (symbol >= NAV_MAP_SIZE) return E_PAR;
+	__atomic_store_n(&nav_tab[symbol], NAV_UNMAPPED, __ATOMIC_RELEASE);
 	return E_OK;
 }
 
 EXPORT BOOL nav_map_lookup(UB symbol, UB *nav)
 {
-	UINT	i;
-
-	for (i = 0; i < nav_n; i++) {
-		if (nav_tab[i].symbol == symbol) {
-			*nav = nav_tab[i].nav;
-			return TRUE;
-		}
-	}
-	return FALSE;
+	UW value;
+	if (symbol >= NAV_MAP_SIZE) return FALSE;
+	value = __atomic_load_n(&nav_tab[symbol], __ATOMIC_ACQUIRE);
+	if (value > NAV_UTURN) return FALSE;
+	*nav = (UB)value;
+	return TRUE;
 }
-
 EXPORT const char *nav_name(UB nav)
 {
 	switch (nav) {

@@ -148,17 +148,15 @@ EXPORT void line_task(INT stacd, void *exinf)
 			}
 			lf_reset_tracking(&lf);
 		} else if (was_executing && nav) {
-			if (barcode.mres == MRES_DONE && barcode.nav == NAV_LEFT
-			    && (black & (IR_BIT(IR_C) | IR_BIT(IR_L))) == IR_BIT(IR_L)) {
-				lf_reset_tracking(&lf);
-				tm_printf((UB*)"line: GP2 acquired outgoing branch, resuming steering\n");
-			} else if (barcode.mres == MRES_DONE) {
-				BOOL centre_acquired = barcode.nav == NAV_RIGHT || barcode.nav == NAV_LEFT;
-
-				lf_turn_done(&lf, centre_acquired);
-				tm_printf((UB*)"line: %s\n", centre_acquired
-					? "outgoing branch acquired, driving straight"
-					: "barcode command done, realigning on the line");
+			if (barcode.mres == MRES_DONE) {
+				if (barcode.nav == NAV_LEFT || barcode.nav == NAV_RIGHT) {
+					/* Both directions finish on a confirmed sensor gap. */
+					lf_reset_tracking(&lf);
+					tm_printf((UB*)"line: outgoing gap acquired, following IR immediately\n");
+				} else {
+					lf_turn_done(&lf, FALSE);
+					tm_printf((UB*)"line: barcode command done, realigning on the line\n");
+				}
 			}
 		}
 		was_executing = executing;

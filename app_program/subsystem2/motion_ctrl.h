@@ -75,8 +75,11 @@ typedef struct {
 	W	seek_from_um;	/* barcode TURN: IR sensors used from here ... */
 	W	seek_extra_um;	/* ... and up to target + this */
 	BOOL	seek_seen;	/* leading IR sensor has crossed the new line */
-	UW	seek_pause_ms;	/* allow the left pivot to settle before driving */
-	BOOL	seek_forward;	/* left junction pivot is complete */
+	UB	turn_contact_samples;	/* direction-dependent leading sensor edge */
+	UB	turn_gap_samples;	/* confirmed centre/right white after edge */
+	UW	turn_line_seq;		/* do not count the same IR sample twice */
+	BOOL	turn_align;		/* settle and trim the final sensor gap */
+	UW	turn_wait_ms;
 	BOOL	advancing;	/* junction turn: driving to the turn point */
 	W	advance_um;	/* ... until this much travel ...           */
 	BOOL	adv_r_black;	/* ... right sensor seen on the crossing line */

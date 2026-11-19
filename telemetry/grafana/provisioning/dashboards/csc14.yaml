@@ -8,7 +8,7 @@ providers:
     orgId: 1
     folder: CSC14
     type: file
-    disableDeletion: true
+    disableDeletion: false
     allowUiUpdates: false
     updateIntervalSeconds: 30
     options:

@@ -76,6 +76,9 @@ typedef struct {
 	D		min_x_um;	/* closest approach beside the obstacle */
 	D		obstacle_y0_um;	/* axle positions with longitudinal overlap */
 	D		obstacle_y1_um;
+	D		obstacle_front_um;
+	D		obstacle_far_um;
+	D		min_side_gap_um;
 	BOOL		ir_track;	/* simulate Buddy 3's IR on a cross junction */
 	D		jy_um;		/* crossing line centre, along the line */
 	UB		lseen_seq;
@@ -124,6 +127,40 @@ LOCAL void car_pose(CAR *c)
 	deg = (INT)((c->th_mdeg >= 0) ? (c->th_mdeg + 500) / 1000 : (c->th_mdeg - 500) / 1000);
 	c->x_um += ((D)ds * op_sin_q15(deg)) / 32768;
 	c->y_um += ((D)ds * op_cos_q15(deg)) / 32768;
+	if (c->obstacle_far_um > c->obstacle_front_um) {
+		W lx[4] = {-AV_ROBOT_WIDTH_MM / 2, AV_ROBOT_WIDTH_MM / 2,
+			    AV_ROBOT_WIDTH_MM / 2, -AV_ROBOT_WIDTH_MM / 2};
+		W ly[4] = {-AV_ROBOT_LENGTH_MM / 2, -AV_ROBOT_LENGTH_MM / 2,
+			    AV_ROBOT_LENGTH_MM - AV_ROBOT_LENGTH_MM / 2,
+			    AV_ROBOT_LENGTH_MM - AV_ROBOT_LENGTH_MM / 2};
+		D x[4], y[4], s = op_sin_q15(deg), co = op_cos_q15(deg);
+		UINT i, edge;
+
+		for (i = 0; i < 4U; i++) {
+			x[i] = c->x_um + ((D)lx[i] * co + (D)ly[i] * s) * 1000 / 32768;
+			y[i] = c->y_um + ((D)ly[i] * co - (D)lx[i] * s) * 1000 / 32768;
+		}
+		for (i = 0; i < 4U; i++) {
+			UINT j = (i + 1U) & 3U;
+
+			if (y[i] >= c->obstacle_front_um && y[i] <= c->obstacle_far_um
+			    && x[i] - 75000 < c->min_side_gap_um) {
+				c->min_side_gap_um = x[i] - 75000;
+			}
+			for (edge = 0; edge < 2U; edge++) {
+				D plane = edge ? c->obstacle_far_um : c->obstacle_front_um;
+
+				if ((y[i] < plane && y[j] > plane)
+				    || (y[j] < plane && y[i] > plane)) {
+					D cross_x = x[i] + (x[j] - x[i]) * (plane - y[i]) / (y[j] - y[i]);
+
+					if (cross_x - 75000 < c->min_side_gap_um) {
+						c->min_side_gap_um = cross_x - 75000;
+					}
+				}
+			}
+		}
+	}
 	if (c->obstacle_y1_um > c->obstacle_y0_um
 	    && c->y_um >= c->obstacle_y0_um && c->y_um <= c->obstacle_y1_um
 	    && c->x_um < c->min_x_um) {
@@ -188,6 +225,7 @@ LOCAL void car_cycle(CAR *c)
 	vin.faults = c->faults;
 	vin.crit_mask = sys_fault_critical_mask();
 	vin.armed = TRUE;
+	vin.ready = SYS_READY_ALL;
 	vin.nav_started = c->nav_started;
 	vin.nav_finished = c->nav_finished;
 	vin.resume = c->resume;
@@ -242,6 +280,9 @@ LOCAL void car_start(CAR *c)
 	c->min_x_um = 0x7FFFFFFF;
 	c->obstacle_y0_um = 0;
 	c->obstacle_y1_um = 0;
+	c->obstacle_front_um = 0;
+	c->obstacle_far_um = 0;
+	c->min_side_gap_um = 0x7FFFFFFF;
 	c->ir_track = FALSE;
 	c->jy_um = 0;
 	c->lseen_seq = 0;
@@ -362,6 +403,9 @@ LOCAL INT int_avoidance(void)
 	   obstacle when that bumper reaches the front face, and stops overlapping
 	   after the rear bumper passes the 200 mm synthetic far edge. */
 	c->obstacle_y0_um = (D)(q.dist_mm - AV_SENSOR_BEHIND_FRONT_MM) * 1000;
+	c->obstacle_front_um = (D)(q.dist_mm + AV_ROBOT_LENGTH_MM
+			- AV_ROBOT_LENGTH_MM / 2 - AV_SENSOR_BEHIND_FRONT_MM) * 1000;
+	c->obstacle_far_um = c->obstacle_front_um + 200000;
 	c->obstacle_y1_um = (D)(q.dist_mm - AV_SENSOR_BEHIND_FRONT_MM + 200
 				 + AV_ROBOT_LENGTH_MM) * 1000;
 	c->events = SYS_EV_OBSTACLE;		/* Buddy 5 -> Buddy 2 */
@@ -385,7 +429,7 @@ LOCAL INT int_avoidance(void)
 		   instead of executing the 2 m motion-command safety bound. */
 		if (st->kind == AVS_PASS) {
 			arg = q.dist_mm + 200 - plan.forward_before_pass_mm
-			    + plan.return_approach_mm;
+			    + av_return_approach_mm(plan.return_turn_deg, plan.side_gap_mm);
 		}
 		cmd = car_cmd(c, type, MSRC_AVOID, arg, spd);
 
@@ -425,7 +469,9 @@ LOCAL INT int_avoidance(void)
 		  (INT)end_x, (INT)(c->y_um / 1000));
 	TEST_CHECK("INT-10b", packed_ok && steps_ok && plan.n >= 7U && plan.n <= 8U,
 		   "every planned step crosses the interface packed and completes; search stops on the line");
-	TEST_CHECK("INT-10c", closest >= 75 + AV_ROBOT_WIDTH_MM / 2 + AV_SIDE_GAP_MM
+	tm_printf((UB*)"[TEST]   actual body side gap %d mm during longitudinal overlap\n",
+		  (INT)(c->min_side_gap_um / 1000));
+	TEST_CHECK("INT-10c", c->min_side_gap_um >= (D)AV_SIDE_GAP_MM * 1000
 		   && iabs(end_th) <= TURN_TOL_MDEG
 		   && iabs(end_x) <= 50,
 		   "car edge keeps the configured gap; back on line, heading within 10 deg");
@@ -442,7 +488,7 @@ LOCAL INT int_avoidance(void)
 
 LOCAL INT int_barcode_nav(void)
 {
-	static const char	sym[] = { 'A', 'F', 'U', 'X', 'Y' };
+	static const char	sym[] = { 'A', 'W', 'Z', 'X', 'Y' };
 	static const UB		navs[] = { NAV_RIGHT, NAV_LEFT, NAV_LEFT, NAV_STRAIGHT, NAV_UTURN };
 	static const W		turn_mdeg[] = { 90000, -90000, -90000, 0, 180000 };
 	CAR		*c = &car;
@@ -458,8 +504,8 @@ LOCAL INT int_barcode_nav(void)
 	car_start(c);
 	bc_init(&bc);
 	nav_map_reset();
-	s3_drive_over(&bc, 'W', 200, 50000, 0, &t_us, &x_um, &res);
-	unmapped_no_motion = res.result == BCR_VALID && res.n_data == 1U && c39_char(res.data[0]) == 'W'
+	s3_drive_over(&bc, 'F', 200, 50000, 0, &t_us, &x_um, &res);
+	unmapped_no_motion = res.result == BCR_VALID && res.n_data == 1U && c39_char(res.data[0]) == 'F'
 		     && !nav_map_lookup(res.data[0], &nav);
 	car_cycle(c);
 	TEST_CHECK("INT-11a", unmapped_no_motion && c->vf.mode == VM_NORMAL && c->res_mask == 0U,
@@ -547,7 +593,7 @@ LOCAL INT int_barcode_nav(void)
 	}
 	nav_map_reset();
 	TEST_CHECK("INT-11b", ok,
-		   "A/F/U/X/Y wait for GP6+GP2 junction -> RIGHT/LEFT/LEFT/STRAIGHT/U-TURN -> DONE -> NORMAL");
+		   "A/W/Z/X/Y wait for GP6+GP2 junction -> RIGHT/LEFT/LEFT/STRAIGHT/U-TURN -> DONE -> NORMAL");
 	TEST_CHECK("INT-11c", word_ok, "barcode status word carries symbol, command and motion result");
 	TEST_SUMMARY("int barcode nav");
 	return test_fail_;
@@ -583,10 +629,36 @@ LOCAL BOOL junction_turn(CAR *c, INT deg, W *th, W *off_c, W *off_r)
 		  "%d mm from centre sensor, %d mm from right sensor\n",
 		  (INT)deg, (INT)*th, (INT)*off_c, (INT)*off_r);
 	return (mres_status(r) == MRES_DONE && c->vf.mode == VM_NORMAL
-		&& car_sensor_black(c, 0)
+		&& !car_sensor_black(c, 0)
 		&& !car_sensor_black(c, TURN_IR_GAP_MM)) ? TRUE : FALSE;
 }
 
+LOCAL BOOL follow_junction_branch(CAR *c)
+{
+	LINE_FOLLOW follower;
+	LF_OUT line_out;
+	UB cal[10] = {2,2,2,2,2,2,2,2,2,2};
+	W start_mm = (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000;
+	UINT k;
+	BOOL driving = TRUE;
+
+	lf_init(&follower);
+	(void)lf_calibrate(&follower, cal, 10);
+	lf_reset_tracking(&follower);
+	for (k = 0; k < 200U; k++) {
+		UB black = (car_sensor_black(c, 0) ? IR_BIT(IR_C) : 0U)
+			| (car_sensor_black(c, TURN_IR_GAP_MM) ? IR_BIT(IR_L) : 0U);
+		W odo_mm = (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000;
+
+		lf_step(&follower, black, odo_mm, MOTION_PERIOD_MS, TRUE, &line_out);
+		car_steer(c, -line_out.steer, line_out.speed_frac);
+		car_cycle(c);
+		driving = driving && c->vf.mode == VM_NORMAL;
+	}
+	return driving
+		&& (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000 - start_mm > 60
+		&& iabs((W)((c->y_um - c->jy_um) / 1000)) <= 30;
+}
 LOCAL INT int_junction_turn(void)
 {
 	CAR	*c = &car;
@@ -596,38 +668,18 @@ LOCAL INT int_junction_turn(void)
 	TEST_INIT();
 	ok = junction_turn(c, 90, &th, &oc, &orr);
 	TEST_CHECK("INT-21a", ok && iabs(th - 90000) <= TURN_TOL_MDEG
-		   && iabs(oc) <= TURN_LINE_WIDTH_MM / 2 && orr < 0,
-		   "'A' RIGHT at a cross junction: outgoing line under the centre sensor");
+		   && oc >= TURN_LINE_WIDTH_MM / 2 && orr <= -TURN_LINE_WIDTH_MM / 2,
+		   "'A' RIGHT at a cross junction: outgoing tape between centre and right after wheel coast");
+	TEST_CHECK("INT-21e", ok && follow_junction_branch(c),
+		   "after RIGHT, Buddy 3 steering drives forward along the outgoing branch");
 	ok = junction_turn(c, -90, &th, &oc, &orr);
 	TEST_CHECK("INT-21b", ok && iabs(th + 90000) <= TURN_TOL_MDEG
-		   && iabs(oc) <= TURN_LINE_WIDTH_MM / 2 && orr > 0,
-		   "LEFT at a cross junction: outgoing line under the centre sensor");
-	{
-		LINE_FOLLOW follower;
-		LF_OUT line_out;
-		UB cal[10] = {2,2,2,2,2,2,2,2,2,2};
-		W start_mm = (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000;
-		UINT k;
-		BOOL driving = ok;
-
-		lf_init(&follower);
-		(void)lf_calibrate(&follower, cal, 10);
-		lf_turn_done(&follower, TRUE);
-		for (k = 0; k < 200U; k++) {
-			UB black = (car_sensor_black(c, 0) ? IR_BIT(IR_C) : 0U)
-				| (car_sensor_black(c, TURN_IR_GAP_MM) ? IR_BIT(IR_L) : 0U);
-			W odo_mm = (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000;
-
-			lf_step(&follower, black, odo_mm, MOTION_PERIOD_MS, TRUE, &line_out);
-			car_steer(c, -line_out.steer, line_out.speed_frac);
-			car_cycle(c);
-			driving = driving && c->vf.mode == VM_NORMAL;
-		}
-		TEST_CHECK("INT-21d", driving
-			   && (c->pl.d_l_um / 2 + c->pl.d_r_um / 2) / 1000 - start_mm > 60
-			   && iabs((W)((c->y_um - c->jy_um) / 1000)) <= 30,
-			   "after LEFT, Buddy 3 steering drives forward along the outgoing branch");
-	}
+		   /* Offsets truncate to whole mm; 'ok' checks both sensors white
+		      against the full micrometre geometry, including tape edges. */
+		   && oc <= -TURN_LINE_WIDTH_MM / 2 && orr >= TURN_LINE_WIDTH_MM / 2,
+		   "LEFT at a cross junction: outgoing tape between centre and right after wheel coast");
+	TEST_CHECK("INT-21d", ok && follow_junction_branch(c),
+		   "after LEFT, Buddy 3 steering drives forward along the outgoing branch");
 	car_start(c);
 	c->ir_track = TRUE;
 	c->jy_um = 10000000;	/* no outgoing line within reach of this turn */
