@@ -51,22 +51,23 @@ LOCAL UW	cycle_ms;			/* local time, +20 ms per tick */
 typedef struct {
 	W	ticks[SPD_WIN_CYCLES];
 	UW	t_us[SPD_WIN_CYCLES];
-	UINT	n;				/* samples held */
-	UINT	i;				/* next slot = oldest once full */
+	unsigned char n : 3; /* 0..5 samples held */
+	unsigned char i : 3; /* 0..4 next slot */
 } SPD_WIN;
 
 LOCAL W		spd_l, spd_r;			/* filtered wheel speeds, mm/s */
 LOCAL SPD_WIN	win_l, win_r;
 LOCAL INT	dir_l = 1, dir_r = 1;
 LOCAL UW	odo_um;				/* total travel, um */
-LOCAL BOOL	steer_seen;
-LOCAL UW	steer_seen_seq, steer_seen_ms;
-LOCAL BOOL	lseen_seen;
-LOCAL UW	lseen_seen_seq, lseen_seen_ms;
-LOCAL BOOL	cap_seen;
-LOCAL UW	cap_seen_seq, cap_seen_ms;
-LOCAL BOOL	pend_nav_started, pend_nav_finished, pend_resume;
-LOCAL BOOL	enc_valid;
+LOCAL S2_FRESH fresh_steer, fresh_lseen, fresh_cap;
+LOCAL struct {
+ unsigned char pend_nav_started : 1;
+ unsigned char pend_nav_finished : 1;
+ unsigned char pend_resume : 1;
+ unsigned char enc_valid : 1;
+ unsigned char btn_done : 1;
+ unsigned char turn_log_align : 1;
+} task_bits;
 LOCAL W		dist_l_um, dist_r_um;
 
 /* ------------------------------------------------------------------ */
@@ -140,9 +141,9 @@ LOCAL void measure(void)
 		dist_r_um = r.ticks * (W)ENC_UM_PER_TICK;
 		spd_l = (spd_l + wheel_speed(&l, now, &win_l, &dir_l)) / 2;
 		spd_r = (spd_r + wheel_speed(&r, now, &win_r, &dir_r)) / 2;
-		enc_valid = TRUE;
+		task_bits.enc_valid = TRUE;
 	} else {
-		enc_valid = FALSE;	/* keep the previous distances */
+		task_bits.enc_valid = FALSE;	/* keep the previous distances */
 	}
 	dl = dist_l_um - old_l;
 	dr = dist_r_um - old_r;
@@ -150,16 +151,6 @@ LOCAL void measure(void)
 }
 
 /* Freshness of a single-writer word whose 4-bit seq must keep changing */
-LOCAL BOOL fresh(UW seq, BOOL *seen, UW *seen_seq, UW *seen_ms, UW stale_ms)
-{
-	if (!*seen || seq != *seen_seq) {
-		*seen = TRUE;
-		*seen_seq = seq;
-		*seen_ms = cycle_ms;
-	}
-	return ((UW)(cycle_ms - *seen_ms) <= stale_ms) ? TRUE : FALSE;
-}
-
 LOCAL void post_results(void)
 {
 	UINT	i;
@@ -186,8 +177,8 @@ LOCAL void apply_faults(void)
 		sys_fault_set(mout.flt_set);
 		mout.flt_set = 0;
 	}
-	pend_nav_started = pend_nav_started || mout.nav_started;
-	pend_nav_finished = pend_nav_finished || mout.nav_finished;
+	task_bits.pend_nav_started = task_bits.pend_nav_started || mout.nav_started;
+	task_bits.pend_nav_finished = task_bits.pend_nav_finished || mout.nav_finished;
 	mout.nav_started = FALSE;
 	mout.nav_finished = FALSE;
 }
@@ -207,7 +198,7 @@ LOCAL void supervisory_recovery(UW cmd)
 					     &clear);
 		sys_fault_clear(clear);
 		if (reason == MREJ_NONE && mcmd_type(cmd) == MCMD_RESUME) {
-			pend_resume = TRUE;
+			task_bits.pend_resume = TRUE;
 		}
 	}
 	r = mres_pack(cmd, (reason == MREJ_NONE) ? MRES_DONE : MRES_REJECTED, reason);
@@ -229,7 +220,6 @@ LOCAL void supervisory_recovery(UW cmd)
 #define WDG_CTRL_TRIGGER	(1UL << 31)
 
 LOCAL UW	btn_ms;
-LOCAL BOOL	btn_done;
 
 LOCAL void resume_button(void)
 {
@@ -237,17 +227,17 @@ LOCAL void resume_button(void)
 
 	if (!pressed) {
 		btn_ms = 0;
-		btn_done = FALSE;
+		task_bits.btn_done = FALSE;
 		return;
 	}
-	if (btn_done) {
+	if (task_bits.btn_done) {
 		return;			/* one action per press */
 	}
 	btn_ms += MOTION_PERIOD_MS;
 	if (btn_ms < S2_RESUME_BTN_MS) {
 		return;
 	}
-	btn_done = TRUE;
+	task_bits.btn_done = TRUE;
 	if (vf.mode != VM_SAFE_STOP) {
 		return;
 	}
@@ -305,7 +295,7 @@ LOCAL void publish(void)
 	    | (vf.imu_ok ? VSW_IMU_OK : 0U)
 	    | ((app_load(&s2_armed) != 0U) ? VSW_ARMED : 0U)
 	    | (vf.line_lost ? VSW_LINE_CAP : 0U)
-	    | ((cap_seen && (s2_cap_word & SCAP_VALID) != 0U) ? VSW_OBST_CAP : 0U)
+	    | ((fresh_cap.seen && (s2_cap_word & SCAP_VALID) != 0U) ? VSW_OBST_CAP : 0U)
 	    | (esc << VSW_ESC_SHIFT);
 	sys_vsw_publish(vsw);
 
@@ -315,14 +305,14 @@ LOCAL void publish(void)
 	if (head < 0) {
 		head += 360;
 	}
-	st.speed_l_mms = (H)(enc_valid ? spd_l : MSTAT_SPEED_INVALID);
-	st.speed_r_mms = (H)(enc_valid ? spd_r : MSTAT_SPEED_INVALID);
+	st.speed_l_mms = (H)(task_bits.enc_valid ? spd_l : MSTAT_SPEED_INVALID);
+	st.speed_r_mms = (H)(task_bits.enc_valid ? spd_r : MSTAT_SPEED_INVALID);
 	st.mstate = mc.state;
 	st.source = (UB)(mc.has_active ? mcmd_src(mc.active) : 0U);
 	st.cmd_active = mc.has_active ? 1U : 0U;
 	st.stall_l = mc.stall_l ? 1U : 0U;
 	st.stall_r = mc.stall_r ? 1U : 0U;
-	st.enc_ok = enc_valid ? 1U : 0U;
+	st.enc_ok = task_bits.enc_valid ? 1U : 0U;
 	st.odometer_cm = (UH)((odo_um / 10000U > 0xFFFFU) ? 0xFFFFU : odo_um / 10000U);
 	st.heading_deg = (UH)head;
 	st.cruise_mms = (UH)mc.cruise_mms;
@@ -374,7 +364,7 @@ LOCAL UW startup_ready(void)
  s5_get_scan_status(&scan);
  if (scan.seq != scan_seq) { scan_seq = scan.seq; scan_ms = app_now_ms(); }
  if ((tasks & SYS_TASK_TLM) && comm.state == CS_ONLINE) ready |= SYS_READY_B1;
- if ((tasks & SYS_TASK_MOTION) && enc_valid) ready |= SYS_READY_B2;
+ if ((tasks & SYS_TASK_MOTION) && task_bits.enc_valid) ready |= SYS_READY_B2;
  if ((tasks & SYS_TASK_BARCODE) && line.calibrated
      && (UW)(app_now_ms() - line.time_ms) < 200U) ready |= SYS_READY_B3;
  if ((tasks & SYS_TASK_HUMP) && imu.calibrated && imu.valid && imu.status == IMU_ST_OK
@@ -401,7 +391,6 @@ LOCAL void control_cycle(void)
 	BOOL		armed = (app_load(&s2_armed) != 0U) ? TRUE : FALSE;
 	BOOL		was_advancing = mc.advancing && mc.has_active;
 	static UW	turn_log_bits = 0xFFFFFFFFU;
-	static BOOL	turn_log_align;
 
 	cycle_ms += MOTION_PERIOD_MS;
 	measure();
@@ -412,27 +401,24 @@ LOCAL void control_cycle(void)
 	in.dist_r_um = dist_r_um;
 	in.speed_l_mms = spd_l;
 	in.speed_r_mms = spd_r;
-	in.enc_valid = enc_valid;
+	in.enc_valid = task_bits.enc_valid;
 	in.vmode = vf.mode;
 	in.armed = armed && (wdog_tripped == 0U);
 	in.steer = sw;
 	in.steer_fresh = ((sw & STEER_VALID) != 0U)
-		? fresh(steer_seq(sw), &steer_seen, &steer_seen_seq, &steer_seen_ms,
-			STEER_STALE_MS)
+		? s2_fresh_sample(&fresh_steer, steer_seq(sw), cycle_ms, STEER_STALE_MS)
 		: FALSE;
 	in.cap_mms = (((cw & SCAP_VALID) != 0U)
-		&& fresh(scap_seq(cw), &cap_seen, &cap_seen_seq, &cap_seen_ms,
-			 SCAP_STALE_MS)) ? scap_value(cw) : 0U;
+		&& s2_fresh_sample(&fresh_cap, scap_seq(cw), cycle_ms, SCAP_STALE_MS)) ? scap_value(cw) : 0U;
 	in.line_lost_cap = vf.line_lost;
 	in.line_seen = lw;
 	in.line_seen_fresh = ((lw & LSEEN_VALID) != 0U)
-		? fresh(lseen_seq(lw), &lseen_seen, &lseen_seen_seq, &lseen_seen_ms,
-			LSEEN_STALE_MS)
+		? s2_fresh_sample(&fresh_lseen, lseen_seq(lw), cycle_ms, LSEEN_STALE_MS)
 		: FALSE;
 	mc_step(&mc, &in, MOTION_PERIOD_MS, &mout);
 	if (mc.has_active && !mc.advancing && mc_is_junction_turn(mc.active)) {
 		UW bits = lw & (LSEEN_C | LSEEN_R);
-		if (bits != turn_log_bits || mc.turn_align != turn_log_align) {
+		if (bits != turn_log_bits || mc.turn_align != task_bits.turn_log_align) {
 			W dir = (mcmd_arg(mc.active) > 0) ? 1 : -1;
 			W arc = ((mc.last_l_um - mc.start_l_um)
 				- (mc.last_r_um - mc.start_r_um)) * dir / 2;
@@ -445,10 +431,10 @@ LOCAL void control_cycle(void)
 				  (INT)mc.turn_contact_samples, (INT)TURN_CONFIRM_SAMPLES);
 		}
 		turn_log_bits = bits;
-		turn_log_align = mc.turn_align;
+		task_bits.turn_log_align = mc.turn_align;
 	} else {
 		turn_log_bits = 0xFFFFFFFFU;
-		turn_log_align = FALSE;
+		task_bits.turn_log_align = FALSE;
 	}
 	if (was_advancing && !mc.advancing && mc.has_active) {
 		tm_printf((UB*)"motion: junction pivot, GP2 edge %s, advance target %d mm\n",
@@ -471,14 +457,14 @@ LOCAL void control_cycle(void)
    last_ready = vin.ready; last_log_ms = app_now_ms();
   }
  }
-	vin.nav_started = pend_nav_started;
-	vin.nav_finished = pend_nav_finished;
-	vin.resume = pend_resume;
+	vin.nav_started = task_bits.pend_nav_started;
+	vin.nav_finished = task_bits.pend_nav_finished;
+	vin.resume = task_bits.pend_resume;
 	vin.dt_ms = MOTION_PERIOD_MS;
 	vfsm_step(&vf, &vin, &vout);
-	pend_nav_started = FALSE;
-	pend_nav_finished = FALSE;
-	pend_resume = FALSE;
+	task_bits.pend_nav_started = FALSE;
+	task_bits.pend_nav_finished = FALSE;
+	task_bits.pend_resume = FALSE;
 	if (vout.flt_set != 0U) {
 		sys_fault_set(vout.flt_set);
 	}

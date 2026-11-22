@@ -25,10 +25,13 @@ EXPORT volatile UW	s3_bc_word = (UW)C39_NONE << 2;
 
 LOCAL BC_DEC		dec;
 LOCAL S3_BC_STATUS	bst;
-LOCAL BOOL		pending_valid;
-LOCAL UB		pending_nav;
-LOCAL UB		pending_junctions;
-LOCAL UB		capture_junctions;
+/* Owned by the barcode task; a queued instruction keeps its existing lifetime. */
+LOCAL struct {
+ unsigned short pending_valid : 1;
+ unsigned short pending_nav : 2;
+ unsigned short pending_junctions : 4;
+ unsigned short capture_junctions : 4;
+} pending;
 
 EXPORT void s3_get_barcode_status(S3_BC_STATUS *s)
 {
@@ -194,9 +197,9 @@ LOCAL void handle(const BC_RESULT *res)
 	bst.nav = nav;
 	bst.nav_valid = 1;
 	if (S3_NAV_AT_JUNCTION) {
-		pending_valid = TRUE;
-		pending_nav = nav;
-		pending_junctions = capture_junctions;
+		pending.pending_valid = TRUE;
+		pending.pending_nav = nav;
+		pending.pending_junctions = pending.capture_junctions;
 		bst.state = BCS_DECODING;
 		publish();
 		tm_printf((UB*)"barcode: queued %s; following line until GP6 + GP2 junction\n",
@@ -210,29 +213,29 @@ LOCAL void check_pending(UW mode)
 {
 	S3_LINE_STATUS line;
 
-	if (!pending_valid) {
+	if (!pending.pending_valid) {
 		return;
 	}
 	s3_get_line_status(&line);
 	if (mode == VM_INIT || mode == VM_SAFE_STOP) {
-		pending_valid = FALSE;
+		pending.pending_valid = FALSE;
 		bst.state = BCS_IDLE;
 		bst.nav_valid = 0;
 		bc_init(&dec);
 		publish();
 		tm_printf((UB*)"barcode: pending turn cleared on init or safe stop\n");
 	} else if (mode != VM_NORMAL) {
-		pending_junctions = line.junctions;
-	} else if (line.junctions != pending_junctions) {
-		pending_junctions = line.junctions;
+		pending.pending_junctions = line.junctions;
+	} else if (line.junctions != pending.pending_junctions) {
+		pending.pending_junctions = line.junctions;
 		if ((UW)(app_now_ms() - line.junction_time_ms) > S3_JUNCTION_HANDOFF_MS) {
 			tm_printf((UB*)"barcode: junction passed before handoff; %s still queued\n",
-				  nav_name(pending_nav));
+				  nav_name(pending.pending_nav));
 			return;
 		}
-		pending_valid = FALSE;
-		tm_printf((UB*)"barcode: confirmed junction; executing %s\n", nav_name(pending_nav));
-		execute(pending_nav);
+		pending.pending_valid = FALSE;
+		tm_printf((UB*)"barcode: confirmed junction; executing %s\n", nav_name(pending.pending_nav));
+		execute(pending.pending_nav);
 	}
 }
 
@@ -285,7 +288,7 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 		UB	black_level;
 		TMO	wait;
 
-		wait = (bc_capturing(&dec) || pending_valid)
+		wait = (bc_capturing(&dec) || pending.pending_valid)
 			 ? (TMO)S3_BC_POLL_MS : TMO_FEVR;
 #if S3_BARCODE_DIAG
 		if (wait == TMO_FEVR) {
@@ -300,7 +303,7 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 		black_level = (UB)app_load(&s3_black_level);
 		/* Keep the decoded command intact until its junction. Later
 		   barcode/line edges must not overwrite it or issue another turn. */
-		if (pending_valid) {
+		if (pending.pending_valid) {
 			ir_edge_flush();
 			(void)ir_edge_overflow_take();
 			check_pending(mode);
@@ -348,10 +351,10 @@ EXPORT void barcode_task(INT stacd, void *exinf)
 #endif
 			bc_edge(&dec, IR_EDGE_TIME(rec), black, &res);
 			if (!was_capturing && bc_capturing(&dec)) {
-				capture_junctions = junction_count();
+				pending.capture_junctions = junction_count();
 			}
 			handle(&res);
-			if (pending_valid) {
+			if (pending.pending_valid) {
 				break;
 			}
 		}

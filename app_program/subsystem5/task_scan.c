@@ -20,16 +20,16 @@
 #include "drv_ultrasonic.h"
 #include "drv_servo.h"
 #include "obstacle_profile.h"
+#if US_MAX_RANGE_MM > 4095 || SERVO_LIMIT_DEG > 127
+#error "Update Buddy 5 sample/servo storage for these sensor bounds"
+#endif
 
 EXPORT volatile UW	s5_scan_word;
 EXPORT TASK_STAT	s5_stat_scan;
 
 LOCAL S5_SCAN_STATUS	sst;
-LOCAL UB		silent_run;
-LOCAL UB		good_run;
-LOCAL UB		detect_run;
+LOCAL S5_SCAN_HEALTH health;
 LOCAL UW		side_ranges[3];
-LOCAL UINT		side_count;
 
 EXPORT void s5_get_scan_status(S5_SCAN_STATUS *s)
 {
@@ -56,18 +56,18 @@ LOCAL INT range(UW *mm)
 	INT	r = us_measure(mm);
 
 	if (r == US_NO_RESPONSE) {
-		good_run = 0;
+		health.good_run = 0;
 		/* Not while INIT: right after a power-on the sensor (and the
 		   servo centring) take a few pings to answer, and the critical
 		   fault latched Safe Stop before the car ever drove.  A sensor
 		   still silent once driving trips it at the next ping. */
-		if (silent_run < 255U && ++silent_run >= S5_US_FAIL_COUNT
+		if (health.silent_run < 255U && ++health.silent_run >= S5_US_FAIL_COUNT
 		    && sys_mode() != VM_INIT) {
 			sys_fault_set(SYS_FLT_US_NO_RESPONSE);
 		}
 	} else {
-		silent_run = 0;
-		if (good_run < 255U && ++good_run >= 3U) {
+		health.silent_run = 0;
+		if (health.good_run < 255U && ++health.good_run >= 3U) {
 			sys_fault_clear(SYS_FLT_US_NO_RESPONSE);
 		}
 	}
@@ -89,7 +89,12 @@ LOCAL INT range(UW *mm)
 LOCAL INT scan_range(UW *mm)
 {
 	UW	valid[S5_SCAN_PINGS];
-	UINT	i, nvalid = 0, no_echo = 0, no_response = 0;
+	UINT	i;
+	struct S5_LOCAL_BITS {
+	 unsigned int nvalid : 2;
+	 unsigned int no_echo : 2;
+	 unsigned int no_response : 2;
+	} counts = {0};
 	INT	r = US_INVALID;
 
 	for (i = 0; i < S5_SCAN_PINGS; i++) {
@@ -97,26 +102,26 @@ LOCAL INT scan_range(UW *mm)
 		INT	raw = range(&d);
 
 		if (raw == US_OK) {
-			valid[nvalid++] = d;
+			valid[counts.nvalid++] = d;
 		} else if (raw == US_NO_ECHO) {
-			no_echo++;
+			counts.no_echo++;
 		} else if (raw == US_NO_RESPONSE) {
-			no_response++;
+			counts.no_response++;
 		}
 		if (i + 1U < S5_SCAN_PINGS) {
 			(void)tk_dly_tsk(US_MIN_INTERVAL_MS);
 		}
 	}
 
-	if (nvalid >= 2U) {
-		W filtered = op_range_consensus_mm(valid, nvalid);
+	if (counts.nvalid >= 2U) {
+		W filtered = op_range_consensus_mm(valid, counts.nvalid);
 
 		*mm = (filtered >= 0) ? (UW)filtered : 0U;
 		r = (filtered >= 0) ? US_OK : US_INVALID;
-	} else if (no_echo >= 2U) {
+	} else if (counts.no_echo >= 2U) {
 		*mm = 0;
 		r = US_NO_ECHO;
-	} else if (no_response >= 2U) {
+	} else if (counts.no_response >= 2U) {
 		*mm = 0;
 		r = US_NO_RESPONSE;
 	} else {
@@ -144,21 +149,21 @@ LOCAL void monitor_once(void)
 
 	if (mode == VM_NORMAL || mode == VM_NAV_ACTION) {
 		if (r == US_OK && mm < S5_DETECT_MM) {
-			if (++detect_run >= S5_DETECT_CONFIRM) {
-				if (detect_run == S5_DETECT_CONFIRM) {
+			if (++health.detect_run >= S5_DETECT_CONFIRM) {
+				if (health.detect_run == S5_DETECT_CONFIRM) {
 					tm_printf((UB*)"avoid: obstacle trigger at centre, sensor %d mm, "
 						  "bumper gap %d mm (< sensor threshold %d mm), "
 						  "confirm %d/%d\n",
 						  (INT)mm,
 						  (INT)((mm > AV_SENSOR_BEHIND_FRONT_MM)
 							? mm - AV_SENSOR_BEHIND_FRONT_MM : 0),
-						  S5_DETECT_MM, (INT)detect_run, S5_DETECT_CONFIRM);
+						  S5_DETECT_MM, (INT)health.detect_run, S5_DETECT_CONFIRM);
 				}
 				sst.detected = 1;
 				(void)tk_set_flg(flg_avoid, AVEV_DETECTED);
 			}
 		} else {
-			detect_run = 0;
+			health.detect_run = 0;
 		}
 		if (r == US_OK && mm < S5_CAUTION_MM) {
 			motion_set_speed_cap(S5_CAUTION_MMS);	/* refreshed every ping */
@@ -168,7 +173,7 @@ LOCAL void monitor_once(void)
 			sst.cap = 0;
 		}
 	} else {
-		detect_run = 0;
+		health.detect_run = 0;
 		sst.detected = 0;
 		if (sst.cap != 0U) {
 			motion_set_speed_cap(0);
@@ -202,19 +207,19 @@ LOCAL void side_once(INT angle)
 		if (r == US_OK) {
 			W filtered;
 
-			if (side_count == 3U) {
+			if (health.side_count == 3U) {
 				side_ranges[0] = side_ranges[1];
 				side_ranges[1] = side_ranges[2];
-				side_count = 2U;
+				health.side_count = 2U;
 			}
-			side_ranges[side_count++] = mm;
-			filtered = op_range_consensus_mm(side_ranges, side_count);
+			side_ranges[health.side_count++] = mm;
+			filtered = op_range_consensus_mm(side_ranges, health.side_count);
 			sst.us_result = (filtered >= 0) ? US_OK : US_INVALID;
 			sst.dist_code = (filtered >= 0) ? s5_dist_code((UW)filtered)
 						       : S5_DIST_INVALID;
 		} else {
 			/* Clear stale range history at open space or sensor errors. */
-			side_count = 0;
+			health.side_count = 0;
 		}
 	}
 	sst.detected = 0;
@@ -289,9 +294,7 @@ EXPORT void scan_task(INT stacd, void *exinf)
 {
 	S5_SCAN_REQ	rq;
 	UW		w;
-	UB		mode = SREQ_MONITOR;
-	BOOL		side_active = FALSE;
-	INT		side_angle = 0;
+	S5_SCAN_CONTROL control = {SREQ_MONITOR, FALSE, 0};
 
 	(void)stacd;
 	(void)exinf;
@@ -310,38 +313,38 @@ EXPORT void scan_task(INT stacd, void *exinf)
 		TMO	wait;
 		INT	n;
 
-		if (mode == SREQ_MONITOR) {
+		if (control.mode == SREQ_MONITOR) {
 			monitor_once();
-		} else if (side_active) {
-			side_once(side_angle);
+		} else if (control.side_active) {
+			side_once(control.side_angle);
 		}
 		task_stat_end(&s5_stat_scan, start, (UW)S5_PING_PERIOD_MS * 1000U);
 
 		/* wait for a request at most until the next ping is due */
 		spent = (hw_time_us() - start) / 1000U;
-		wait = (mode != SREQ_MONITOR && !side_active) ? TMO_FEVR
+		wait = (control.mode != SREQ_MONITOR && !control.side_active) ? TMO_FEVR
 		     : (TMO)((spent >= S5_PING_PERIOD_MS) ? 0U : (S5_PING_PERIOD_MS - spent));
 		n = tk_rcv_mbf(mbf_scan_req, &w, (wait == 0) ? TMO_POL : wait);
 		if (n != (INT)sizeof(w)) {
 			continue;
 		}
 		s5_req_unpack(w, &rq);
-		side_count = 0;
+		health.side_count = 0;
 		if (rq.type == SREQ_COARSE || rq.type == SREQ_FINE) {
-			side_active = FALSE;
+			control.side_active = FALSE;
 			do_scan(&rq);
-			mode = SREQ_IDLE;	/* avoidance decides when to monitor again */
+			control.mode = SREQ_IDLE;	/* avoidance decides when to monitor again */
 		} else if (rq.type == SREQ_SIDE && rq.start_deg != 0) {
-			side_angle = rq.start_deg;
-			if (side_angle < -SERVO_LIMIT_DEG) side_angle = -SERVO_LIMIT_DEG;
-			if (side_angle > SERVO_LIMIT_DEG) side_angle = SERVO_LIMIT_DEG;
-			side_active = TRUE;
-			mode = SREQ_SIDE;
+			control.side_angle = rq.start_deg;
+			if (control.side_angle < -SERVO_LIMIT_DEG) control.side_angle = -SERVO_LIMIT_DEG;
+			if (control.side_angle > SERVO_LIMIT_DEG) control.side_angle = SERVO_LIMIT_DEG;
+			control.side_active = TRUE;
+			control.mode = SREQ_SIDE;
 		} else {
-			side_active = FALSE;
-			mode = rq.type;
+			control.side_active = FALSE;
+			control.mode = rq.type;
 		}
-		sst.mode = mode;
+		sst.mode = control.mode;
 		publish();
 	}
 }

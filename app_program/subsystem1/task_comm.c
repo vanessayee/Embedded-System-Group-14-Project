@@ -27,10 +27,9 @@ LOCAL UB		ack_seq;
 LOCAL UW		hb_ms;
 LOCAL UW		last_tick_ms;
 LOCAL UB		dup_ids[S1_DUP_WINDOW];
-LOCAL UINT		dup_n;
-LOCAL UINT		dup_next;
+/* Sole owner: communication task. Never publish this bit-field object. */
+LOCAL S1_RX_STATE rx_state;
 LOCAL UW		rate_start_ms;
-LOCAL UINT		rate_count;
 
 EXPORT void comm_cyclic_handler(void *exinf)
 {
@@ -81,7 +80,7 @@ LOCAL void send_frame(UB kind, const UB *f, INT n)
 	UB	msg[S1_MSG_MAX];
 	INT	i;
 
-	if (n <= 0 || n > S1_MQTT_FRAME_MAX) {
+	if (n <= 0 || n > (INT)MP_MAX_ENCODED_FRAME) {
 		return;
 	}
 	msg[0] = kind;
@@ -94,7 +93,7 @@ LOCAL void send_frame(UB kind, const UB *f, INT n)
 LOCAL void send_ack(UB cmd_id, UB cmd, UB result, UB detail)
 {
 	ACK_RECORD	a;
-	UB		f[MP_MAX_FRAME];
+	UB		f[MP_MAX_ENCODED_FRAME];
 
 	a.cmd_id = cmd_id;
 	a.cmd = cmd;
@@ -107,15 +106,15 @@ LOCAL BOOL duplicate(UB id)
 {
 	UINT	i;
 
-	for (i = 0; i < dup_n; i++) {
+	for (i = 0; i < rx_state.dup_n; i++) {
 		if (dup_ids[i] == id) {
 			return TRUE;
 		}
 	}
-	dup_ids[dup_next] = id;
-	dup_next = (dup_next + 1U) % S1_DUP_WINDOW;
-	if (dup_n < S1_DUP_WINDOW) {
-		dup_n++;
+	dup_ids[rx_state.dup_next] = id;
+	rx_state.dup_next = (rx_state.dup_next + 1U) % S1_DUP_WINDOW;
+	if (rx_state.dup_n < S1_DUP_WINDOW) {
+		rx_state.dup_n++;
 	}
 	return FALSE;
 }
@@ -202,9 +201,9 @@ LOCAL void handle_rx(void)
 
 			if ((UW)(now - rate_start_ms) >= 1000U) {
 				rate_start_ms = now;
-				rate_count = 0;
+				rx_state.rate_count = 0;
 			}
-			if (++rate_count > S1_CMD_RATE_MAX) {
+			if (!s1_rate_accept(&rx_state)) {
 				s1_rx_rejected = s1_rx_rejected + 1U;
 				send_ack(c.cmd_id, c.cmd, ACK_RATE, 0);
 				continue;
@@ -221,7 +220,7 @@ LOCAL void handle_rx(void)
 LOCAL void send_heartbeat(void)
 {
 	HB_RECORD	h;
-	UB		f[MP_MAX_FRAME];
+	UB		f[MP_MAX_ENCODED_FRAME];
 	UW		faults = sys_fault_get();
 	UINT		i;
 

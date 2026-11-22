@@ -21,6 +21,8 @@ EXPORT ER s1_queue_put_drop_oldest(ID mbf, const UB *msg, INT len, volatile UW *
 	UB	tmp[S1_MSG_MAX];
 	UINT	tries;
 
+	if (msg == NULL || len <= 0 || len > (INT)S1_MSG_MAX) return E_PAR;
+
 	for (tries = 0; tries < 4U; tries++) {
 		if (tk_snd_mbf(mbf, msg, len, TMO_POL) == E_OK) {
 			return E_OK;

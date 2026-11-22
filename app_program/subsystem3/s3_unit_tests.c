@@ -601,13 +601,13 @@ LOCAL INT test_line(void)
 	for (k = 0; k < 10U; k++) {
 		cal[k] = 0x2U;			/* raw: C high (black), L/R low */
 	}
-	TEST_CHECK("S3-U18", lf_calibrate(&lf, cal, 10) == LF_CAL_OK && lf.black_level[IR_C] == 1,
+	TEST_CHECK("S3-U18", lf_calibrate(&lf, cal, 10) == LF_CAL_OK && lf_black_level(&lf, IR_C) == 1,
 		   "stable centre-on-black start: configured black-high polarity");
 	for (k = 0; k < 10U; k++) {
 		cal[k] = 0x0U;			/* all sensors over white */
 	}
 	TEST_CHECK("S3-U19", lf_calibrate(&lf, cal, 10) == LF_CAL_OK
-		   && lf.black_level[IR_C] == LF_CONFIGURED_BLACK_LEVEL
+		   && lf_black_level(&lf, IR_C) == LF_CONFIGURED_BLACK_LEVEL
 		   && lf_black_bits(&lf, 0x0U) == 0U,
 		   "all-white start is stable and immediately qualifies IR startup");
 	for (k = 0; k < 10U; k++) {
@@ -1086,10 +1086,64 @@ LOCAL INT test_status_words(void)
 	return test_fail_;
 }
 
+LOCAL INT test_storage(void)
+{
+ BC_DEC d;
+ BC_RESULT r;
+ LINE_FOLLOW lf;
+ S3_LINE_STATUS st={0},round;
+ UW packed;
+ UINT i,j;
+ UB value;
+ BOOL ok=TRUE;
+ TEST_INIT();
+ TEST_CHECK("S3-U70", sizeof(LINE_FOLLOW)==36U && sizeof(LF_OUT)==4U
+            && sizeof(BC_DEC)==272U && sizeof(BC_RESULT)==264U
+            && sizeof(S3_LINE_STATUS)==16U && sizeof(S3_BC_STATUS)==4U,
+            "bounded Buddy 3 state compacts while full-resolution timestamps remain");
+ bc_init(&d);
+ for(i=0;i<BC_MAX_EDGES;i++)bc_edge(&d,0xffff8000U+i*1000U,(UB)((i&1U)==0),&r);
+ TEST_CHECK("S3-U71", d.n_edges==64U && d.state==BCS_CAPTURING,
+            "seven-bit count retains the 64th captured edge across timestamp rollover");
+ bc_edge(&d,0xffff8000U+64U*1000U,1,&r);
+ TEST_CHECK("S3-U72", r.result==BCR_INVALID && r.err==BC_ERR_OVERFLOW
+            && r.n_elements==63U && d.n_edges==0,
+            "65th edge reports overflow without wrapping into an empty capture");
+ bc_edge(&d,1000000U,0,&r);bc_edge(&d,1100000U,1,&r);bc_abort(&d,&r);
+ TEST_CHECK("S3-U73", r.err==BC_ERR_ABORTED && r.result==BCR_INVALID,
+            "signed error field preserves -14 without truncation");
+ for(i=0;i<NAV_MAP_SIZE;i++) (void)nav_map_set((UB)i,(UB)(i%4U));
+ for(i=0;i<NAV_MAP_SIZE;i++){
+  (void)nav_map_remove((UB)i);
+  for(j=0;j<NAV_MAP_SIZE;j++){
+   BOOL found=nav_map_lookup((UB)j,&value);
+   if(j==i){if(found)ok=FALSE;}
+   else if(!found || value!=j%4U)ok=FALSE;
+  }
+  (void)nav_map_set((UB)i,(UB)(i%4U));
+ }
+ TEST_CHECK("S3-U74", ok,"updates preserve every neighbour, including mapping word boundaries and final slot");
+ nav_map_reset();
+ lf_init(&lf);
+ lf.err=-3;lf.steer_cmd=-63;lf.edge_side=-3;lf.hold_side=-3;lf.post_pivot=-1;
+ lf.hold_ms=LF_HOLD_MS;lf.settle_ms=LF_SETTLE_MS;lf.straight_ms=LF_RIGHT_TURN_STRAIGHT_MS;
+ TEST_CHECK("S3-U75", lf.err==-3 && lf.steer_cmd==-63 && lf.edge_side==-3
+            && lf.hold_side==-3 && lf.post_pivot==-1 && lf.hold_ms==LF_HOLD_MS
+            && lf.settle_ms==LF_SETTLE_MS && lf.straight_ms==LF_RIGHT_TURN_STRAIGHT_MS
+            && lf_black_level(&lf,IR_C)==LF_CONFIGURED_BLACK_LEVEL,
+            "negative steering, polarity and bounded countdowns do not overlap");
+ st.steer=-128;st.time_ms=0xffffffffU;st.junction_time_ms=0xffffffffU;
+ packed=s3_line_pack(&st);s3_line_unpack(packed,&round);
+ TEST_CHECK("S3-U76", round.steer==-63 && st.steer==-128,
+            "raw signed-byte steering remains intact until the existing saturation step");
+ TEST_SUMMARY("s3 packed storage");
+ return test_fail_;
+}
+
 EXPORT INT s3_run_unit_tests(void)
 {
 	return test_code39() + test_capture() + test_nav_map() + test_line()
-	     + test_status_words();
+	     + test_status_words() + test_storage();
 }
 
 #endif /* APP_TEST || HOST_TEST */

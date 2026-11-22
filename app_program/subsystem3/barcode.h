@@ -24,6 +24,7 @@
 #define BARCODE_H
 
 #include <tk/typedef.h>
+#include "s3_storage.h"
 
 #define C39_NSYM		44
 #define C39_STAR		43
@@ -67,7 +68,6 @@ IMPORT UW c39_gap_limit(const UW w[C39_ELEMENTS], UH pattern);
 IMPORT INT  c39_decode(const UW *el, UINT n, UB *data, UINT max_data,
 		       BOOL *reversed);
 
-
 /*
  *	barcode.h
  *	Barcode capture and decoding state machine (Buddy 3), fed by the edge
@@ -82,8 +82,6 @@ IMPORT INT  c39_decode(const UW *el, UINT n, UB *data, UINT max_data,
  * element (at least 100 ms). A 3 s edge timeout bounds stalled captures.
  * Keep relative sensor/print speed reasonably steady within each symbol.
  */
-
-
 
 #define BC_MAX_EDGES		64	/* 4 data symbols: 6*10-1 elements */
 #define BC_MAX_DATA		4
@@ -111,28 +109,41 @@ IMPORT INT  c39_decode(const UW *el, UINT n, UB *data, UINT max_data,
 #define BC_ERR_STALLED		(-13)	/* no edge for too long              */
 #define BC_ERR_ABORTED		(-14)	/* aborted by the caller             */
 
-typedef struct {
-	UB	result;			/* BCR_* */
-	UB	n_data;
+/* Capacity is representable before overflow is detected. */
+#if BC_MAX_EDGES > 64U || BC_MAX_DATA > 7U || BC_IDLE_TIMEOUT_US > 4194303U
+#error "Update Buddy 3 capture storage widths for these limits"
+#endif
+
+typedef struct S3_LOCAL_BITS {
+
 	UB	data[BC_MAX_DATA];	/* Code 39 indices */
-	BOOL	reversed;
-	INT	err;			/* when INVALID */
-	UB	n_elements;		/* after glitch merging */
-	UB	n_diag;			/* widths available for serial diagnosis */
+
 	UW	element_us[BC_MAX_EDGES]; /* measured durations in us */
+
+	/* Task-owned bounded fields; explicit packers still define shared words. */
+	unsigned int result : 2;			/* BCR_* */
+	unsigned int n_data : 3;
+	unsigned int reversed : 1;
+	signed int err : 5;			/* when INVALID */
+	unsigned int n_elements : 6;		/* after glitch merging */
+	unsigned int n_diag : 6;			/* widths available for serial diagnosis */
 } BC_RESULT;
 
-typedef struct {
-	UB	state;
-	UB	level;			/* 1 = black under the sensor */
-	BOOL	level_known;
+typedef struct S3_LOCAL_BITS {
+
 	UW	t_last_us;		/* last edge */
 	UW	edge_t[BC_MAX_EDGES];
-	UINT	n_edges;
-	BOOL	have_last;
-	UB	last_sym;
-	UW	widest_us;
+
 	UW	last_decode_us;		/* time-based duplicate suppression */
+
+	/* Task-owned bounded fields; explicit packers still define shared words. */
+	unsigned int state : 2;
+	unsigned int level : 1;			/* 1 = black under the sensor */
+	unsigned int level_known : 1;
+	unsigned int n_edges : 7;
+	unsigned int have_last : 1;
+	unsigned int last_sym : 6;
+	unsigned int widest_us : 22;
 } BC_DEC;
 
 IMPORT void bc_init(BC_DEC *d);
@@ -144,6 +155,5 @@ IMPORT void bc_edge(BC_DEC *d, UW t_us, UB black, BC_RESULT *res);
 
 /* Periodic check without an edge: completion and stall */
 IMPORT void bc_poll(BC_DEC *d, UW now_us, BC_RESULT *res);
-
 
 #endif /* BARCODE_H */

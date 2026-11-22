@@ -77,7 +77,7 @@ stop at the first failure. Nothing is executed and nothing blocks.
 | type not 1..5 | `MPE_TYPE` | no |
 | length byte ≠ actual length, or ≠ schema size | `MPE_LENGTH` | no |
 | command: reserved bits ≠ 0, or command code 6/7 | `MPE_FIELD` | yes, `BAD_FIELD` |
-| command: argument out of range | `MPE_ARG` | yes, `BAD_ARG` |
+| command: argument out of range, including nonzero compatibility padding | `MPE_ARG` | yes, `BAD_ARG` |
 
 When the header or CRC is bad, the command id cannot be trusted, so these
 frames are only counted. Each rejection increments `rx_rejected` (telemetry
@@ -185,12 +185,13 @@ subsystem's pack function to the decoded server value.
 Fail reasons: 0 NONE, 1 PROFILE, 2 CLEARANCE, 3 MOTION, 4 LINE, 5 TIMEOUT,
 6 SENSOR.
 
-### 5.4 Command (type 4): 24 bits, 3-byte payload
+### 5.4 Command (type 4): 20 application bits, 4 padding bits, 3-byte payload
 
 | Field | Bits | Meaning |
 |---|---|---|
 | cmd | 3 | 0 PING, 1 STOP, 2 RESUME, 3 CLEAR, 4 SET_SPEED, 5 REQ_STATUS, 6 SET_NAV_MAP, 7 GET_NAV_MAP |
-| arg | 10 | SET_SPEED: 50..400 mm/s; SET_NAV_MAP: symbol bits 0..5 + action bits 6..8; GET_NAV_MAP: symbol; others: 0 |
+| arg | 9 | SET_SPEED: 50..400 mm/s; SET_NAV_MAP: symbol bits 0..5 + action bits 6..8; GET_NAV_MAP: symbol; others: 0 |
+| compatibility padding | 1 | must be zero; retains the existing v1 command-id offset |
 | cmd_id | 8 | chosen by the server; echoed in the ACK; duplicates refused |
 | reserved | 3 | must be 0 |
 

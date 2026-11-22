@@ -5,6 +5,10 @@
 
 #include "line_follow.h"
 
+#if LF_HOLD_MS > 511U || LF_SETTLE_MS > 511U || LF_RIGHT_TURN_STRAIGHT_MS > 255U
+#error "Update Buddy 3 bounded timer storage for these settings"
+#endif
+
 /* This robot's LM393 D0 wiring is high over black (no reflection). */
 #define LF_DEFAULT_BLACK	LF_CONFIGURED_BLACK_LEVEL
 
@@ -45,11 +49,7 @@ EXPORT void lf_turn_done(LINE_FOLLOW *lf, BOOL centre_acquired)
 
 EXPORT void lf_init(LINE_FOLLOW *lf)
 {
-	UINT	i;
-
-	for (i = 0; i < 3U; i++) {
-		lf->black_level[i] = LF_DEFAULT_BLACK;
-	}
+	lf->black_levels = LF_DEFAULT_BLACK ? 7U : 0U;
 	lf->calibrated = FALSE;
 	lf_reset_tracking(lf);
 }
@@ -81,9 +81,7 @@ EXPORT INT lf_calibrate(LINE_FOLLOW *lf, const UB *raw, UINT n)
 	}
 	/* Starting position is deliberately irrelevant: all-white, all-black,
 	   centre-on-line and right-sensor-on-line must all enter NORMAL. */
-	for (i = 0; i < 3U; i++) {
-		lf->black_level[i] = LF_CONFIGURED_BLACK_LEVEL;
-	}
+	lf->black_levels = LF_CONFIGURED_BLACK_LEVEL ? 7U : 0U;
 	lf->calibrated = TRUE;
 	lf_reset_tracking(lf);
 	return LF_CAL_OK;
@@ -95,7 +93,7 @@ EXPORT UB lf_black_bits(const LINE_FOLLOW *lf, UB raw)
 	UINT	i;
 
 	for (i = 0; i < 3U; i++) {
-		if (((raw >> i) & 1U) == lf->black_level[i]) {
+		if (((raw >> i) & 1U) == lf_black_level(lf, i)) {
 			b |= (UB)IR_BIT(i);
 		}
 	}

@@ -57,7 +57,7 @@ EXPORT void s3_get_line_status(S3_LINE_STATUS *s)
 	s->junction_time_ms = jt;
 }
 
-LOCAL void calibrate_step(UB raw, UW epoch, UW *cal_epoch, UB *buf, UINT *n)
+LOCAL void calibrate_step(UB raw, UW epoch, UB *cal_epoch, UB *buf, UB *n)
 {
 	INT	r;
 
@@ -72,11 +72,11 @@ LOCAL void calibrate_step(UB raw, UW epoch, UW *cal_epoch, UB *buf, UINT *n)
 	*n = 0;
 	if (r == LF_CAL_OK) {
 		*cal_epoch = epoch;
-		app_store(&s3_black_level, lf.black_level[IR_R]);
+		app_store(&s3_black_level, lf_black_level(&lf, IR_R));
 		sys_fault_clear(SYS_FLT_IR_CAL);
 		sys_post_event(SYS_EV_IR_CAL_OK);
 		tm_printf((UB*)"line: IR ready from current surface, black level = %d\n",
-			  (INT)lf.black_level[IR_C]);
+			  (INT)lf_black_level(&lf, IR_C));
 	} else {
 		/* Retry each 200 ms; the bounded deadline below reports persistent
 		   flicker instead of leaving initialization undecided forever. */
@@ -88,14 +88,17 @@ EXPORT void line_task(INT stacd, void *exinf)
 	S3_LINE_STATUS	st;
 	LF_OUT		out;
 	UB		cal_buf[S3_CAL_SAMPLES];
-	UINT		cal_n = 0;
-	UW		cal_epoch = 0xFFU;
-	UW		cal_pending_epoch = 0xFFU;
+	UB		cal_n = 0;
+	UB		cal_epoch = 0xFFU;
+	UB		cal_pending_epoch = 0xFFU;
 	UW		cal_start_ms = 0U;
-	BOOL		was_nav = FALSE;
-	BOOL		was_scan_limited = FALSE;
-	BOOL		was_executing = FALSE;
-	UB		seq = 0, junctions = 0, lost_count = 0;
+	struct {
+	 unsigned char was_nav : 1;
+	 unsigned char was_scan_limited : 1;
+	 unsigned char was_executing : 1;
+	 unsigned char seq : 4;
+	} tracking = {0};
+	UB junctions = 0, lost_count = 0; /* retain full-byte diagnostic counts */
 	UW		junction_time = 0;
 	UB		prev_black = 0xFFU;	/* S3_LINE_LOG */
 	UB		prev_pos = 0xFFU;	/* S3_LINE_LOG */
@@ -147,10 +150,10 @@ EXPORT void line_task(INT stacd, void *exinf)
 		}
 
 		nav = (mode == VM_NORMAL) ? TRUE : FALSE;
-		if (nav && !was_nav) {
+		if (nav && !tracking.was_nav) {
 			lf_reset_tracking(&lf);	/* fresh start of Normal Navigation */
 		}
-		was_nav = nav;
+		tracking.was_nav = nav;
 
 		black = lf_black_bits(&lf, raw);
 		s3_get_barcode_status(&barcode);
@@ -166,7 +169,7 @@ EXPORT void line_task(INT stacd, void *exinf)
 				(void)tk_set_flg(flg_line_evt, LEV_FOUND);
 			}
 			lf_reset_tracking(&lf);
-		} else if (was_executing && nav) {
+		} else if (tracking.was_executing && nav) {
 			if (barcode.mres == MRES_DONE) {
 				if (barcode.nav == NAV_LEFT || barcode.nav == NAV_RIGHT) {
 					/* Both directions finish on a confirmed sensor gap. */
@@ -178,7 +181,7 @@ EXPORT void line_task(INT stacd, void *exinf)
 				}
 			}
 		}
-		was_executing = executing;
+		tracking.was_executing = executing;
 		lf_step(&lf, black, odo, S3_PERIOD_MS, nav, &out);
 		if (nav && out.steering && out.speed_frac > S3_BC_SPEED_FRAC) {
 			if (barcode.state == BCS_CAPTURING) {
@@ -189,10 +192,10 @@ EXPORT void line_task(INT stacd, void *exinf)
 				scan_limited = TRUE;
 			}
 		}
-		if (scan_limited != was_scan_limited) {
+		if (scan_limited != tracking.was_scan_limited) {
 			tm_printf((UB*)"line: barcode speed cap %s (speed fraction %d/15)\n",
 				  scan_limited ? "active" : "released", (INT)out.speed_frac);
-			was_scan_limited = scan_limited;
+			tracking.was_scan_limited = scan_limited;
 		}
 		steer = IR_SIDES_MIRRORED ? -out.steer : out.steer;
 #if S3_LINE_LOG
@@ -251,7 +254,7 @@ EXPORT void line_task(INT stacd, void *exinf)
 		st.ir_black = black;
 		st.pos = lf.pos;
 		st.state = lf.calibrated ? lf.state : LS_UNKNOWN;
-		st.seq = seq++;
+		st.seq = tracking.seq++;
 		st.steer = (B)((nav && out.steering) ? steer : 0);
 		st.calibrated = lf.calibrated ? 1U : 0U;
 		st.junctions = junctions;

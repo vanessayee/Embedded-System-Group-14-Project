@@ -37,11 +37,9 @@
 #define S1_TLM_QUEUE_LEN	4	/* frames buffered while offline     */
 #define S1_TX_QUEUE_LEN		8	/* frames waiting for the MQTT client */
 #define S1_RX_QUEUE_LEN		4	/* inbound command frames            */
-#define S1_MSG_MAX		(1 + S1_MQTT_FRAME_MAX)	/* kind byte + frame */
+#define S1_MSG_MAX		(1 + MP_MAX_ENCODED_FRAME) /* kind + largest outbound frame */
 
-#define S1_CMD_RATE_MAX		5	/* commands accepted per second      */
 #define S1_CMD_WAIT_MS		300	/* wait for Buddy 2's answer         */
-#define S1_DUP_WINDOW		4	/* remembered command ids            */
 
 /* Print every Nth telemetry frame as hex on the console (demo without
    the MQTT patch); 0 = off */

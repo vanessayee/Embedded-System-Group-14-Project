@@ -22,6 +22,7 @@
 #define COMM_FSM_H
 
 #include <tk/typedef.h>
+#include "s1_storage.h"
 
 #define CS_INIT			0U
 #define CS_WIFI			1U	/* connecting WiFi        */
@@ -56,31 +57,32 @@
 #define CAV_ONLINE		1U
 #define CAV_RECOVERING		2U
 
-typedef struct {
-	UB	state;
-	UW	in_state_ms;
-	UW	backoff_ms;
-	UB	attempts;	/* saturating */
-	UB	reconnects;	/* successful re-connections, saturating */
-	BOOL	was_online;
-	BOOL	wifi_loss;	/* fault conditions currently raised */
-	BOOL	mqtt_loss;
-	BOOL	reconnect_req;	/* one-shot request to the MQTT client */
+/* Task-owned storage only: C bit-field layout is never sent or shared.
+   The compiler may pad the 69 logical bits to complete bytes. */
+typedef struct S1_LOCAL_PACKED {
+	UW in_state_ms;           /* 32: modulo-2^32 elapsed time, unchanged */
+	unsigned int backoff_ms : 14; /* 1000..16000 milliseconds */
+	unsigned int state : 3;       /* CS_INIT..CS_DISABLED */
+	unsigned int attempts : 8;    /* 0..255; retry cadence uses full count */
+	unsigned int reconnects : 8;  /* 0..255, saturating */
+	unsigned int was_online : 1;
+	unsigned int wifi_loss : 1;
+	unsigned int mqtt_loss : 1;
+	unsigned int reconnect_req : 1;
 } COMM_FSM;
-
 /* Communication status word (writer: communication task), 17 bits:
      state 3 | availability 2 | link 2 | session 2 | attempts 4 | reconnects 4
    The two drop/reject counters are separate single-writer words,
    saturated to 8 bits when reported. */
-typedef struct {
-	UB	state;		/* CS_*  */
-	UB	avail;		/* CAV_* */
-	UB	link;		/* CL_*  */
-	UB	session;	/* CSS_* */
-	UB	attempts;	/* 0..15 saturating */
-	UB	reconnects;	/* 0..15 saturating */
-	UB	tlm_dropped;	/* 0..255 saturating (separate word) */
-	UB	rx_rejected;	/* 0..255 saturating (separate word) */
+typedef struct S1_LOCAL_PACKED {
+	unsigned int state : 3;		/* CS_*  */
+	unsigned int avail : 2;		/* CAV_* */
+	unsigned int link : 2;		/* CL_*  */
+	unsigned int session : 2;	/* CSS_* */
+	unsigned int attempts : 8;	/* 0..255 input; packed publication saturates at 15 */
+	unsigned int reconnects : 8;	/* 0..255 input; publication saturates at 15 */
+	unsigned int tlm_dropped : 8;	/* 0..255 saturating (separate word) */
+	unsigned int rx_rejected : 8;	/* 0..255 saturating (separate word) */
 } S1_COMM_STATUS;
 
 IMPORT UW   s1_comm_pack(const S1_COMM_STATUS *s);

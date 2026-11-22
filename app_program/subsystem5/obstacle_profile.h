@@ -27,6 +27,9 @@
 #include "s5_msg.h"
 
 #define OP_MAX_SAMPLES		64
+#if OP_MAX_SAMPLES > 127
+#error "Update Buddy 5 profile count storage for this capacity"
+#endif
 #define OP_FORWARD_CONE_DEG	30	/* nearest face searched in +-30 deg */
 #define OP_FRONT_ESTIMATE_DEG	3	/* median of central -3/0/+3 rays   */
 #define OP_DETECT_RANGE_MM	700	/* farther = no obstacle to avoid    */
@@ -49,10 +52,13 @@
 /* One scan sample as the Profile task keeps it, at the widths its ranges
    need (servo +-80 deg, HC-SR04 0..4000 mm): 4 bytes, where an INT / W /
    UB layout takes 12 (Change Requirement 1; 64 samples = 256 bytes). */
-typedef struct {
-	B	angle_deg;	/* -80..80, + = right */
-	UB	status;		/* SS_* */
-	H	dist_mm;	/* 0..4000; -1 when status != SS_OK */
+typedef struct S5_LOCAL_BITS {
+
+	signed int angle_deg : 8;
+
+	unsigned int status : 2;
+
+	signed int dist_mm : 13;
 } OP_SAMPLE;
 
 /* samples need not be sorted; scan_limit_deg = largest |angle| scanned */

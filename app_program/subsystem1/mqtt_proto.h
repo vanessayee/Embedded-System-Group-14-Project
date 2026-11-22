@@ -21,6 +21,7 @@
 #define MQTT_PROTO_H
 
 #include <tk/typedef.h>
+#include "s1_storage.h"
 
 #define MP_VERSION		1U
 #define MP_HDR_LEN		3U
@@ -47,74 +48,78 @@
  *  Telemetry record (version 1 schema, 279 bits -> 35-byte payload).
  *  Fields keep their packed widths; the order here IS the wire order.
  * --------------------------------------------------------------------- */
-typedef struct {
+/* Local storage only. Explicit bit-stream functions define the wire layout. */
+typedef struct S1_LOCAL_PACKED {
 	/* system (Buddy 2) */
-	UH	uptime_ds;	/* 16  0.1 s, wraps                      */
-	UB	mode;		/*  3  VM_*                              */
-	UB	epoch;		/*  3                                    */
-	UW	faults;		/* 27  SYS_FLT_* bitmask                 */
+	unsigned int uptime_ds : 16;	/* 16  0.1 s, wraps                      */
+	unsigned int mode : 3;		/*  3  VM_*                              */
+	unsigned int epoch : 3;		/*  3                                    */
+	unsigned int faults : 27;		/* 27  SYS_FLT_* bitmask                 */
 	/* motion (Buddy 2) */
-	UB	mstate;		/*  2  MS_*                              */
-	UB	msource;	/*  2  MSRC_*                            */
-	UB	cmd_active;	/*  1                                    */
-	H	speed_l;	/* 11s mm/s, -1024 = invalid             */
-	H	speed_r;	/* 11s                                   */
-	UH	odometer_cm;	/* 16                                    */
-	UB	heading2;	/*  8  encoder heading / 2 deg           */
-	UB	cruise10;	/*  6  cruise / 10 mm/s                  */
+	unsigned int mstate : 2;		/*  2  MS_*                              */
+	unsigned int msource : 2;	/*  2  MSRC_*                            */
+	unsigned int cmd_active : 1;	/*  1                                    */
+	signed int speed_l : 11;	/* 11s mm/s, -1024 = invalid             */
+	signed int speed_r : 11;	/* 11s                                   */
+	unsigned int odometer_cm : 16;	/* 16                                    */
+	unsigned int heading2 : 8;	/*  8  encoder heading / 2 deg           */
+	unsigned int cruise10 : 6;	/*  6  cruise / 10 mm/s                  */
 	/* line + barcode (Buddy 3) */
-	UB	ir_black;	/*  3  L,C,R                             */
-	UB	line_pos;	/*  3  LP_*                              */
-	UB	line_state;	/*  2  LS_*                              */
-	B	steer;		/*  7s                                   */
-	UB	bc_state;	/*  2  BCS_*                             */
-	UB	bc_symbol;	/*  6  Code 39 index, 63 = none          */
-	UB	bc_result;	/*  2  BCR_*                             */
-	UB	nav;		/*  2  NAV_*                             */
-	UB	nav_valid;	/*  1                                    */
-	UB	bc_valid;	/*  6  valid reads, modulo 64            */
-	UB	bc_invalid;	/*  6  invalid reads, modulo 64          */
+	unsigned int ir_black : 3;	/*  3  L,C,R                             */
+	unsigned int line_pos : 3;	/*  3  LP_*                              */
+	unsigned int line_state : 2;	/*  2  LS_*                              */
+	signed int steer : 7;		/*  7s                                   */
+	unsigned int bc_state : 2;	/*  2  BCS_*                             */
+	unsigned int bc_symbol : 6;	/*  6  Code 39 index, 63 = none          */
+	unsigned int bc_result : 2;	/*  2  BCR_*                             */
+	unsigned int nav : 2;		/*  2  NAV_*                             */
+	unsigned int nav_valid : 1;	/*  1                                    */
+	unsigned int bc_valid : 6;	/*  6  valid reads, modulo 64            */
+	unsigned int bc_invalid : 6;	/*  6  invalid reads, modulo 64          */
 	/* IMU + hump (Buddy 4) */
-	UB	imu_status;	/*  2  IMU_ST_*                          */
-	B	pitch;		/*  8s deg, -128 = invalid               */
-	B	roll;		/*  8s deg                               */
-	H	yaw_rate;	/*  9s dps, -256 = invalid               */
-	UH	heading;	/*  9  deg, 511 = invalid                */
-	UB	motion_class;	/*  2  MCLS_*                            */
-	UB	tilt;		/*  1                                    */
-	UB	collision;	/*  1                                    */
-	UB	shock;		/*  5  0.5 g steps                       */
-	UB	hump_last;	/*  6  2 mm steps, 63 = none             */
-	UB	hump_max;	/*  6  2 mm steps, 63 = none             */
-	UB	hump_count;	/*  4                                    */
-	UB	hump_active;	/*  1                                    */
+	unsigned int imu_status : 2;	/*  2  IMU_ST_*                          */
+	signed int pitch : 8;		/*  8s deg, -128 = invalid               */
+	signed int roll : 8;		/*  8s deg                               */
+	signed int yaw_rate : 9;	/*  9s dps, -256 = invalid               */
+	unsigned int heading : 9;	/*  9  deg, 511 = invalid                */
+	unsigned int motion_class : 2;	/*  2  MCLS_*                            */
+	unsigned int tilt : 1;		/*  1                                    */
+	unsigned int collision : 1;	/*  1                                    */
+	unsigned int shock : 5;		/*  5  0.5 g steps                       */
+	unsigned int hump_last : 6;	/*  6  2 mm steps, 63 = none             */
+	unsigned int hump_max : 6;	/*  6  2 mm steps, 63 = none             */
+	unsigned int hump_count : 4;	/*  4                                    */
+	unsigned int hump_active : 1;	/*  1                                    */
 	/* obstacle (Buddy 5) */
-	UH	us_dist;	/* 10  5 mm steps, 1022 no echo, 1023 invalid */
-	UB	us_result;	/*  2  US_*                              */
-	UB	avoid_state;	/*  4  AVST_*                            */
-	UB	avoid_side;	/*  2  AV_SIDE_*                         */
-	UB	avoid_outcome;	/*  2  AVO_*                             */
-	UB	obst_width;	/*  8  5 mm steps, 255 unknown           */
-	B	obst_bearing;	/*  8s deg                               */
-	UB	clear_left;	/*  8  10 mm steps, 255 unknown          */
-	UB	clear_right;	/*  8                                    */
+	unsigned int us_dist : 10;	/* 10  5 mm steps, 1022 no echo, 1023 invalid */
+	unsigned int us_result : 2;	/*  2  US_*                              */
+	unsigned int avoid_state : 4;	/*  4  AVST_*                            */
+	unsigned int avoid_side : 2;	/*  2  AV_SIDE_*                         */
+	unsigned int avoid_outcome : 2;	/*  2  AVO_*                             */
+	unsigned int obst_width : 8;	/*  8  5 mm steps, 255 unknown           */
+	signed int obst_bearing : 8;	/*  8s deg                               */
+	unsigned int clear_left : 8;	/*  8  10 mm steps, 255 unknown          */
+	unsigned int clear_right : 8;	/*  8                                    */
 	/* communication (Buddy 1) */
-	UB	comm_state;	/*  3  CS_*                              */
-	UB	tlm_dropped;	/*  8  saturating                        */
-	UB	rx_rejected;	/*  8  saturating                        */
+	unsigned int comm_state : 3;	/*  3  CS_*                              */
+	unsigned int tlm_dropped : 8;	/*  8  saturating                        */
+	unsigned int rx_rejected : 8;	/*  8  saturating                        */
 } TLM_RECORD;
 
 #define MP_TLM_BITS		279U
 #define MP_TLM_PAYLOAD		35U	/* ceil(279 / 8) */
+#define MP_MAX_ENCODED_FRAME	(MP_HDR_LEN + MP_TLM_PAYLOAD + MP_CRC_LEN)
+/* Fail the build if the target compiler stops packing the local record. */
+typedef char s1_tlm_storage_size[(sizeof(TLM_RECORD) == MP_TLM_PAYLOAD) ? 1 : -1];
 
 /* Heartbeat (FR13: online / disconnected / recovering), 32 bits */
-typedef struct {
-	UH	uptime_ds;	/* 16 */
-	UB	mode;		/*  3 */
-	UB	comm_state;	/*  3 */
-	UB	critical;	/*  1  any critical fault bit set */
-	UB	fault_count;	/*  5  number of fault bits set (0..27) */
-	UB	reconnects;	/*  4  saturating */
+typedef struct S1_LOCAL_PACKED {
+	unsigned int uptime_ds : 16;	/* 16 */
+	unsigned int mode : 3;		/*  3 */
+	unsigned int comm_state : 3;	/*  3 */
+	unsigned int critical : 1;	/*  1  any critical fault bit set */
+	unsigned int fault_count : 5;	/*  5  number of fault bits set (0..27) */
+	unsigned int reconnects : 8;	/*  4  saturating */
 } HB_RECORD;
 #define MP_HB_PAYLOAD		4U
 
@@ -133,9 +138,9 @@ typedef struct {
 #define EVT_OBSTACLE		5U
 #define EVT_COLLISION		6U
 #define EVT_BOOT 7U /* uptime_ds 16 | per-boot token 16; repeated, same token */
-typedef struct {
-	UB	code;		/*  4 */
-	UW	data;		/* 32 */
+typedef struct S1_LOCAL_PACKED {
+	unsigned int code : 4;		/*  4 */
+	unsigned int data : 32;		/* 32 */
 } EVT_RECORD;
 #define MP_EVT_PAYLOAD		5U	/* fixed 36 bits -> 5 bytes */
 
@@ -149,10 +154,10 @@ typedef struct {
 #define CMD_SET_NAV_MAP		6U	/* arg: Code39 symbol 6 | action 3; 4=unmapped */
 #define CMD_GET_NAV_MAP		7U	/* arg: A-Z Code39 index; ACK detail=action */
 #define CMD_COUNT		8U
-typedef struct {
-	UB	cmd;		/*  3 */
-	UH	arg;		/* 10 */
-	UB	cmd_id;		/*  8 */
+typedef struct S1_LOCAL_PACKED {
+	unsigned int cmd : 3;		/*  3 */
+	unsigned int arg : 10;		/* 9 application bits + zero v1 compatibility bit */
+	unsigned int cmd_id : 8;		/*  8 */
 } CMD_RECORD;
 #define MP_CMD_PAYLOAD		3U
 
@@ -167,19 +172,19 @@ typedef struct {
 #define ACK_DUPLICATE		7U
 #define ACK_RATE		8U	/* too many commands */
 #define ACK_BUSY		9U	/* queue full / no answer */
-typedef struct {
-	UB	cmd_id;		/*  8 */
-	UB	cmd;		/*  3 */
-	UB	result;		/*  4 */
-	UB	detail;		/*  5  e.g. MREJ_* from Buddy 2 */
+typedef struct S1_LOCAL_PACKED {
+	unsigned int cmd_id : 8;		/*  8 */
+	unsigned int cmd : 3;		/*  3 */
+	unsigned int result : 4;		/*  4 */
+	unsigned int detail : 5;		/*  5  e.g. MREJ_* from Buddy 2 */
 } ACK_RECORD;
 #define MP_ACK_PAYLOAD		3U
 
-typedef struct {
-	UB	version;
-	UB	type;
-	UB	seq;
-	UB	len;		/* payload bytes */
+typedef struct S1_LOCAL_PACKED {
+	unsigned int version : 4;
+	unsigned int type : 4;
+	unsigned int seq : 8;
+	unsigned int len : 8;		/* payload bytes */
 } MP_HDR;
 
 /* Check header, length and CRC; returns the payload offset (3) or MPE_* */

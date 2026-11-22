@@ -40,9 +40,11 @@ EXPORT void hump_task(INT stacd, void *exinf)
 	S4_HUMP_SAMPLE	s;
 	HUMP_EVT	ev;
 	UW		w;
-	UB		expect = 0;
-	BOOL		first = TRUE;
-	BOOL		was_active = FALSE;
+	struct {
+	 unsigned char expect : 4;
+	 unsigned char first : 1;
+	 unsigned char was_active : 1;
+	} sequence = {0, TRUE, FALSE};
 
 	(void)stacd;
 	(void)exinf;
@@ -63,11 +65,11 @@ EXPORT void hump_task(INT stacd, void *exinf)
 		}
 		s4_sample_unpack(w, &s);
 		valid = (s.valid != 0U) ? TRUE : FALSE;
-		if (!first && s.seq != expect) {
+		if (!sequence.first && s.seq != sequence.expect) {
 			valid = FALSE;			/* samples were dropped */
 		}
-		first = FALSE;
-		expect = (UB)((s.seq + 1U) & 0xFU);
+		sequence.first = FALSE;
+		sequence.expect = (UB)((s.seq + 1U) & 0xFU);
 
 		previous_state = hump.state;
 		candidate_peak = hump.peak_um;
@@ -99,8 +101,8 @@ EXPORT void hump_task(INT stacd, void *exinf)
 				  (INT)(hump.max_height_um / 1000),
 				  (INT)((hump.max_height_um % 1000) / 100));
 		}
-		if (ev.completed || ev.rejected || hump_active(&hump) != was_active) {
-			was_active = hump_active(&hump);
+		if (ev.completed || ev.rejected || hump_active(&hump) != sequence.was_active) {
+			sequence.was_active = hump_active(&hump);
 			publish();
 		}
 	}

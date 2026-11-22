@@ -33,14 +33,17 @@ EXPORT volatile UW	s4_dropped;
 LOCAL IMU_PROC		proc;
 LOCAL IMU_CAL_ACC	cal_acc;
 LOCAL IMU_CAL		cal;
-LOCAL UB		state = IMU_ST_INIT;
-LOCAL UB		chip;
-LOCAL BOOL		collision_latched;
+/* Sole owner: IMU task. Probe uses a temporary addressable chip byte. */
+LOCAL struct {
+ unsigned short state : 2;
+ unsigned short chip : 2;
+ unsigned short collision_latched : 1;
+ unsigned short odom_primed : 1;
+ unsigned short hump_seq : 4;
+} task_bits; /* zero initialization is IMU_ST_INIT / IMU_CHIP_NONE */
 LOCAL UB		sample_seq;
-LOCAL UB		hump_seq;
 LOCAL W			last_odom_mm;
 LOCAL W			ds_pending_100um;
-LOCAL BOOL		odom_primed;
 
 EXPORT void imu_cyclic_handler(void *exinf)
 {
@@ -72,21 +75,21 @@ LOCAL void publish(BOOL valid)
 {
 	S4_IMU_STATUS	s;
 	UW		w[2];
-	BOOL		ok = valid && (state == IMU_ST_OK);
+	BOOL		ok = valid && (task_bits.state == IMU_ST_OK);
 	BOOL		yaw_ok = ok && proc.yaw_valid;
 
 	s.pitch_deg = ok ? s4_deg8(proc.pitch_cdeg) : (B)S4_ANGLE_INVALID;
 	s.roll_deg = ok ? s4_deg8(proc.roll_cdeg) : (B)S4_ANGLE_INVALID;
 	s.yaw_rate_dps = yaw_ok ? s4_rate9(proc.yaw_rate_mdps) : (H)S4_RATE_INVALID;
 	s.motion_class = proc.motion_class;
-	s.status = state;
+	s.status = task_bits.state;
 	s.tilt = (ok && proc.tilt) ? 1U : 0U;
-	s.collision = collision_latched ? 1U : 0U;
+	s.collision = task_bits.collision_latched ? 1U : 0U;
 	s.valid = ok ? 1U : 0U;
 	s.heading_deg = yaw_ok ? (UH)(proc.yaw_cdeg / 100) : (UH)S4_HEADING_INVALID;
 	s.shock_half_g = s4_shock5(proc.peak_shock_mg);
 	s.seq = sample_seq++;
-	s.chip = chip;
+	s.chip = task_bits.chip;
 	s.calibrated = cal.valid ? 1U : 0U;
 	s4_imu_pack(&s, w);
 	app_seq_write_begin(&s4_imu_seq);
@@ -139,9 +142,9 @@ LOCAL void send_hump_sample(BOOL valid)
 	UW		w;
 
 	motion_get_odometry(&odom_mm, NULL);
-	if (!odom_primed) {
+	if (!task_bits.odom_primed) {
 		last_odom_mm = odom_mm;
-		odom_primed = TRUE;
+		task_bits.odom_primed = TRUE;
 	} else {
 		delta_mm = odom_mm - last_odom_mm;
 		last_odom_mm = odom_mm;
@@ -159,8 +162,8 @@ LOCAL void send_hump_sample(BOOL valid)
 	hs.tilt_ddeg = (H)((HUMP_SIDEWAYS ? proc.roll_cdeg : proc.pitch_cdeg) / 10);
 	hs.ds_100um = (UB)ds;
 	hs.valid = valid ? 1U : 0U;
-	hs.seq = hump_seq;
-	hump_seq = (UB)((hump_seq + 1U) & 0xFU);
+	hs.seq = task_bits.hump_seq;
+	task_bits.hump_seq = (UB)((task_bits.hump_seq + 1U) & 0xFU);
 	w = s4_sample_pack(&hs);
 	if (tk_snd_mbf(mbf_imu_hump, &w, (INT)sizeof(w), TMO_POL) != E_OK) {
 		s4_dropped = s4_dropped + 1U;	/* bounded queue: drop, count */
@@ -170,8 +173,11 @@ LOCAL void send_hump_sample(BOOL valid)
 LOCAL BOOL bring_up(void)
 {
 	UB	addr, who;
+	UB found_chip = task_bits.chip;
+	ER probe_result = imu_probe(&found_chip, &addr, &who);
+	task_bits.chip = found_chip;
 
-	if (imu_probe(&chip, &addr, &who) < E_OK) {
+	if (probe_result < E_OK) {
 		i2c0_bus_recover();
 		tm_printf((UB*)"imu: no supported IMU answered (last id 0x%02x)\n",
 			  (INT)who);
@@ -182,8 +188,8 @@ LOCAL BOOL bring_up(void)
 		return FALSE;
 	}
 	tm_printf((UB*)"imu: %s at 0x%02x (id 0x%02x)\n",
-		  (chip == IMU_CHIP_MPU) ? "InvenSense family"
-		  : (chip == IMU_CHIP_LSM6) ? "ST LSM6 family"
+		  (task_bits.chip == IMU_CHIP_MPU) ? "InvenSense family"
+		  : (task_bits.chip == IMU_CHIP_LSM6) ? "ST LSM6 family"
 		  : "ST LSM303DLHC (accel + mag, no gyro)",
 		  (INT)addr, (INT)who);
 	return TRUE;
@@ -191,8 +197,9 @@ LOCAL BOOL bring_up(void)
 
 EXPORT void imu_task(INT stacd, void *exinf)
 {
-	UW	cal_epoch = 0xFFU;
-	UINT	cal_tries = 0, recover_tries = 0;
+	UB	cal_epoch = 0xFFU;
+	UINT	cal_tries = 0;
+	UB recover_tries = 0; /* existing 0..255 saturation */
 	UW	wait_ms = 0;
 	UINT	ptn;
 	IMU_IN	in;
@@ -201,11 +208,11 @@ EXPORT void imu_task(INT stacd, void *exinf)
 	(void)exinf;
 	if (i2c0_init(flg_imu, IMU_EV_I2C) < E_OK) {
 		sys_fault_set(SYS_FLT_IMU | SYS_FLT_TASK_COMM);
-		state = IMU_ST_FAULT;
+		task_bits.state = IMU_ST_FAULT;
 	}
 	imu_cal_reset(&cal_acc);
 	cal.valid = FALSE;
-	odom_primed = FALSE;
+	task_bits.odom_primed = FALSE;
 	ds_pending_100um = 0;
 
 	for (;;) {
@@ -221,22 +228,22 @@ EXPORT void imu_task(INT stacd, void *exinf)
 		   keeps them off while the IMU calibrates) */
 		still = (mode == VM_INIT || mode == VM_SAFE_STOP) ? TRUE : FALSE;
 
-		switch (state) {
+		switch (task_bits.state) {
 		case IMU_ST_INIT:
 			if (recover_tries < 255U) {
 				recover_tries++;	/* count each real bring-up attempt once */
 			}
 			if (bring_up()) {
-				state = IMU_ST_CALIBRATING;
+				task_bits.state = IMU_ST_CALIBRATING;
 				cal.valid = FALSE;
 				imu_cal_reset(&cal_acc);
 			} else if (recover_tries >= S4_RECOVERY_TRIES) {
-				state = IMU_ST_FAULT;
+				task_bits.state = IMU_ST_FAULT;
 				sys_fault_set(SYS_FLT_IMU);
 				sys_post_event(SYS_EV_IMU_CAL_FAIL);
 			} else {
 				wait_ms = 0;
-				state = IMU_ST_FAULT;	/* retry after the interval */
+				task_bits.state = IMU_ST_FAULT;	/* retry after the interval */
 			}
 			publish(FALSE);
 			break;
@@ -256,15 +263,15 @@ EXPORT void imu_task(INT stacd, void *exinf)
 				imu_cal_reset(&cal_acc);
 				if (r == IMU_CAL_OK) {
 					imu_proc_init(&proc, &cal);
-					odom_primed = FALSE;
+					task_bits.odom_primed = FALSE;
 					ds_pending_100um = 0;
-					state = IMU_ST_OK;
+					task_bits.state = IMU_ST_OK;
 					cal_epoch = vsw_epoch(vsw);
 					cal_tries = 0;
 					recover_tries = 0;
 					sys_fault_clear(SYS_FLT_IMU | SYS_FLT_IMU_CAL);
 					sys_post_event(SYS_EV_IMU_CAL_OK);
-					if (chip == IMU_CHIP_LSM303) {
+					if (task_bits.chip == IMU_CHIP_LSM303) {
 						tm_printf((UB*)"imu: calibrated (no gyro), level offset %d %d mg\n",
 							  (INT)cal.acc_offset[0], (INT)cal.acc_offset[1]);
 					} else {
@@ -280,7 +287,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
 					   just pressed.  A start that never settles still
 					   ends in Safe Stop via INIT_TIMEOUT_MS (SYS_FLT_INIT). */
 				} else {
-					state = IMU_ST_FAULT;
+					task_bits.state = IMU_ST_FAULT;
 					sys_fault_set(SYS_FLT_IMU_CAL);
 					sys_post_event(SYS_EV_IMU_CAL_FAIL);
 					tm_printf((UB*)"imu: calibration failed (%d)\n", r);
@@ -296,9 +303,9 @@ EXPORT void imu_task(INT stacd, void *exinf)
 				/* Terminate any terrain candidate before the one-second
 				   recalibration gap; it must never join two separate runs. */
 				send_hump_sample(FALSE);
-				odom_primed = FALSE;
+				task_bits.odom_primed = FALSE;
 				ds_pending_100um = 0;
-				state = IMU_ST_CALIBRATING;
+				task_bits.state = IMU_ST_CALIBRATING;
 				cal.valid = FALSE;
 				imu_cal_reset(&cal_acc);
 				publish(FALSE);
@@ -318,7 +325,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
 			}
 			if (!valid) {
 				if (imu_proc_failed(&proc)) {
-					state = IMU_ST_FAULT;	/* sensor_error / invalid_data */
+					task_bits.state = IMU_ST_FAULT;	/* sensor_error / invalid_data */
 					sys_fault_set(SYS_FLT_IMU);
 					tm_printf((UB*)"imu: invalid data, entering FAULT\n");
 				}
@@ -326,18 +333,18 @@ EXPORT void imu_task(INT stacd, void *exinf)
 				publish(FALSE);
 				break;
 			}
-			if (proc.collision || (proc.handling && !collision_latched)) {
-				collision_latched = TRUE;
+			if (proc.collision || (proc.handling && !task_bits.collision_latched)) {
+				task_bits.collision_latched = TRUE;
 				sys_fault_set(SYS_FLT_COLLISION);
 				sys_post_event(SYS_EV_COLLISION);
 				tm_printf((UB*)"imu: %s %d mg -> latched stop\n",
 					  proc.handling ? "HANDLING" : "COLLISION", (INT)proc.peak_shock_mg);
-			} else if (collision_latched
+			} else if (task_bits.collision_latched
 				   && (sys_fault_get() & SYS_FLT_COLLISION) == 0U) {
-				collision_latched = FALSE;	/* "cleared" by the operator */
+				task_bits.collision_latched = FALSE;	/* "cleared" by the operator */
 			}
 			/* A handling/collision stop is not a completed terrain hump. */
-			send_hump_sample(!collision_latched && !proc.handling);
+			send_hump_sample(!task_bits.collision_latched && !proc.handling);
 			publish(TRUE);
 			break;
 
@@ -347,7 +354,7 @@ EXPORT void imu_task(INT stacd, void *exinf)
 			if (wait_ms >= S4_RECOVERY_MS && still
 			    && recover_tries < S4_RECOVERY_TRIES) {
 				wait_ms = 0;
-				state = IMU_ST_INIT;
+				task_bits.state = IMU_ST_INIT;
 			}
 			break;
 		}

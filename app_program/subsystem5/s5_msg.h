@@ -42,6 +42,7 @@
 #define S5_MSG_H
 
 #include <tk/typedef.h>
+#include "s5_storage.h"
 
 #define S5_DIST_STEP_MM		5
 #define S5_DIST_MAX_CODE	800
@@ -67,28 +68,42 @@
 #define S5_WIDTH_UNKNOWN	255U
 #define S5_CLEAR_UNKNOWN	255U
 
-typedef struct {
-	UB	type;
-	UB	scan_id;
-	B	start_deg;
-	B	end_deg;
-	UB	step_deg;
+typedef struct S5_LOCAL_BITS {
+
+	unsigned int type : 2;
+
+	unsigned int scan_id : 3;
+
+	signed int start_deg : 8;
+
+	signed int end_deg : 8;
+
+	unsigned int step_deg : 4;
 } S5_SCAN_REQ;
 
-typedef struct {
-	B	angle_deg;
-	UH	dist_code;
-	UB	scan_id;
-	UB	phase;
-	UB	last;
-	UB	status;
+typedef struct S5_LOCAL_BITS {
+
+	signed int angle_deg : 8;
+
+	unsigned int dist_code : 10;
+
+	unsigned int scan_id : 3;
+
+	unsigned int phase : 1;
+
+	unsigned int last : 1;
+
+	unsigned int status : 2;
 } S5_SAMPLE;
 
 /* Unpacked profile in engineering units (mm, deg) */
-typedef struct {
-	UB	scan_id;
-	UB	status;
-	UB	phase;
+typedef struct S5_LOCAL_BITS {
+
+	unsigned int scan_id : 3;
+
+	unsigned int status : 2;
+
+	unsigned int phase : 1;
 	W	dist_mm;	/* forward distance to the nearest face, -1 unknown */
 	W	bearing_deg;
 	W	width_mm;	/* -1 unknown */
@@ -151,24 +166,38 @@ IMPORT void s5_profile_unpack(const UW w[2], S5_PROFILE *p);
 #define AVF_TIMEOUT	5U	/* recovery time exceeded  */
 #define AVF_SENSOR	6U	/* ultrasonic not usable   */
 
-typedef struct {
-	UH	dist_code;
-	B	servo_deg;
-	UB	us_result;
-	UB	mode;
-	UB	seq;
-	UB	cap;
-	UB	detected;
+typedef struct S5_LOCAL_BITS {
+
+	unsigned int dist_code : 10;
+
+	signed int servo_deg : 8;
+
+	unsigned int us_result : 2;
+
+	unsigned int mode : 2;
+
+	unsigned int seq : 4;
+
+	unsigned int cap : 1;
+
+	unsigned int detected : 1;
 } S5_SCAN_STATUS;
 
-typedef struct {
-	UB	state;
-	UB	side;
-	UB	step;
-	UB	retries;
-	UB	outcome;
-	UB	count;
-	UB	fail;
+typedef struct S5_LOCAL_BITS {
+
+	unsigned int state : 4;
+
+	unsigned int side : 2;
+
+	unsigned int step : 3;
+
+	unsigned int retries : 2;
+
+	unsigned int outcome : 2;
+
+	unsigned int count : 4;
+
+	unsigned int fail : 3;
 } S5_AVOID_STATUS;
 
 IMPORT UW   s5_scan_status_pack(const S5_SCAN_STATUS *s);

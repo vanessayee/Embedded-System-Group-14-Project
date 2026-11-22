@@ -8,6 +8,10 @@
 #include "motion_ctrl.h"
 #include "motion_cfg.h"
 
+#if TURN_CONFIRM_SAMPLES > 3U || TURN_SETTLE_MS > 255U || TURN_JUNCTION_EDGE_MS > 255U
+#error "Update Buddy 2 bounded storage widths for this turn configuration"
+#endif
+
 LOCAL W iabs(W v)
 {
 	return (v < 0) ? -v : v;
@@ -90,7 +94,7 @@ LOCAL void reset_turn(MOTION_CTRL *mc)
 	mc->seek_seen = FALSE;
 	mc->turn_contact_samples = 0;
 	mc->turn_gap_samples = 0;
-	mc->turn_line_seq = 0xFFU;
+	mc->turn_line_seq = S2_LINE_SEQ_NONE;
 	mc->turn_align = FALSE;
 	mc->turn_wait_ms = 0;
 	mc->advancing = FALSE;
@@ -602,7 +606,7 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 		mc->seek_seen = FALSE;
 		mc->turn_contact_samples = 0;
 		mc->turn_gap_samples = 0;
-		mc->turn_line_seq = 0xFFU;
+		mc->turn_line_seq = S2_LINE_SEQ_NONE;
 	}
 	if (seeking && require_line) {
 		/* Both tracking sensors must clear the original junction on two

@@ -37,12 +37,8 @@ EXPORT void profile_task(INT stacd, void *exinf)
 	S5_SAMPLE	smp;
 	S5_PROFILE	prof;
 	UW		w, pw[2];
-	UINT		n = 0;
-	UB		cur_id = 0xFFU;
-	UB		cur_phase = 0xFFU;
-	INT		limit = 0;
+	S5_PROFILE_STATE current = {0, S5_PROFILE_ID_NONE, S5_PROFILE_PHASE_NONE, 0, FALSE};
 	W		raw_width;
-	BOOL		aborted = FALSE;
 
 	(void)stacd;
 	(void)exinf;
@@ -52,34 +48,34 @@ EXPORT void profile_task(INT stacd, void *exinf)
 			continue;
 		}
 		s5_sample_unpack(w, &smp);
-		if (smp.scan_id != cur_id || smp.phase != cur_phase) {
-			cur_id = smp.scan_id;		/* new obstacle or scan phase */
-			cur_phase = smp.phase;
-			n = 0;
-			limit = 0;
-			aborted = FALSE;
+		if (smp.scan_id != current.cur_id || smp.phase != current.cur_phase) {
+			current.cur_id = smp.scan_id;		/* new obstacle or scan phase */
+			current.cur_phase = smp.phase;
+			current.n = 0;
+			current.limit = 0;
+			current.aborted = FALSE;
 		}
-		if (n < OP_MAX_SAMPLES) {
-			buf[n].angle_deg = smp.angle_deg;
-			buf[n].dist_mm = (H)((smp.status == SS_OK) ? s5_dist_mm(smp.dist_code) : -1);
-			buf[n].status = smp.status;
-			n++;
+		if (current.n < OP_MAX_SAMPLES) {
+			buf[current.n].angle_deg = smp.angle_deg;
+			buf[current.n].dist_mm = (H)((smp.status == SS_OK) ? s5_dist_mm(smp.dist_code) : -1);
+			buf[current.n].status = smp.status;
+			current.n++;
 		}
 		if (smp.status == SS_ABORTED) {
-			aborted = TRUE;
+			current.aborted = TRUE;
 		}
-		if (smp.angle_deg > limit) {
-			limit = smp.angle_deg;
-		} else if (-smp.angle_deg > limit) {
-			limit = -smp.angle_deg;
+		if (smp.angle_deg > current.limit) {
+			current.limit = smp.angle_deg;
+		} else if (-smp.angle_deg > current.limit) {
+			current.limit = -smp.angle_deg;
 		}
 		if (smp.last == 0U) {
 			continue;
 		}
 
-		op_build(buf, n, limit, &prof);
+		op_build(buf, current.n, current.limit, &prof);
 		raw_width = prof.width_mm;
-		if (aborted) {
+		if (current.aborted) {
 			prof.status = PRF_INVALID;	/* sensor silent for the whole scan */
 		} else {
 			op_beam_compensate(&prof, S5_BEAM_COMP_DEG);
@@ -87,11 +83,11 @@ EXPORT void profile_task(INT stacd, void *exinf)
 		tm_printf((UB*)"profile: scan %d phase %d, samples %d, limit %d deg, "
 			  "status %d, sensor %d mm, width %d mm (raw %d), "
 			  "clear L %d R %d mm\n",
-			  (INT)cur_id, (INT)cur_phase, (INT)n, limit,
+			  (INT)current.cur_id, (INT)current.cur_phase, (INT)current.n, current.limit,
 			  (INT)prof.status, (INT)prof.dist_mm, (INT)prof.width_mm, (INT)raw_width,
 			  (INT)prof.clear_left_mm, (INT)prof.clear_right_mm);
-		prof.scan_id = cur_id;
-		prof.phase = cur_phase;
+		prof.scan_id = current.cur_id;
+		prof.phase = current.cur_phase;
 		s5_profile_pack(&prof, pw);
 		app_seq_write_begin(&s5_prof_seq);
 		s5_prof_words[0] = pw[0];

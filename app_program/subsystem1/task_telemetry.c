@@ -24,14 +24,12 @@ EXPORT TASK_STAT	s1_stat_tlm;
 LOCAL TLM_SOURCES	src;		/* used by this task only */
 LOCAL TLM_RECORD	cur;
 LOCAL TLM_RECORD	prev;
-LOCAL BOOL		have_prev;
-LOCAL UB		prev_avoid_count;
+/* Single-task state; these seven bits never cross task/ISR boundaries. */
+LOCAL S1_TLM_STATE tlm_state;
 LOCAL UB		tlm_seq;
 LOCAL UB		evt_seq;
-LOCAL BOOL		boot_report_sent;
 LOCAL UH boot_token;
 LOCAL UW boot_marker_ms;
-LOCAL BOOL boot_marker_sent;
 
 /* RP2040 ROSC RANDOMBIT, datasheet 2.17.7: sample separated oscillator
    bits. Not a security key; distinguishes quick physical RUN resets. */
@@ -74,7 +72,7 @@ LOCAL void queue_frame(UB kind, const UB *frame, INT len)
 	INT	i;
 	UW	before = app_load(&s1_tlm_dropped);
 
-	if (len <= 0 || len > S1_MQTT_FRAME_MAX) {
+	if (len <= 0 || len > (INT)MP_MAX_ENCODED_FRAME) {
 		return;
 	}
 	msg[0] = kind;
@@ -90,7 +88,7 @@ LOCAL void queue_frame(UB kind, const UB *frame, INT len)
 
 LOCAL void send_event(const EVT_RECORD *e)
 {
-	UB	f[MP_MAX_FRAME];
+	UB	f[MP_MAX_ENCODED_FRAME];
 
 	queue_frame(MT_EVENT, f, mp_evt_encode(e, evt_seq++, f, sizeof(f)));
 }
@@ -150,7 +148,7 @@ LOCAL void stat_report(void)
 EXPORT void telemetry_task(INT stacd, void *exinf)
 {
 	EVT_RECORD	ev[TLM_MAX_EVENTS];
-	UB		f[MP_MAX_FRAME];
+	UB		f[MP_MAX_ENCODED_FRAME];
 
 	(void)stacd;
 	(void)exinf;
@@ -167,14 +165,14 @@ EXPORT void telemetry_task(INT stacd, void *exinf)
 		collect(&src);
         /* Repeat the same identity so a dropped QoS-0 boot event is
            repaired. Reconnection never changes this token. */
-        if (src.comm.state == CS_ONLINE && (!boot_marker_sent
+        if (src.comm.state == CS_ONLINE && (!tlm_state.boot_marker_sent
             || (UW)(src.uptime_ms - boot_marker_ms) >= 5000U)) {
          EVT_RECORD e;
          e.code = EVT_BOOT;
          e.data = ((UW)boot_token << 16) | ((src.uptime_ms / 100U) & 0xFFFFU);
          send_event(&e);
          boot_marker_ms = src.uptime_ms;
-         boot_marker_sent = TRUE;
+         tlm_state.boot_marker_sent = TRUE;
         }
 		tlm_build(&cur, &src);
 		n = mp_tlm_encode(&cur, tlm_seq++, f, sizeof(f));
@@ -187,8 +185,8 @@ EXPORT void telemetry_task(INT stacd, void *exinf)
 			}
 #endif
 		}
-		if (have_prev) {
-			ne = tlm_events(&prev, prev_avoid_count, &cur, &src, ev);
+		if (tlm_state.have_prev) {
+			ne = tlm_events(&prev, tlm_state.prev_avoid_count, &cur, &src, ev);
 			for (i = 0; i < ne; i++) {
 				send_event(&ev[i]);
 			}
@@ -197,18 +195,18 @@ EXPORT void telemetry_task(INT stacd, void *exinf)
 		   full queue, and a fault that clears within a 500 ms sample is
 		   never seen at all.  Once online, report every fault since boot
 		   so a Safe Stop at power-on still shows its cause. */
-		if (!boot_report_sent && src.comm.state == CS_ONLINE) {
+		if (!tlm_state.boot_report_sent && src.comm.state == CS_ONLINE) {
 			EVT_RECORD	e;
 
 			e.code = EVT_FAULTS;
 			e.data = sys_fault_seen() & SYS_FLT_ALL;
 			send_event(&e);
 			tm_printf((UB*)"tlm: faults since boot 0x%07x\n", (INT)e.data);
-			boot_report_sent = TRUE;
+			tlm_state.boot_report_sent = TRUE;
 		}
 		prev = cur;
-		prev_avoid_count = src.avoid.count;
-		have_prev = TRUE;
+		tlm_state.prev_avoid_count = src.avoid.count;
+		tlm_state.have_prev = TRUE;
 		task_stat_end(&s1_stat_tlm, start, 50000U);
 #if S1_STAT_REPORT_S
 		if (tlm_seq % (S1_STAT_REPORT_S * (1000U / S1_TLM_PERIOD_MS)) == 0U) {

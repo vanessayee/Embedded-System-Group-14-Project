@@ -225,7 +225,10 @@ EXPORT INT mp_cmd_encode(const CMD_RECORD *r, UB seq, UB *out, UINT cap)
 	}
 	bw_init(&w, out + MP_HDR_LEN, MP_CMD_PAYLOAD);
 	bw_put(&w, r->cmd, 3);
-	bw_put(&w, r->arg, 10);
+	bw_put(&w, r->arg, 9);
+	/* Preserve the v1 bit positions, including invalid-frame test vectors.
+	   Valid command arguments are <= 400, so this compatibility bit is zero. */
+	bw_put(&w, (UW)r->arg >> 9, 1);
 	bw_put(&w, r->cmd_id, 8);
 	bw_put(&w, 0U, 3);			/* reserved */
 	return frame_finish(out, cap, MT_COMMAND, seq, MP_CMD_PAYLOAD);
@@ -235,18 +238,21 @@ EXPORT INT mp_cmd_decode(const UB *frame, UINT len, CMD_RECORD *r)
 {
 	BIT_READER	rd;
 	INT		seq = open_frame(frame, len, MT_COMMAND, MP_CMD_PAYLOAD, &rd);
-	UW		rsv;
+	UW		rsv, arg_high;
 
 	if (seq < 0) {
 		return seq;
 	}
 	r->cmd = (UB)br_get(&rd, 3);
-	r->arg = (UH)br_get(&rd, 10);
+	r->arg = (UH)br_get(&rd, 9);
+	arg_high = br_get(&rd, 1);
 	r->cmd_id = (UB)br_get(&rd, 8);
 	rsv = br_get(&rd, 3);
 	if (rsv != 0U || r->cmd >= CMD_COUNT) {
 		return MPE_FIELD;
 	}
+	/* Validate before forwarding; a high compatibility bit was never legal. */
+	if (arg_high != 0U) return MPE_ARG;
 	if (r->cmd == CMD_SET_SPEED) {
 		if (r->arg < (UH)MOTION_SPEED_MIN_MMS || r->arg > (UH)MOTION_SPEED_MAX_MMS) {
 			return MPE_ARG;

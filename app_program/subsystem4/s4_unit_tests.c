@@ -277,7 +277,7 @@ LOCAL INT test_nogyro(void)
 	IMU_CAL		cal;
 	IMU_IN		s;
 	HUMP		h;
-	HUMP_EVT	ev, last;
+	HUMP_EVT	ev, last = {0};
 	UINT		k;
 	W		max_dev = 0, yaw;
 	BOOL		tilt_early, coll1, coll2, ok;
@@ -676,10 +676,58 @@ LOCAL INT test_packing(void)
 	return test_fail_;
 }
 
+LOCAL INT test_bounded_storage(void)
+{
+ IMU_PROC p;
+ IMU_CAL cal = {{0}, {0}, TRUE};
+ IMU_IN in = {0};
+ HUMP h;
+ HUMP_EVT ev;
+ UINT i;
+ TEST_INIT();
+ TEST_CHECK("S4-M01", sizeof(IMU_IN) == 40 && sizeof(IMU_PROC) == 220
+  && sizeof(HUMP) == 32 && sizeof(HUMP_EVT) == 12,
+  "local flags compact without narrowing numeric sensor values");
+ TEST_CHECK("S4-M02", sizeof(S4_IMU_STATUS) == 16 && sizeof(S4_HUMP_STATUS) == 4
+  && sizeof(S4_HUMP_SAMPLE) == 4,
+  "snapshot storage bounded; explicit shared-word packers retained");
+ imu_proc_init(&p, &cal);
+ s4_make_in(&in, 0, 0, 1000, 0, 0, 0);
+ in.raw_hash = 65535U;
+ for (i = 0; i < 600U; i++) imu_proc_step(&p, &in, 10);
+ TEST_CHECK("S4-M03", p.last_hash == 65535U && p.same_count == 255U
+  && p.invalid_run == 255U && imu_proc_failed(&p),
+  "stuck and invalid counters retain 255 saturation without wrap");
+ imu_proc_init(&p, &cal);
+ p.collision_hold_ms = IMU_COLLISION_HOLD_MS;
+ s4_make_in(&in, 0, 0, 1000, 0, 0, 0);
+ imu_proc_step(&p, &in, 10);
+ TEST_CHECK("S4-M04", p.collision_hold_ms == IMU_COLLISION_HOLD_MS - 10U,
+  "full collision refractory delay retained");
+ imu_proc_init(&p, &cal);
+ for (i = 0; i < 3U * IMU_MAG_RATE_WIN; i++) {
+  make_in_nogyro(&in, 0, 0, 1000, 250, 100, 0);
+  imu_proc_step(&p, &in, 10);
+ }
+ TEST_CHECK("S4-M05", p.yaw_n == IMU_MAG_RATE_WIN && p.yaw_idx < IMU_MAG_RATE_WIN,
+  "magnetic history retains full window and circular index");
+ hump_init(&h);
+ h.state = HS_DESCENT;
+ h.count = 255U;
+ h.peak_um = 40001;
+ h.max_height_um = 40000;
+ h.travel_um = 100000;
+ for (i = 0; i < HUMP_LEVEL_SAMPLES; i++) hump_step(&h, 0, 0, TRUE, &ev);
+ TEST_CHECK("S4-M06", ev.completed && h.count == 255U && h.max_height_um == 40001,
+  "hump count saturates while highest peak keeps micrometre precision");
+ TEST_SUMMARY("s4 bounded storage");
+ return test_fail_;
+}
+
 EXPORT INT s4_run_unit_tests(void)
 {
 	return test_math() + test_calibration() + test_monitoring() + test_nogyro()
-	     + test_hump() + test_packing();
+	     + test_hump() + test_packing() + test_bounded_storage();
 }
 
 #endif /* APP_TEST || HOST_TEST */

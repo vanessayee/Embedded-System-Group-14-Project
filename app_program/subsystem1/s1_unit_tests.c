@@ -551,10 +551,57 @@ LOCAL INT test_status_word(void)
 	return test_fail_;
 }
 
+LOCAL INT test_storage(void)
+{
+ S1_RX_STATE rx = {0};
+ COMM_FSM f;
+ UB frame[MP_MAX_FRAME];
+ CMD_RECORD c;
+ UINT i;
+ BOOL ok = TRUE;
+ TEST_INIT();
+ TEST_CHECK("S1-U30", sizeof(TLM_RECORD) == 35U && sizeof(COMM_FSM) == 9U
+            && sizeof(S1_RX_STATE) == 1U && sizeof(S1_TLM_STATE) == 1U
+            && sizeof(S1_COMM_STATUS) == 6U && sizeof(HB_RECORD) == 5U
+            && sizeof(CMD_RECORD) == 3U && sizeof(ACK_RECORD) == 3U
+            && sizeof(EVT_RECORD) == 5U && sizeof(MP_HDR) == 3U,
+            "task-owned records use minimum fields and only byte-tail padding");
+ for (i = 0; i < 10000U; i++) {
+  if (s1_rate_accept(&rx) != (i < S1_CMD_RATE_MAX)) ok = FALSE;
+ }
+ TEST_CHECK("S1-U31", ok && rx.rate_count == S1_CMD_RATE_MAX,
+            "command flood never wraps the packed rate counter or bypasses the limit");
+ rx.rate_count = 0;
+ TEST_CHECK("S1-U32", s1_rate_accept(&rx) && rx.rate_count == 1U,
+            "new rate window admits commands after resetting the counter");
+ cfsm_init(&f);
+ f.state = CS_WIFI; f.attempts = 254; f.in_state_ms = 0;
+ cfsm_step(&f, TRUE, CL_FAILED, CSS_NONE, 100);
+ ok = f.attempts == 255U;
+ f.state = CS_WIFI;
+ cfsm_step(&f, TRUE, CL_FAILED, CSS_NONE, 100);
+ ok = ok && f.attempts == 255U;
+ f.state = CS_RETRY; f.in_state_ms = 0; f.backoff_ms = CFSM_BACKOFF_MAX_MS;
+ cfsm_step(&f, TRUE, CL_FAILED, CSS_NONE, CFSM_BACKOFF_MAX_MS);
+ TEST_CHECK("S1-U33", ok && f.state == CS_RECOVERY
+            && f.backoff_ms == CFSM_BACKOFF_MAX_MS,
+            "255 attempts and 16000 ms backoff retain the original recovery cadence");
+ f.state = CS_SUBSCRIBE; f.was_online = TRUE; f.reconnects = 255;
+ cfsm_step(&f, TRUE, CL_UP, CSS_SUBSCRIBED, 100);
+ TEST_CHECK("S1-U34", f.reconnects == 255U && f.state == CS_ONLINE,
+            "packed reconnect counter saturates without wrapping");
+ raw_cmd(frame, CMD_SET_SPEED, 512, 42, 0);
+ TEST_CHECK("S1-U35", mp_cmd_decode(frame, MP_HDR_LEN + MP_CMD_PAYLOAD + MP_CRC_LEN, &c) == MPE_ARG
+            && c.cmd_id == 42,
+            "v1 compatibility bit cannot convert an invalid argument into a valid command");
+ TEST_SUMMARY("s1 packed storage");
+ return test_fail_;
+}
+
 EXPORT INT s1_run_unit_tests(void)
 {
 	return test_bits() + test_frames() + test_validation() + test_sizes()
-	     + test_comm_fsm() + test_status_word();
+	     + test_comm_fsm() + test_status_word() + test_storage();
 }
 
 #endif /* APP_TEST || HOST_TEST */

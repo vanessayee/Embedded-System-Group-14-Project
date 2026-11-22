@@ -62,6 +62,9 @@ IMPORT W av_post_edge_advance_mm(W body_path, W edge_allowance);
 #define AV_LINE_SENSOR_AHEAD_MM	80	/* [CAL] centre IR sensor to wheel axle */
 #define AV_PREFER_RIGHT		1	/* tie-break when clearances equal */
 #define AV_MAX_STEPS		8
+#if AV_MAX_STEPS > 15 || MCMD_MOVE_MAX_MM > 2047 || AV_TURN_MAX_DEG > 2047 || AV_RETURN_TURN_MAX_DEG > 2047
+#error "Update Buddy 5 plan storage for the configured actuator bounds"
+#endif
 
 #define AV_SIDE_NONE		0U
 #define AV_SIDE_LEFT		1U
@@ -76,14 +79,18 @@ IMPORT W av_post_edge_advance_mm(W body_path, W edge_allowance);
 #define AVP_NO_PROFILE		(-1)
 #define AVP_NO_CLEARANCE	(-2)
 
-typedef struct {
-	UB	kind;		/* AVS_* */
-	INT	arg;		/* deg (TURN) or mm (MOVE/SEARCH) */
+typedef struct S5_LOCAL_BITS {
+
+	unsigned int kind : 2;
+
+	signed int arg : 12;
 } AV_STEP;
 
-typedef struct {
-	UB	side;		/* AV_SIDE_* */
-	UB	n;
+typedef struct S5_LOCAL_BITS {
+
+	unsigned int side : 2;
+
+	unsigned int n : 4;
 	AV_STEP	step[AV_MAX_STEPS];
 	W	offset_mm;	/* lateral offset of the bypass */
 	W	required_mm;	/* clearance the car needs */

@@ -19,6 +19,7 @@
 #define MOTION_MSG_H
 
 #include <tk/typedef.h>
+#include "s2_storage.h"
 
 /* ---------------------------------------------------------------------
  *  Sources (2 bits).  Numeric order == priority order for queue sources.
@@ -257,18 +258,21 @@ static inline UW scap_value(UW c)	{ return (c >> SCAP_VAL_SHIFT) & SCAP_VAL_MASK
  * --------------------------------------------------------------------- */
 #define MSTAT_SPEED_INVALID	(-1024)
 
-typedef struct {
+typedef struct S2_LOCAL_BITS {
 	H	speed_l_mms;	/* -1023..1023, MSTAT_SPEED_INVALID if unknown */
 	H	speed_r_mms;
-	UB	mstate;		/* MS_* */
-	UB	source;		/* MSRC_* of the active command */
-	UB	cmd_active;	/* 0/1 */
-	UB	stall_l;	/* 0/1 */
-	UB	stall_r;	/* 0/1 */
-	UB	enc_ok;		/* 0/1 */
+
 	UH	odometer_cm;	/* 0..65535 (saturating) */
 	UH	heading_deg;	/* 0..358, 2 deg resolution (encoder estimate) */
 	UH	cruise_mms;	/* 0..630, 10 mm/s resolution */
+
+	/* Task-owned bounded fields; never publish this C bit-field layout. */
+	unsigned char mstate : 2; /* MS_* */
+	unsigned char source : 2; /* MSRC_* of the active command */
+	unsigned char cmd_active : 1; /* 0/1 */
+	unsigned char stall_l : 1; /* 0/1 */
+	unsigned char stall_r : 1; /* 0/1 */
+	unsigned char enc_ok : 1; /* 0/1 */
 } MOTION_STATUS;
 
 IMPORT void mstat_pack(const MOTION_STATUS *s, UW out[2]);

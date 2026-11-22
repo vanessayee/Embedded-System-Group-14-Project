@@ -42,43 +42,54 @@
 #define S4_STATUS_H
 
 #include <tk/typedef.h>
+#include "s4_storage.h"
 
 #define S4_ANGLE_INVALID	(-128)
 #define S4_RATE_INVALID		(-256)
 #define S4_HEADING_INVALID	511U
 
-typedef struct {
+typedef struct S4_LOCAL_BITS {
 	B	pitch_deg;
 	B	roll_deg;
 	H	yaw_rate_dps;
-	UB	motion_class;
-	UB	status;
-	UB	tilt;
-	UB	collision;
-	UB	valid;
+
 	UH	heading_deg;
-	UB	shock_half_g;
-	UB	seq;
-	UB	chip;
-	UB	calibrated;
+
 	UW	time_ms;	/* publication time (separate word, not packed) */
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int motion_class : 2;
+	unsigned int status : 2;
+	unsigned int tilt : 1;
+	unsigned int collision : 1;
+	unsigned int valid : 1;
+	unsigned int shock_half_g : 5;
+	unsigned int seq : 8;
+	unsigned int chip : 2;
+	unsigned int calibrated : 1;
 } S4_IMU_STATUS;
 
-typedef struct {
-	UB	last_code;
-	UB	max_code;
-	UB	count;
-	UB	active;
-	UB	last_sat;
-	UB	max_sat;
-	UB	last_len_cm;
+typedef struct S4_LOCAL_BITS {
+
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int last_code : 6;
+	unsigned int max_code : 6;
+	unsigned int count : 8;
+	unsigned int active : 1;
+	unsigned int last_sat : 1;
+	unsigned int max_sat : 1;
+	unsigned int last_len_cm : 8;
 } S4_HUMP_STATUS;
 
-typedef struct {
-	H	tilt_ddeg;	/* 0.1 deg: roll in sideways mode, pitch in forward mode */
-	UB	ds_100um;	/* 0.1 mm */
-	UB	valid;
-	UB	seq;
+typedef struct S4_LOCAL_BITS {
+
+
+	/* Local bounded fields, never serialized as a C layout. */
+	signed int tilt_ddeg : 16;	/* 0.1 deg: roll in sideways mode, pitch in forward mode */
+	unsigned int ds_100um : 8;	/* 0.1 mm */
+	unsigned int valid : 1;
+	unsigned int seq : 4;
 } S4_HUMP_SAMPLE;
 
 IMPORT void s4_imu_pack(const S4_IMU_STATUS *s, UW w[2]);

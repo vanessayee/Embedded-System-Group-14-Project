@@ -32,19 +32,24 @@
 #define S3_STATUS_H
 
 #include <tk/typedef.h>
+#include "s3_storage.h"
 
-typedef struct {
-	UB	ir_black;
-	UB	pos;
-	UB	state;
-	UB	seq;
+typedef struct S3_LOCAL_BITS {
+
 	B	steer;
-	UB	calibrated;
-	UB	junctions;
-	UB	lost_count;
-	UB	speed_frac;
+
 	UW	time_ms;	/* publication time (separate word) */
 	UW	junction_time_ms; /* last sample on the confirmed crossing */
+
+	/* Task-owned bounded fields; explicit packers still define shared words. */
+	unsigned int ir_black : 3;
+	unsigned int pos : 3;
+	unsigned int state : 2;
+	unsigned int seq : 4;
+	unsigned int calibrated : 1;
+	unsigned int junctions : 4;
+	unsigned int lost_count : 4;
+	unsigned int speed_frac : 4;
 } S3_LINE_STATUS;
 
 #define S3_BCE_NONE	0U
@@ -56,18 +61,20 @@ typedef struct {
 #define S3_BCE_WINDOW	6U	/* window / stalled       */
 #define S3_BCE_ABORT	7U
 
-typedef struct {
-	UB	state;
-	UB	symbol;
-	UB	result;
-	UB	nav;
-	UB	nav_valid;
-	UB	reversed;
-	UB	n_valid;
-	UB	n_invalid;
-	UB	mres;
-	UB	executed;
-	UB	err_class;
+typedef struct S3_LOCAL_BITS {
+
+	/* Task-owned bounded fields; explicit packers still define shared words. */
+	unsigned int state : 2;
+	unsigned int symbol : 6;
+	unsigned int result : 2;
+	unsigned int nav : 2;
+	unsigned int nav_valid : 1;
+	unsigned int reversed : 1;
+	unsigned int n_valid : 6;
+	unsigned int n_invalid : 6;
+	unsigned int mres : 2;
+	unsigned int executed : 1;
+	unsigned int err_class : 3;
 } S3_BC_STATUS;
 
 IMPORT UW   s3_line_pack(const S3_LINE_STATUS *s);

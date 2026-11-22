@@ -2,19 +2,19 @@
  *	pid.h
  *	Integer PID speed controller (pure logic, host-testable).
  *
- *	Internal precision is deliberately NOT reduced by the minimum-bit
- *	requirement: errors are mm/s in 32-bit integers and gains are Q8
- *	fixed point (gain * 256), so control stability is unaffected.  Only
- *	stored/transmitted application data is packed (Change Requirement 1
- *	applies to application data, not controller state).
+ *	Controller state is included in Change Requirement 1. The validity
+ *	flag uses one bit. Arithmetic fields retain the full signed range
+ *	accepted by pid_init/update; narrowing those generic fixed-point
+ *	values would change overflow/precision behaviour.
  */
 
 #ifndef PID_H
 #define PID_H
 
 #include <tk/typedef.h>
+#include "s2_storage.h"
 
-typedef struct {
+typedef struct S2_LOCAL_BITS {
 	W	kp_q8;		/* output units per (mm/s) error, *256        */
 	W	ki_q8;		/* per (mm/s * cycle) of accumulated error    */
 	W	kd_q8;		/* per (mm/s) change of measurement per cycle */
@@ -23,7 +23,9 @@ typedef struct {
 	W	prev_meas;	/* derivative on measurement (no kick)        */
 	W	out_min;	/* output clamp, permille                     */
 	W	out_max;
-	BOOL	primed;		/* prev_meas valid                            */
+
+	/* Task-owned bounded fields; never publish this C bit-field layout. */
+	unsigned int primed : 1; /* prev_meas valid                            */
 } PID;
 
 IMPORT void pid_init(PID *p, W kp_q8, W ki_q8, W kd_q8, W i_lim,

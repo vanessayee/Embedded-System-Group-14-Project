@@ -23,6 +23,7 @@
 #define LINE_FOLLOW_H
 
 #include <tk/typedef.h>
+#include "s3_storage.h"
 
 #define IR_L		0U	/* bit index in a 3-bit IR state */
 #define IR_C		1U
@@ -112,39 +113,56 @@
 #define LF_POST_TURN_MS		400	/* both white this long right after the
 					   turn: already aligned, realign done */
 
-typedef struct {
-	UB	black_level[3];	/* raw level meaning "black", per sensor */
-	BOOL	calibrated;
-	UB	state;		/* LS_* */
-	UB	pos;		/* LP_* */
-	INT	err;		/* last error, -2..3 */
-	INT	steer_cmd;	/* slew-limited steering sent last cycle */
-	INT	edge_side;	/* +1 C black, -1 IR_L black, 0 neither */
+typedef struct S3_LOCAL_BITS {
+
 	UW	edge_ms;	/* how long that sensor has been black */
-	INT	hold_side;	/* turn kept after a sustained contact ... */
-	UW	hold_ms;	/* ... for this much longer */
+
 	UW	lost_ms;	/* time without the line */
 	W	lost_start_mm;
-	BOOL	lost_pending;
-	UW	settle_ms;	/* half-speed time left after a pivot */
-	UW	straight_ms;	/* drive straight after GP6 finds the right branch */
-	BOOL	turning;	/* lost-line turn under way ... */
+
 	W	turn_start_mm;	/* ... since this odometer reading ... */
 	UW	turn_ms;	/* ... and this long */
-	BOOL	in_junction;
-	BOOL	junction_reported; /* one event per continuous crossing */
+
 	UW	junction_ms;
-	BOOL	post_turn;	/* realigning after a barcode turn ... */
+
 	UW	post_turn_ms;	/* ... for this long so far ... */
-	INT	post_pivot;	/* ... pivoting towards this side (err sign), 0 none */
+
+	/* Task-owned bounded fields; explicit packers still define shared words. */
+	unsigned int black_levels : 3;
+	unsigned int calibrated : 1;
+	unsigned int state : 2;		/* LS_* */
+	unsigned int pos : 3;		/* LP_* */
+	signed int err : 3;		/* last error, -3..3 */
+	signed int steer_cmd : 7;	/* slew-limited steering sent last cycle */
+	signed int edge_side : 3;	/* +1 C black, -1 IR_L black, 0 neither */
+	signed int hold_side : 3;	/* turn kept after a sustained contact ... */
+
+	unsigned int lost_pending : 1;
+
+	unsigned int turning : 1;	/* lost-line turn under way ... */
+	unsigned int in_junction : 1;
+	unsigned int junction_reported : 1; /* one event per continuous crossing */
+	unsigned int post_turn : 1;	/* realigning after a barcode turn ... */
+	signed int post_pivot : 2;	/* ... pivoting towards this side (err sign), 0 none */
+
+	unsigned int hold_ms : 9;	/* ... for this much longer */
+	unsigned int settle_ms : 9;	/* half-speed time left after a pivot */
+	unsigned int straight_ms : 8;	/* drive straight after GP6 finds the right branch */
 } LINE_FOLLOW;
 
-typedef struct {
-	INT	steer;		/* -63..63 */
-	UB	speed_frac;	/* 0..15 of cruise */
-	UB	events;		/* LF_EV_* */
-	BOOL	steering;	/* TRUE: publish steer */
+typedef struct S3_LOCAL_BITS {
+
+	/* Task-owned bounded fields; explicit packers still define shared words. */
+	signed int steer : 7;		/* -63..63 */
+	unsigned int speed_frac : 4;	/* 0..15 of cruise */
+	unsigned int events : 4;		/* LF_EV_* */
+	unsigned int steering : 1;	/* TRUE: publish steer */
 } LF_OUT;
+
+static inline UB lf_black_level(const LINE_FOLLOW *lf, UINT sensor)
+{
+	return (UB)((lf->black_levels >> sensor) & 1U);
+}
 
 IMPORT void lf_init(LINE_FOLLOW *lf);
 IMPORT void lf_reset_tracking(LINE_FOLLOW *lf);

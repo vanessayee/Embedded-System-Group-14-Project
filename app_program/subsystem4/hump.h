@@ -47,15 +47,18 @@
 					   the effective encoder-turn calibration */
 #define HUMP_ROLL_FALL_UM		1000	/* falling peak hysteresis */
 
+/* Two consecutive rising samples and at most three level confirmations. */
+#if HUMP_LEVEL_SAMPLES > 3U
+#error "Update Buddy 4 level confirmation storage for this setting"
+#endif
+
 #define HS_IDLE			0U
 #define HS_CLIMB		1U
 #define HS_DESCENT		2U
 #define HS_ROLL_WAIT_LEVEL	3U	/* rejected roll candidate: rearm only on level */
 
-typedef struct {
-	UB	state;
-	UB	rise_count;
-	UB	level_count;
+typedef struct S4_LOCAL_BITS {
+
 	W	pre_elev_um;	/* elevation in consecutive start samples */
 	W	elev_um;
 	W	peak_um;
@@ -63,14 +66,23 @@ typedef struct {
 	W	last_height_um;
 	W	max_height_um;	/* highest hump of the run, full resolution */
 	W	last_len_mm;
-	UB	count;		/* humps reported (saturating) */
+
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int state : 2;
+	unsigned int rise_count : 2;
+	unsigned int level_count : 2;
+	unsigned int count : 8;		/* humps reported (saturating) */
 } HUMP;
 
-typedef struct {
-	BOOL	completed;	/* a hump was measured */
-	BOOL	rejected;	/* candidate discarded */
+typedef struct S4_LOCAL_BITS {
+
 	W	height_um;
 	W	length_mm;
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int completed : 1;	/* a hump was measured */
+	unsigned int rejected : 1;	/* candidate discarded */
 } HUMP_EVT;
 
 IMPORT void hump_init(HUMP *h);

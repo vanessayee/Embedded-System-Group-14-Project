@@ -398,6 +398,7 @@ LOCAL void finish(BC_DEC *d, BC_RESULT *res)
 	UW	el[BC_MAX_EDGES];
 	UINT	n = 0, i;
 	INT	r;
+	BOOL reversed = FALSE; /* decoder output pointer stays byte-addressable */
 
 	for (i = 0; i + 1U < d->n_edges; i++) {
 		el[n++] = d->edge_t[i + 1U] - d->edge_t[i];
@@ -423,7 +424,8 @@ LOCAL void finish(BC_DEC *d, BC_RESULT *res)
 	for (i = 0; i < n; i++) {
 		res->element_us[i] = el[i];
 	}
-	r = c39_decode(el, n, res->data, BC_MAX_DATA, &res->reversed);
+	r = c39_decode(el, n, res->data, BC_MAX_DATA, &reversed);
+	res->reversed = reversed;
 	d->state = BCS_IDLE;
 	d->n_edges = 0;
 	if (r < 0) {

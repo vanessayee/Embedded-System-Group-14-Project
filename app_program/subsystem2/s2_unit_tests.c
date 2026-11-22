@@ -841,10 +841,62 @@ LOCAL INT test_vehicle_fsm(void)
 	return test_fail_;
 }
 
+LOCAL INT test_storage(void)
+{
+ S2_FRESH f = {0};
+ MOTION_CTRL mc;
+ MC_OUT out;
+ PID p;
+ VFSM vf;
+ UW i;
+ BOOL ok;
+ TEST_INIT();
+ TEST_CHECK("S2-U70", sizeof(MOTION_CTRL) == 184U && sizeof(MC_IN) == 28U
+            && sizeof(MC_OUT) == 20U && sizeof(VFSM) == 8U
+            && sizeof(VFSM_IN) == 20U && sizeof(VFSM_OUT) == 4U
+            && sizeof(MOTION_STATUS) == 12U && sizeof(S2_FRESH) == 8U,
+            "bounded local records compact without changing shared wire words");
+ ok = s2_fresh_sample(&f, 15, 0xfffffff0U, 100U);
+ ok = ok && s2_fresh_sample(&f, 15, 0x20U, 100U);
+ ok = ok && !s2_fresh_sample(&f, 15, 0x60U, 100U);
+ ok = ok && s2_fresh_sample(&f, 0, 0x60U, 100U);
+ ok = ok && s2_fresh_sample(&f, 0, 0xc4U, 100U);
+ ok = ok && !s2_fresh_sample(&f, 0, 0xc5U, 100U);
+ TEST_CHECK("S2-U71", ok, "freshness preserves timestamp wrap, sequence wrap and exact stale boundary");
+ mc_init(&mc); mc_out_clear(&out);
+ for (i=0;i<=MC_QUEUE_DEPTH;i++)
+  (void)mc_submit(&mc,mcmd_pack(MCMD_MOVE,MSRC_AVOID,i,0,2,100),VM_OBSTACLE,0,&out);
+ ok = mc_submit(&mc,mcmd_pack(MCMD_MOVE,MSRC_AVOID,5,0,2,100),VM_OBSTACLE,0,&out)==MREJ_QUEUE;
+ TEST_CHECK("S2-U72", ok && mc.has_active && mc.q_count == MC_QUEUE_DEPTH && mc.q_head == 0,
+            "three-bit count holds all four queued commands without wrapping");
+ vf.mode = VM_SAFE_STOP; vf.epoch = 7; vf.ir_ok=TRUE; vf.imu_ok=TRUE; vf.line_lost=TRUE;
+ TEST_CHECK("S2-U73", vf.mode == VM_SAFE_STOP && vf.epoch == 7 && vf.ir_ok
+            && vf.imu_ok && vf.line_lost,
+            "vehicle mode, maximum epoch and calibration flags coexist without overlap");
+ pid_init(&p,512,0,0,100000,-100000,100000);
+ TEST_CHECK("S2-U74", pid_update(&p,20000,0,0)==40000 && p.i_acc==20000 && p.primed,
+            "PID arithmetic retains values beyond motor-specific narrow limits");
+ out.duty_l_pm=-1000;out.duty_r_pm=1000;out.dir_l=-1;out.dir_r=1;
+ out.flt_set=SYS_FLT_ALL;out.flt_clr=SYS_FLT_ALL;out.result_mask=15;
+ out.nav_started=TRUE;out.nav_finished=TRUE;
+ TEST_CHECK("S2-U75", out.duty_l_pm==-1000 && out.duty_r_pm==1000
+            && out.dir_l==-1 && out.dir_r==1 && out.flt_set==SYS_FLT_ALL
+            && out.flt_clr==SYS_FLT_ALL && out.result_mask==15
+            && out.nav_started && out.nav_finished,
+            "signed duties, both directions and all fault/result flags retain their full range");
+ mc.turn_line_seq=S2_LINE_SEQ_NONE;mc.turn_wait_ms=TURN_SETTLE_MS;
+ mc.junction_edge_ms=TURN_JUNCTION_EDGE_MS;mc.fault_retries=255;
+ TEST_CHECK("S2-U76", mc.turn_line_seq>15 && mc.turn_wait_ms==TURN_SETTLE_MS
+            && mc.junction_edge_ms==TURN_JUNCTION_EDGE_MS && mc.fault_retries==255,
+            "turn sentinel, settle/handoff timers and retry saturation remain representable");
+ TEST_SUMMARY("s2 packed storage");
+ return test_fail_;
+}
+
 EXPORT INT s2_run_unit_tests(void)
 {
 	return test_formats() + test_pid() + test_execution() + test_arbitration()
-	     + test_faults() + test_steering() + test_vehicle_fsm();
+	     + test_faults() + test_steering() + test_vehicle_fsm() + test_storage();
 }
 
 #endif /* APP_TEST || HOST_TEST */

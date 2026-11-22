@@ -76,6 +76,11 @@
 #define S5_LINE_END_GRACE_MS	300	/* let final IR sample publish */
 #define S5_LINE_ALIGN_TIMEOUT_MS 8000
 #define S5_LINE_ALIGN_LIMIT_DEG 110	/* travel limit, never success criterion */
+/* Storage guards: changing these thresholds requires widening the fields. */
+#if S5_SCAN_PINGS > 3 || S5_SIDE_SEEN_CONFIRM > 3 || S5_SIDE_CLEAR_CONFIRM > 3 || S5_SIDE_BAD_MAX > 15 || S5_SEARCH_RETRIES > 3
+#error "Update Buddy 5 bounded scan/pass/retry storage"
+#endif
+
 #define S5_REPLANS		1	/* after an emergency stop          */
 
 /* flg_avoid bits */

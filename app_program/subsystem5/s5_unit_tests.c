@@ -556,9 +556,61 @@ LOCAL INT test_plan(void)
 	return test_fail_;
 }
 
+LOCAL INT test_bounded_storage(void)
+{
+ S5_SCAN_HEALTH h = {0};
+ S5_PASS_STATE watch = {0};
+ S5_PROFILE_STATE current = {0, S5_PROFILE_ID_NONE, S5_PROFILE_PHASE_NONE, 0, FALSE};
+ S5_SCAN_CONTROL control = {SREQ_SIDE, TRUE, -80};
+ OP_SAMPLE sample = {0};
+ AV_STEP step = {0};
+ AV_LINE_LOCK lock = {0};
+ UINT i;
+ TEST_INIT();
+ TEST_CHECK("S5-M01", sizeof(S5_SCAN_REQ) == 4 && sizeof(S5_SAMPLE) == 4
+  && sizeof(S5_SCAN_STATUS) == 4 && sizeof(S5_AVOID_STATUS) == 4,
+  "request, sample and status locals fit one aligned word");
+ TEST_CHECK("S5-M02", sizeof(OP_SAMPLE) == 4 && sizeof(AV_STEP) == 4
+  && sizeof(S5_SCAN_HEALTH) == 4 && sizeof(S5_PASS_STATE) == 4
+  && sizeof(S5_PROFILE_STATE) == 4 && sizeof(S5_SCAN_CONTROL) == 4,
+  "bounded task and plan storage uses aligned words");
+ h.silent_run = 255; h.good_run = 255; h.detect_run = 255; h.side_count = 3;
+ if (h.silent_run < 255U) h.silent_run++;
+ if (h.good_run < 255U) h.good_run++;
+ ++h.detect_run;
+ TEST_CHECK("S5-M03", h.silent_run == 255 && h.good_run == 255
+  && h.detect_run == 0 && h.side_count == 3,
+  "fault-run saturation and original byte detection wrap are retained");
+ TEST_CHECK("S5-M04", current.cur_id > 7 && current.cur_phase > 1
+  && current.n == 0 && !current.aborted,
+  "unset profile identity cannot alias the first real sample");
+ current.n = OP_MAX_SAMPLES; current.cur_id = 7; current.cur_phase = 1;
+ current.limit = 128; current.aborted = TRUE;
+ TEST_CHECK("S5-M05", current.n == 64 && current.cur_id == 7
+  && current.cur_phase == 1 && current.limit == 128 && current.aborted,
+  "full profile capacity and abs(-128) limit fit without neighbouring corruption");
+ watch.seen_run = 2; watch.clear_run = 3; watch.bad_run = 10;
+ watch.last_seq = 15; watch.seen = TRUE; watch.ready = TRUE;
+ TEST_CHECK("S5-M06", watch.seen_run == 2 && watch.clear_run == 3
+  && watch.bad_run == 10 && watch.last_seq == 15 && watch.seen && watch.ready
+  && control.mode == SREQ_SIDE && control.side_active && control.side_angle == -80,
+  "pass confirmation, faults and signed side-watch angle coexist at limits");
+ sample.angle_deg = -128; sample.status = SS_ABORTED; sample.dist_mm = 4000;
+ step.kind = AVS_SEARCH; step.arg = MCMD_MOVE_MAX_MM;
+ TEST_CHECK("S5-M07", sample.angle_deg == -128 && sample.status == SS_ABORTED
+  && sample.dist_mm == 4000 && step.arg == 2000 && step.kind == AVS_SEARCH,
+  "full sensor range and actuator argument fit compact local storage");
+ sample.dist_mm = -1; step.arg = -75;
+ for (i = 0; i < 100U; i++) (void)av_line_lock_sample(&lock, TRUE, FALSE);
+ TEST_CHECK("S5-M08", sample.dist_mm == -1 && step.arg == -75 && lock.run == 100,
+  "unknown echo and negative turn retained; public line-lock counter not truncated");
+ TEST_SUMMARY("s5 bounded storage");
+ return test_fail_;
+}
+
 EXPORT INT s5_run_unit_tests(void)
 {
-	return test_codes() + test_profile() + test_plan();
+	return test_codes() + test_profile() + test_plan() + test_bounded_storage();
 }
 
 #endif /* APP_TEST || HOST_TEST */

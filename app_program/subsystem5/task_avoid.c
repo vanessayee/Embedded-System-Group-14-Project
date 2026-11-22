@@ -24,7 +24,7 @@
 EXPORT volatile UW	s5_avoid_word;
 
 LOCAL S5_AVOID_STATUS	ast;
-LOCAL UB		scan_id;
+LOCAL struct { unsigned char scan_id : 3; } request_state;
 LOCAL UW		deadline_start;
 
 EXPORT void s5_get_avoid_status(S5_AVOID_STATUS *s)
@@ -49,7 +49,7 @@ LOCAL void request_scan(UB type, INT from, INT to, UB step)
 	UW		w;
 
 	rq.type = type;
-	rq.scan_id = scan_id;
+	rq.scan_id = request_state.scan_id;
 	rq.start_deg = (B)from;
 	rq.end_deg = (B)to;
 	rq.step_deg = step;
@@ -71,7 +71,7 @@ LOCAL BOOL wait_profile(UB phase, S5_PROFILE *p)
 
 		if (el >= S5_SCAN_TIMEOUT_MS) {
 			tm_printf((UB*)"avoid: profile timeout, scan %d phase %d after %d ms\n",
-				  (INT)scan_id, (INT)phase, (INT)el);
+				  (INT)request_state.scan_id, (INT)phase, (INT)el);
 			return FALSE;
 		}
 		n = tk_rcv_mbf(mbf_profile, pw, (TMO)(S5_SCAN_TIMEOUT_MS - el));
@@ -79,7 +79,7 @@ LOCAL BOOL wait_profile(UB phase, S5_PROFILE *p)
 			continue;
 		}
 		s5_profile_unpack(pw, p);
-		if (p->scan_id == scan_id && p->phase == phase) {
+		if (p->scan_id == request_state.scan_id && p->phase == phase) {
 			return TRUE;		/* stale profiles are dropped */
 		}
 	}
@@ -273,14 +273,14 @@ LOCAL BOOL profile_obstacle(S5_PROFILE *p, BOOL *cleared)
 	W	front_gap;
 
 	*cleared = FALSE;
-	scan_id = (UB)((scan_id + 1U) & 0x7U);
+	request_state.scan_id = (UB)((request_state.scan_id + 1U) & 0x7U);
 	/* A complete 3-degree sweep already contains the information supplied
 	   by the old 15-degree coarse pass, while avoiding a second left-to-right
 	   servo movement.  The full limits also prove as much side clearance as
 	   this sensor can observe without deriving a second scan window. */
 	set_state(AVST_FINE);
 	tm_printf((UB*)"avoid: full scan %d, %d..%d deg step %d, timeout %d ms\n",
-		  (INT)scan_id, -S5_SCAN_LIMIT_DEG, S5_SCAN_LIMIT_DEG,
+		  (INT)request_state.scan_id, -S5_SCAN_LIMIT_DEG, S5_SCAN_LIMIT_DEG,
 		  S5_FINE_STEP, S5_SCAN_TIMEOUT_MS);
 	request_scan(SREQ_FINE, -S5_SCAN_LIMIT_DEG, S5_SCAN_LIMIT_DEG,
 		     S5_FINE_STEP);
@@ -320,9 +320,9 @@ LOCAL BOOL profile_obstacle(S5_PROFILE *p, BOOL *cleared)
 LOCAL INT pass_obstacle(const AV_PLAN *plan)
 {
 	S5_SCAN_STATUS	ss;
-	UW		cmd, res, last_seq, start;
-	UINT		seen_run = 0, clear_run = 0, bad_run = 0, ptn;
-	BOOL		seen = FALSE, ready = FALSE;
+	UW		cmd, res, start;
+	UINT		ptn;
+	S5_PASS_STATE watch = {0};
 	INT		look = (plan->side == AV_SIDE_RIGHT) ? -S5_SIDE_LOOK_DEG
 							 : S5_SIDE_LOOK_DEG;
 	W		odo0 = 0, odo = 0, travelled, depth;
@@ -335,19 +335,19 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			   + S5_SIDE_ECHO_ALLOWANCE_MM;
 
 	s5_get_scan_status(&ss);
-	last_seq = ss.seq;
+	watch.last_seq = ss.seq;
 	request_scan(SREQ_SIDE, look, 0, 0);
 	start = app_now_ms();
 	while ((UW)(app_now_ms() - start) < S5_SIDE_READY_MS) {
 		(void)tk_dly_tsk(S3_PERIOD_MS);
 		s5_get_scan_status(&ss);
-		if (ss.seq != last_seq && ss.servo_deg == look) {
-			ready = TRUE;
+		if (ss.seq != watch.last_seq && ss.servo_deg == look) {
+			watch.ready = TRUE;
 			break;
 		}
-		last_seq = ss.seq;
+		watch.last_seq = ss.seq;
 	}
-	if (!ready) {
+	if (!watch.ready) {
 		tm_printf((UB*)"avoid: side watch failed to reach %d deg\n", look);
 		fail(AVF_SENSOR, SYS_FLT_AVOID_FAILED);
 		return EXEC_FAILED;
@@ -363,7 +363,7 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 		fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
 		return EXEC_FAILED;
 	}
-	last_seq = ss.seq;
+	watch.last_seq = ss.seq;
 
 	for (;;) {
 		W	side_mm;
@@ -383,8 +383,8 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 		travelled = odo - odo0;
 		if (travelled < 0) travelled = -travelled;
 		s5_get_scan_status(&ss);
-		if (ss.seq != last_seq && ss.servo_deg == look) {
-			last_seq = ss.seq;
+		if (ss.seq != watch.last_seq && ss.servo_deg == look) {
+			watch.last_seq = ss.seq;
 			side_mm = s5_dist_mm(ss.dist_code);
 			if (ss.us_result == US_OK && side_mm > 0
 			    && side_mm <= side_limit) {
@@ -392,44 +392,44 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 				if (closest_side_mm == 0 || side_mm < closest_side_mm) {
 					closest_side_mm = side_mm;
 				}
-				if (seen_run < S5_SIDE_SEEN_CONFIRM) seen_run++;
-				if (seen_run >= S5_SIDE_SEEN_CONFIRM && !seen) {
+				if (watch.seen_run < S5_SIDE_SEEN_CONFIRM) watch.seen_run++;
+				if (watch.seen_run >= S5_SIDE_SEEN_CONFIRM && !watch.seen) {
 					W measured_gap = (W)((D)side_mm * side_sin / 32768)
 						- AV_ROBOT_WIDTH_MM / 2;
 
-					seen = TRUE;
+					watch.seen = TRUE;
 					tm_printf((UB*)"avoid: side obstacle confirmed, measured body gap %d mm, "
 						  "planned %d mm (requested %d + reserve %d)\n",
 						  (INT)measured_gap, (INT)plan->side_gap_mm,
 						  AV_SIDE_GAP_MM, AV_EDGE_UNCERTAINTY_MM);
 				}
-				clear_run = 0;
+				watch.clear_run = 0;
 				clear_start_mm = -1;
-				bad_run = 0;
+				watch.bad_run = 0;
 			} else if (ss.us_result == US_NO_ECHO
 				   || (ss.us_result == US_OK
 				       && side_mm > side_limit)) {
-				bad_run = 0;
-				if (seen) {
-					if (clear_run == 0U) clear_start_mm = travelled;
-					if (clear_run < S5_SIDE_CLEAR_CONFIRM) clear_run++;
+				watch.bad_run = 0;
+				if (watch.seen) {
+					if (watch.clear_run == 0U) clear_start_mm = travelled;
+					if (watch.clear_run < S5_SIDE_CLEAR_CONFIRM) watch.clear_run++;
 				} else {
-					seen_run = 0;
+					watch.seen_run = 0;
 				}
 			} else {
-				clear_run = 0;
-				if (!seen) seen_run = 0;
-				if (bad_run < S5_SIDE_BAD_MAX) bad_run++;
+				watch.clear_run = 0;
+				if (!watch.seen) watch.seen_run = 0;
+				if (watch.bad_run < S5_SIDE_BAD_MAX) watch.bad_run++;
 			}
 		}
 
-		if (bad_run >= S5_SIDE_BAD_MAX) {
+		if (watch.bad_run >= S5_SIDE_BAD_MAX) {
 			motion_stop(MSRC_AVOID);
 			tm_printf((UB*)"avoid: side ultrasonic unusable during pass\n");
 			fail(AVF_SENSOR, SYS_FLT_AVOID_FAILED);
 			return EXEC_FAILED;
 		}
-		if (seen && clear_run >= S5_SIDE_CLEAR_CONFIRM) {
+		if (watch.seen && watch.clear_run >= S5_SIDE_CLEAR_CONFIRM) {
 			W clear_travel = (clear_start_mm >= 0)
 				       ? travelled - clear_start_mm : 0;
 			W edge_ahead = (W)(((D)farthest_side_mm

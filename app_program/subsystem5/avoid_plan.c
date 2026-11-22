@@ -274,6 +274,7 @@ EXPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan)
 	W	best_forward = 0x7FFFFFFF;
 	INT	candidate;
 	INT	pr, turn, return_turn;
+	UB selected_side; /* addressable output; plan side is a local bitfield */
 
 	plan->side = AV_SIDE_NONE;
 	plan->n = 0;
@@ -294,7 +295,9 @@ EXPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan)
 	if (plan->front_gap_mm < 0) {
 		plan->front_gap_mm = 0;
 	}
-	pr = select_path(p, &plan->side, &plan->offset_mm);
+	selected_side = plan->side;
+	pr = select_path(p, &selected_side, &plan->offset_mm);
+	plan->side = selected_side;
 	if (pr != AVP_OK) {
 		return pr;
 	}

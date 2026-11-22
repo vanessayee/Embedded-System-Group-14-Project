@@ -35,6 +35,7 @@
 #define IMU_PROC_H
 
 #include <tk/typedef.h>
+#include "s4_storage.h"
 
 #define IMU_ST_INIT		0U	/* statechart INITIALIZING */
 #define IMU_ST_CALIBRATING	1U
@@ -109,15 +110,23 @@
 #define IMU_CAL_NOT_STILL	(-2)
 #define IMU_CAL_ORIENTATION	(-3)
 
+/* Keep the history count (including the full window) and refractory delay representable. */
+#if IMU_MAG_RATE_WIN > 31U || IMU_COLLISION_HOLD_MS > 511U
+#error "Update Buddy 4 bounded processing storage for these settings"
+#endif
+
 /* Raw chip-frame sample shared by the hardware driver and processing. */
-typedef struct {
+typedef struct S4_LOCAL_BITS {
 	W	acc_mg[3];	/* chip axes */
 	W	gyr_mdps[3];
 	W	mag_mgauss[3];
-	BOOL	has_gyro;	/* FALSE: attitude from accel, heading from mag */
-	BOOL	mag_valid;
-	BOOL	saturated;
-	UH	raw_hash;
+
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int has_gyro : 1;	/* FALSE: attitude from accel, heading from mag */
+	unsigned int mag_valid : 1;
+	unsigned int saturated : 1;
+	unsigned int raw_hash : 16;
 } IMU_IN;
 
 typedef struct {
@@ -130,13 +139,16 @@ typedef struct {
 	UINT	n;
 } IMU_CAL_ACC;
 
-typedef struct {
+typedef struct S4_LOCAL_BITS {
 	W	gyro_bias[3];	/* body axes, mdps */
 	W	acc_offset[3];	/* body axes, mg; up axis relative to +1 g */
-	BOOL	valid;
+
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int valid : 1;
 } IMU_CAL;
 
-typedef struct {
+typedef struct S4_LOCAL_BITS {
 	IMU_CAL	cal;
 	W	a[3];		/* calibrated body acceleration, mg */
 	W	g[3];		/* calibrated body rate, mdps */
@@ -144,32 +156,40 @@ typedef struct {
 	W	roll_cdeg;
 	W	yaw_cdeg;	/* heading 0..35999, 0 = direction at start */
 	W	yaw_rate_mdps;
-	BOOL	yaw_valid;	/* FALSE while a no-gyro chip has no heading */
+
 	W	pitch_hist[2];	/* no gyro: last two accel angles (median) */
 	W	roll_hist[2];
 	W	pitch_med_cdeg;	/* no gyro: median only, 1 sample behind; */
 	W	roll_med_cdeg;	/* levels the magnetometer in step with it */
 	W	mag_ref_cdeg;	/* no gyro: magnetic heading at start */
-	BOOL	mag_primed;
+
 	W	yaw_hist[IMU_MAG_RATE_WIN];
-	UB	yaw_idx;
-	UB	yaw_n;
+
 	W	lin_fwd_mg;	/* gravity-compensated */
 	W	lin_right_mg;
-	UB	motion_class;
-	BOOL	tilt;
+
 	UW	tilt_ms;
 	UW	still_ms;
-	BOOL	collision;		/* impact detected in this sample */
-	UW	collision_hold_ms;
-	BOOL	handling;		/* pickup jolt/free-fall/severe tilt, not altitude */
+
 	UW	handling_ms, freefall_ms, severe_tilt_ms;
 	W	peak_shock_mg;		/* largest horizontal impact so far */
-	UH	last_hash;
-	UB	same_count;
-	UB	invalid_run;
-	BOOL	primed;
+
 	UW	samples;
+
+	/* Local bounded fields, never serialized as a C layout. */
+	unsigned int yaw_valid : 1;	/* FALSE while a no-gyro chip has no heading */
+	unsigned int mag_primed : 1;
+	unsigned int tilt : 1;
+	unsigned int collision : 1;		/* impact detected in this sample */
+	unsigned int handling : 1;		/* pickup jolt/free-fall/severe tilt, not altitude */
+	unsigned int primed : 1;
+	unsigned int motion_class : 2;
+	unsigned int yaw_idx : 5;
+	unsigned int yaw_n : 5;
+	unsigned int collision_hold_ms : 9;
+	unsigned int last_hash : 16;
+	unsigned int same_count : 8;
+	unsigned int invalid_run : 8;
 } IMU_PROC;
 
 /* Body-frame mapping of one sample */
