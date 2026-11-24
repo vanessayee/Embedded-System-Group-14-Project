@@ -93,3 +93,9 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-10-30 | S1-U28 | `d81f8b9` + uncommitted | Claude (for Buddy 1) | PASS (34/34) | `logs/2026-10-30_backend_unit_tests.txt` | |
 | 2026-10-30 | INT-21 | `d81f8b9` + uncommitted | Claude (for Buddy 1) | PASS (12/12 subtests) | `logs/2026-10-30_backend_integration_tests.txt` | simulated frames, isolated broker and database |
 | 2026-10-30 | S1-U29 | `d81f8b9` + uncommitted | Claude (for Buddy 1) | measured | `logs/2026-10-30_telemetry_backend_bench.md`, `logs/2026-10-30_dashboard_simulated_demo.png` | Mac, simulated frames; see telemetry/docs/MEASUREMENTS.md |
+
+## 2026-11-24 dashboard reset
+Host suites passed; backend unit suites 48 passed, 0 failed. Tests cover exact reset argument, legacy PING, ACK matching, configuration cancellation and existing boot/session reset. Physical dashboard-initiated reboot still requires the updated UF2 and supervised validation. No reset/clear/resume command was sent during development.
+
+2026-11-24 live barcode-map check: dashboard Apply acknowledged all 26 assignments; Read robot rules confirmed A=LEFT, C=RIGHT, X=STRAIGHT, Y=U-TURN, others NONE while SAFE_STOP. Prior observed late ACK exceeded old 6.5 s deadline. Backend now waits 12 s and retries only idempotent map SET/GET once on ACK timeout; rejects and motion/reset commands are not retried. Backend unit regression: 50 passed, 0 failed.
+

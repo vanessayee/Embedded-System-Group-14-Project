@@ -22,6 +22,8 @@ Define each test before running it. Test IDs are permanent. These automated chec
 | S2-U62 | MQTT ready automatically releases startup hold |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U62 PASS` |
 | S2-U63 | later network outage retains existing autonomous policy |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U63 PASS` |
 | S2-U64 | missing local ultrasonic readiness times out safely |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U64 PASS` |
+| S2-U65 | one invalid ping after long MQTT wait does not latch INIT fault |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U65 PASS` |
+| S2-U66 | fresh ping and MQTT release startup after transient sensor failure |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U66 PASS` |
 | S2-U70 | bounded local records compact without changing shared wire words |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U70 PASS` |
 | S2-U71 | freshness preserves timestamp wrap, sequence wrap and exact stale boundary |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U71 PASS` |
 | S2-U72 | three-bit count holds all four queued commands without wrapping |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U72 PASS` |

@@ -356,3 +356,9 @@ Some meanings depend on how the firmware was built, not on the frame.
 A frame with a value v1 never produces (for example `mode` 5..7,
 `heading2` > 179, a hump code 51..62) is rejected as `FIELD_RANGE` and is
 not stored as a measurement.
+
+### 2026-11-24: fine low-height extension
+Hump codes 0..50 retain their legacy 2 mm meaning. Previously reserved codes 51..55 now encode 1, 3, 5, 7 and 9 mm; 56..62 remain invalid and 63 means none. This applies to telemetry and HUMP events. No field offset, frame size or CRC change. Updated backends accept both legacy codes and these extension codes; older backends reject extension values. Historical values retain their original meaning.
+
+### Dashboard reset extension
+RESET uses existing PING opcode 0 with the exact reserved argument 421. PING argument 0 remains unchanged; other nonzero arguments are rejected. The successful reset ACK has opcode 0 and detail 31. Legacy firmware rejects RESET with BAD_ARG. No frame widths or lengths change. Validated RESET requests bypass rate throttling and the discrete motor command FIFO. Buddy 2 latches motor stop, inhibits output and triggers the RP2040 watchdog reset after a 500 ms ACK-drain window. New BOOT identity confirms completion; ACK alone means accepted. Wi-Fi delivery is required; this does not replace the physical RUN button when disconnected. Reset is accepted in every vehicle mode and normal startup readiness applies after reboot. RAM-only navigation rules and current-run sensor history reset; database history and laptop-saved rules remain.

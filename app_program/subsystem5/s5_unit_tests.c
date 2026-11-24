@@ -253,7 +253,7 @@ LOCAL INT test_profile(void)
 		   && p.clear_right_mm < 250 && p.clear_left_mm > 400,
 		   "wall beside the obstacle limits that side's clearance");
 
-	/* Hardware regression: one far return at 39 deg split a continuous
+	/* Front-plane regression: one far return at 39 deg split a continuous
 	   obstacle, while deeper background echoes made both clear sides look
 	   blocked.  One isolated gap must be closed; two misses still mark an
 	   edge, and background behind the front-plane band must be ignored. */
@@ -263,7 +263,8 @@ LOCAL INT test_profile(void)
 
 		o[n].angle_deg = (B)a;
 		o[n].status = SS_OK;
-		o[n].dist_mm = (H)((a >= -39 && a <= 45 && a != 39) ? 300 : 760);
+		o[n].dist_mm = (H)((a >= -39 && a <= 45 && a != 39)
+			? (W)((D)300 * 32768 / op_cos_q15(a)) : 760);
 		n++;
 	}
 	op_build(o, n, 72, &p);
@@ -318,16 +319,15 @@ LOCAL INT test_profile(void)
 				   && p.clear_left_mm >= 0 && p.clear_right_mm >= 0,
 				   "captured production profile has two known edges for open-board planning");
 			TEST_CHECK("S5-U13e", p.status == PRF_VALID
-				   && p.width_mm < raw_width && p.width_mm <= 300
-				   && p.clear_left_mm >= raw_left
-				   && p.clear_right_mm >= raw_right,
-				   "measured beam compensation removes false width and preserves clearance");
+				   && p.width_mm == raw_width
+				   && p.clear_left_mm == raw_left
+				   && p.clear_right_mm == raw_right,
+				   "production retains observed width and clearance without uncalibrated shrinkage");
 		}
 	}
 
-	/* A small object can occupy less angular width than twice the calibrated
-	   beam allowance.  It must be reduced to a narrow physical target instead
-	   of retaining the complete acoustic blob. */
+	/* The previous 24-degree allowance collapsed this 240 mm profile to
+	   about one scan cell and invented extra side clearance. */
 	p.status = PRF_VALID;
 	p.dist_mm = 300;
 	p.left_mm = -120;
@@ -336,10 +336,41 @@ LOCAL INT test_profile(void)
 	p.clear_left_mm = 500;
 	p.clear_right_mm = 500;
 	op_beam_compensate(&p, S5_BEAM_COMP_DEG);
-	TEST_CHECK("S5-U13f", p.width_mm >= 10 && p.width_mm <= 20
-		   && iabs(p.left_mm + p.right_mm) <= 5
-		   && p.clear_left_mm > 600 && p.clear_right_mm > 600,
-		   "narrow obstacle width comes from one angular scan cell, not a fixed millimetre clamp");
+	TEST_CHECK("S5-U13f", p.width_mm == 240 && p.left_mm == -120
+		   && p.right_mm == 120 && p.clear_left_mm == 500 && p.clear_right_mm == 500,
+		   "default production correction preserves a small measured obstacle");
+	op_beam_compensate(&p, 24);
+	TEST_CHECK("S5-U13i", p.width_mm >= 190 && p.width_mm < 240
+		   && p.clear_left_mm == 500 && p.clear_right_mm == 500,
+		   "excessive calibration is bounded and cannot invent free side space");
+	p.left_mm = -120;
+	p.right_mm = 120;
+	p.width_mm = 240;
+	p.clear_left_mm = -1;
+	op_beam_compensate(&p, 24);
+	TEST_CHECK("S5-U13j", p.width_mm == 240 && p.clear_left_mm == -1,
+		   "unknown side remains unknown even with optional correction");
+	{
+		static const W widths[] = { 50, 130, 200, 300 };
+		static const W ranges[] = { 150, 210, 300 };
+		UINT wi, di;
+		BOOL accurate = TRUE;
+
+		for (wi = 0; wi < 4U; wi++) {
+			for (di = 0; di < 3U; di++) {
+				W raw;
+				n = s5_synth_scan(o, -widths[wi] / 2, widths[wi] / 2,
+						  ranges[di], 0, -75, 75, 3, 0);
+				op_build(o, n, 75, &p);
+				raw = p.width_mm;
+				op_beam_compensate(&p, S5_BEAM_COMP_DEG);
+				if (p.status != PRF_VALID || p.width_mm != raw
+				    || iabs(p.width_mm - widths[wi]) > 30) accurate = FALSE;
+			}
+		}
+		TEST_CHECK("S5-U13k", accurate,
+			   "50/130/200/300 mm objects at three ranges retain geometry within scan resolution");
+	}
 
 	/* One short central reflection must not pull the whole front face closer. */
 	n = s5_synth_scan(o, -75, 75, 200, 0, -75, 75, 3, 0);
@@ -367,6 +398,72 @@ LOCAL INT test_profile(void)
 	TEST_CHECK("S5-U13h", p.status == PRF_VALID && iabs(p.dist_mm - 300) <= 5
 		   && p.width_mm >= 35 && p.width_mm <= 60,
 		   "central three-ray median retains a narrow obstacle despite background echoes");
+	/* Same-range beam spill at high angles is not the front face. A flat
+	   130 mm face remains visible while peripheral echoes project behind it. */
+	n = s5_synth_scan(o, -65, 65, 195, 0, -75, 75, 3, 0);
+	for (k = 0; k < n; k++) {
+		INT a = o[k].angle_deg;
+		if (iabs(a) >= 21 && iabs(a) <= 42) {
+			o[k].status = SS_OK;
+			o[k].dist_mm = 195;
+		}
+	}
+	op_build(o, n, 75, &p);
+	TEST_CHECK("S5-U13l", p.status == PRF_VALID && p.width_mm >= 110 && p.width_mm <= 160,
+		   "near-range plane tolerance rejects peripheral same-range beam spill");
+
+	/* Exact 51-angle hardware scan: a roughly 130 mm target was reported
+	   as 208 mm by bridging nearer foreground mismatches on the left. */
+	{
+		static const H recorded[] = {
+			255,260,-1,225,225,225,235,295,400,390,440,430,445,
+			230,240,225,215,220,210,210,200,205,205,205,205,205,
+			205,205,205,205,205,205,200,200,210,205,205,215,215,
+			220,230,235,735,730,720,740,715,725,755,755,760
+		};
+		for (k = 0; k < 51U; k++) {
+			o[k].angle_deg = -75 + (INT)k * 3;
+			o[k].dist_mm = recorded[k];
+			o[k].status = (recorded[k] < 0) ? SS_INVALID : SS_OK;
+		}
+		op_build(o, 51, 75, &p);
+		TEST_CHECK("S5-U13m", p.status == PRF_VALID && p.width_mm >= 110
+			   && p.width_mm <= 145 && p.dist_mm == 205,
+			   "recorded target keeps central face without merging nearer echo groups");
+	}
+	/* Second exact hardware scan of the same ~130 mm box (24 Nov robot
+	   log): +-21 deg returned the 215 mm corner range and was read as
+	   face, reporting 174 mm. */
+	{
+		static const H recorded[] = {
+			335,335,330,330,315,325,325,325,320,315,325,320,320,
+			230,225,230,220,210,215,215,205,205,205,205,205,205,
+			205,205,205,205,205,205,215,210,210,215,215,225,225,
+			230,785,770,770,770,765,745,735,735,730,730,730
+		};
+		for (k = 0; k < 51U; k++) {
+			o[k].angle_deg = -75 + (INT)k * 3;
+			o[k].dist_mm = recorded[k];
+			o[k].status = SS_OK;
+		}
+		op_build(o, 51, 75, &p);
+		TEST_CHECK("S5-U13n", p.status == PRF_VALID && p.width_mm >= 110
+			   && p.width_mm <= 145 && p.dist_mm == 205,
+			   "corner echoes at the edges do not widen a recorded 130 mm box");
+	}
+	/* Only ONE corner-like echo is dropped per side, so a genuinely
+	   wider face can lose at most one scan cell (205 mm: +21 deg edge
+	   is 79 mm; trimming both +21 and +24 would give about 72 mm). */
+	n = s5_synth_scan(o, -65, 65, 205, 0, -75, 75, 3, 0);
+	for (k = 0; k < n; k++) {
+		if (o[k].angle_deg == 18) { o[k].status = SS_OK; o[k].dist_mm = 205; }
+		if (o[k].angle_deg == 21) { o[k].status = SS_OK; o[k].dist_mm = 215; }
+		if (o[k].angle_deg == 24) { o[k].status = SS_OK; o[k].dist_mm = 216; }
+	}
+	op_build(o, n, 75, &p);
+	TEST_CHECK("S5-U13o", p.status == PRF_VALID && p.right_mm >= 75
+		   && p.right_mm <= 90,
+		   "corner trimming removes at most one scan cell per side");
 	TEST_SUMMARY("s5 profile");
 	return test_fail_;
 }
@@ -406,10 +503,12 @@ LOCAL INT test_plan(void)
 			ok = av_line_lock_sample(&lock, TRUE, FALSE);
 		TEST_CHECK("S5-U14e", ok,
 			   "confirmed centre-only black establishes the recovery edge");
-		TEST_CHECK("S5-U14f", av_post_edge_advance_mm(10, 90) == 50
-			   && av_post_edge_advance_mm(80, 20) == 80
-			   && av_post_edge_advance_mm(0, 9) == 5,
-			   "post-edge advance halves the former move subject to body clearance");
+		TEST_CHECK("S5-U14f", av_post_edge_advance_mm(10, 90) == 100
+			   && av_post_edge_advance_mm(80, 20) == 100
+			   && av_post_edge_advance_mm(0, 9) == 9
+			   && av_post_edge_advance_mm(124, 39) == 163
+			   && av_post_edge_advance_mm(-5, -5) == 0,
+			   "post-edge advance covers body clearance plus the edge still ahead");
 	}
 	s5_profile_box(-75, 75, 300, 0, &p);
 	p.clear_left_mm = 400;
@@ -552,6 +651,40 @@ LOCAL INT test_plan(void)
 	}
 	TEST_CHECK("S5-U20", valid,
 		   "every planned step is valid and every avoidance MOVE is forward");
+	{
+		W limit;
+		p.status = PRF_VALID; p.dist_mm = 195;
+		p.left_mm = -120; p.right_mm = 220; p.width_mm = 340;
+		p.clear_left_mm = 610; p.clear_right_mm = 450;
+		(void)av_plan(&p, &pl);
+		limit = av_side_watch_limit_mm(&p, &pl, 80, 40);
+		TEST_CHECK("S5-U20a", pl.side == AV_SIDE_LEFT && limit >= 497
+			   && limit < 560,
+			   "inflated scan profile cannot hide a real 300 mm side return behind a 200 mm gap gate");
+		/* Mirror of the left plan: right edge + half body + gap + reserve */
+		pl.side = AV_SIDE_RIGHT;
+		pl.offset_mm = p.right_mm + AV_ROBOT_WIDTH_MM / 2 + AV_SIDE_GAP_MM
+			     + AV_EDGE_UNCERTAINTY_MM;
+		TEST_CHECK("S5-U20b", av_side_watch_limit_mm(&p, &pl, -80, 40) == limit,
+			   "mirrored departure covers the same measured profile envelope");
+		TEST_CHECK("S5-U20c", av_motion_wait_ms(MCMD_TURN, -69, 22, 3000) > 6500U
+			   && av_motion_wait_ms(MCMD_TURN, -69, 22, 3000)
+			      == av_motion_wait_ms(MCMD_TURN, 69, 22, 3000),
+			   "both turn directions allow the wheel arc at creep plus bounded slack");
+		/* 24 Nov right bypass: side 190 -> 165 mm over 107 mm of pass */
+		{
+			INT c24 = av_side_convergence_deg(190, 165, 107, -80);
+			INT away = av_side_convergence_deg(165, 190, 107, 80);
+			INT step = av_side_convergence_deg(205, 200, S5_HEADING_BASELINE_MM, 80);
+
+			TEST_CHECK("S5-U20d", c24 >= 11 && c24 <= 15 && away == -c24
+				   && c24 >= S5_HEADING_FIX_MIN_DEG
+				   && step < S5_HEADING_FIX_MIN_DEG
+				   && av_side_convergence_deg(200, 200, 100, 80) == 0
+				   && av_side_convergence_deg(200, 150, 0, 80) == 0,
+				   "side ranges give the convergence angle; one 5 mm range step is not a correction");
+		}
+	}
 	TEST_SUMMARY("s5 plan");
 	return test_fail_;
 }

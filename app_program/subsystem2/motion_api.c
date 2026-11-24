@@ -15,6 +15,7 @@ EXPORT volatile UW	s2_result_word[MSRC_COUNT];
 EXPORT volatile UW	s2_steer_word;
 EXPORT volatile UW	s2_line_seen_word;
 EXPORT volatile UW	s2_cap_word;
+EXPORT volatile UW s2_reset_req;
 EXPORT volatile UW	s2_stop_req;
 EXPORT volatile UW	s2_armed;
 EXPORT volatile UW	s2_speed_avg_mms;
@@ -42,6 +43,7 @@ EXPORT void motion_api_init(void)
 	s2_line_seen_word = 0;
 	s2_cap_word = 0;
 	s2_stop_req = 0;
+	s2_reset_req = 0;
 #if APP_TEST
 	s2_armed = 0;		/* test image: never drive away on its own */
 #else
@@ -135,6 +137,14 @@ EXPORT void motion_stop(UW src)
 	if (flg_motion > 0) {
 		(void)tk_set_flg(flg_motion, MF_STOP);
 	}
+}
+
+EXPORT void motion_request_reset(void)
+{
+	/* Stop is latched independently of the discrete command FIFO. */
+	sys_fault_set(SYS_FLT_REMOTE_STOP);
+	motion_stop(MSRC_SUPER);
+	app_store(&s2_reset_req, 1U);
 }
 
 EXPORT void motion_set_steer(INT steer, UW speed_frac)

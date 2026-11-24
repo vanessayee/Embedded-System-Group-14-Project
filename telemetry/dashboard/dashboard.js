@@ -10,7 +10,7 @@ const criteria = [
 ];
 const defaults = { left: 'Z', right: 'A', straight: 'X', uturn: 'Y' };
 const names = { left: 'LEFT', right: 'RIGHT', straight: 'STRAIGHT', uturn: 'U-TURN' };
-let saved = null, initialized = false, lastFrame = '', samples = [], boot = null;
+let saved = null, initialized = false, lastFrame = '', samples = [], boot = null, resetPending = false;
 for (const key of Object.keys(defaults)) {
 	const select = $('rule-' + key);
 	for (const letter of ['—', ...letters]) { const o = document.createElement('option'); o.value = letter === '—' ? '' : letter; o.textContent = letter; select.append(o); }
@@ -48,7 +48,7 @@ function lock(value) {
 	for (const id of ['apply-rules', 'read-rules', 'restore-rules']) $(id).disabled = value;
 	for (const key of Object.keys(defaults)) $('rule-' + key).disabled = value;
 	for (const button of document.querySelectorAll('[data-command]'))
-		if (button.dataset.command !== 'STOP') button.disabled = value;
+		if (!['STOP', 'RESET'].includes(button.dataset.command)) button.disabled = value;
 }
 function showMap(rules) {
 	const active = Object.entries(rules || {}).filter(([, a]) => a !== 'NONE').map(([l, a]) => l + ' → ' + a);
@@ -76,7 +76,12 @@ $('restore-rules').onclick = () => loadChoices(saved);
 for (const button of document.querySelectorAll('[data-command]')) button.onclick = async () => {
 	const command = button.dataset.command;
 	button.disabled = true;
-	try { status(command + ': waiting for robot acknowledgement…'); await api('command', { command }); status(command + ' acknowledged by the robot.'); }
+	if (command === 'RESET') resetPending = true;
+	try {
+		status(command === 'RESET' ? 'Stopping and resetting Pico… waiting for acknowledgement and new boot.' : command + ': waiting for robot acknowledgement…');
+		await api('command', { command });
+		status(command === 'RESET' ? 'Reset accepted. Waiting for Pico to reconnect; measurements clear on the new boot.' : command + ' acknowledged by the robot.');
+	}
 	catch (e) { status(e.message, true); } finally { button.disabled = false; }
 };
 function clearSession() {
@@ -89,7 +94,11 @@ function clearSession() {
  status('New robot session. Read or reapply saved barcode choices after stopping the robot.');
 }
 function render(s) {
- if (boot !== s.session_id) { clearSession(); boot = s.session_id; }
+ if (boot !== s.session_id) {
+  const resetCompleted = resetPending && boot !== null && s.session_id !== null;
+  clearSession(); boot = s.session_id;
+  if (resetCompleted) { resetPending = false; status('Pico reboot confirmed. Current-run measurements reset; reapply barcode choices.'); }
+ }
 	const t = s.latest;
 	text('robot-id', s.robot); text('clock', new Date().toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' }));
 	text('link-pill', s.live ? '● ROBOT ONLINE' : t ? '● ROBOT OFFLINE' : '● NO ROBOT DATA');

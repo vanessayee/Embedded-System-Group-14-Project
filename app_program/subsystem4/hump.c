@@ -158,11 +158,13 @@ EXPORT void hump_roll_step(HUMP *h, W roll_cdeg, W ds_um, BOOL valid, HUMP_EVT *
 	}
 	height = (W)(((D)HUMP_PHYSICAL_TRACK_MM * 1000 * imath_sin_q15(angle)) / 32768);
 	if (h->state == HS_IDLE) {
-		if (angle >= HUMP_START_CDEG) {
+		if (angle >= HUMP_ROLL_START_CDEG) {
 			h->travel_um += ds_um;
 			if (h->travel_um > 0 && height > h->pre_elev_um) h->pre_elev_um = height;
-			if (h->rise_count < 2U) h->rise_count++;
-			if (h->rise_count >= 2U && h->travel_um > 0) {
+			/* Stationary tilt must not pre-qualify the moving candidate. */
+			if (h->travel_um > 0 && h->rise_count < HUMP_ROLL_START_SAMPLES) h->rise_count++;
+			if (h->rise_count >= HUMP_ROLL_START_SAMPLES
+				&& h->travel_um >= HUMP_ROLL_START_TRAVEL_UM) {
 				h->state = HS_CLIMB;
 				h->elev_um = height;
 				h->peak_um = h->pre_elev_um;
@@ -177,7 +179,9 @@ EXPORT void hump_roll_step(HUMP *h, W roll_cdeg, W ds_um, BOOL valid, HUMP_EVT *
 	if (h->peak_um - height >= HUMP_ROLL_FALL_UM) h->state = HS_DESCENT;
 	if (h->state == HS_DESCENT && angle < HUMP_LEVEL_CDEG) {
 		if (++h->level_count >= HUMP_LEVEL_SAMPLES) {
-			complete(h, ev);
+			if (h->travel_um >= HUMP_ROLL_MIN_TRAVEL_UM
+				&& h->peak_um >= HUMP_ROLL_MIN_HEIGHT_UM) complete(h, ev);
+			else { ev->rejected = TRUE; restart(h); }
 			return;
 		}
 	} else h->level_count = 0;
@@ -197,6 +201,11 @@ EXPORT UB hump_code(W height_um, BOOL *saturated)
 	if (height_um < 0) {
 		return HUMP_CODE_NONE;
 	}
+	/* Reserved extension codes preserve every legacy even-height code. */
+	if (height_um <= 10000) {
+		W mm = (height_um + 500) / 1000;
+		if ((mm & 1) != 0) return (UB)(HUMP_FINE_CODE_FIRST + mm / 2);
+	}
 	code = (height_um + step / 2) / step;		/* round to nearest step */
 	if (code > HUMP_CODE_MAX) {
 		code = HUMP_CODE_MAX;
@@ -207,6 +216,8 @@ EXPORT UB hump_code(W height_um, BOOL *saturated)
 
 EXPORT W hump_code_to_um(UB code)
 {
+	if (code >= HUMP_FINE_CODE_FIRST && code <= HUMP_FINE_CODE_LAST)
+		return (W)(1U + 2U * (code - HUMP_FINE_CODE_FIRST)) * 1000;
 	if (code == HUMP_CODE_NONE || code > HUMP_CODE_MAX) {
 		return -1;
 	}

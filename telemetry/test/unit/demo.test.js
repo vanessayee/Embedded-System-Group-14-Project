@@ -55,7 +55,7 @@ function fixture(result = 'OK', silent = false) {
 			cb();
 			if (silent) return;
 			const ack = (id, cmd) => codec.encodeFrame(codec.TYPE.ACK, 0, {
-				cmd_id: id, cmd, result: codec.ENUMS.ack_result.indexOf(result), detail: d.arg >> 6
+				cmd_id: id, cmd, result: codec.ENUMS.ack_result.indexOf(result), detail: d.cmd === 'RESET' ? 31 : d.arg >> 6
 			});
 			// An unrelated ACK must never confirm this assignment.
 			c.emit('message', 'test/csc14/ack', ack((d.cmd_id + 1) % 256, d.raw.cmd));
@@ -162,4 +162,67 @@ test('read and apply mapping batches cover all 26 letters and release the batch 
   await assert.rejects(f.service.syncMap(),/transfer interrupted/);
   assert.equal(f.service.mappingBusy,false);
  } finally {await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
+});
+
+
+test('RESET bypasses a configuration batch, cancels queued commands and clears confirmation', async () => {
+    const before = process.env.CSC14_ALLOW_MOTION_COMMANDS;
+    process.env.CSC14_ALLOW_MOTION_COMMANDS = '1';
+    const f = fixture();
+    try {
+        f.service.mappingBusy = true;
+        f.service.confirmed.A = 'RIGHT';
+        const cancelled = assert.rejects(f.service.command('REQ_STATUS'), /cancelled by reset/);
+        const reset = await f.service.command('RESET');
+        await cancelled;
+        assert.equal(reset.accepted, true);
+        assert.equal(reset.command, 'RESET');
+        assert.equal(reset.detail, 31);
+        assert.deepEqual(f.service.confirmed, {});
+    } finally {
+        if (before === undefined) delete process.env.CSC14_ALLOW_MOTION_COMMANDS;
+        else process.env.CSC14_ALLOW_MOTION_COMMANDS = before;
+        await f.service.close(); fs.rmSync(f.runtimeDir,{recursive:true});
+    }
+});
+
+test('reset generation interrupts an in-progress map transfer', async () => {
+    const f = fixture();
+    try {
+        let calls = 0;
+        f.service.command = async () => { calls++; f.service.controlGeneration++; };
+        await assert.rejects(f.service.transferMap(), /cancelled by reset/);
+        assert.equal(calls, 1);
+    } finally {await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
+});
+
+
+test('mapping retries one missing ACK, only for the same idempotent letter operation', async () => {
+    for (const rules of [undefined,Object.fromEntries([...LETTERS].map(l=>[l,'NONE']))]) {
+        const f=fixture();
+        try {
+            const calls=[];
+            f.service.command=async(name,arg)=>{
+                calls.push([name,arg]);
+                if(calls.length===1){const e=new Error('missing ACK');e.code='ACK_TIMEOUT';throw e;}
+                if(calls.length===3)throw new Error('end scenario');
+                return {accepted:true};
+            };
+            await assert.rejects(f.service.transferMap(rules),/end scenario/);
+            assert.deepEqual(calls[0],calls[1]);
+            assert.notDeepEqual(calls[1],calls[2]);
+        }finally{await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
+    }
+});
+
+test('mapping retry budget is bounded and a rejected command is never retried', async () => {
+    for(const code of ['ACK_TIMEOUT','REJECTED']){
+        const f=fixture();
+        try{
+            let calls=0;
+            f.service.command=async()=>{calls++;const e=new Error('failed');e.code=code;throw e;};
+            await assert.rejects(f.service.transferMap(),/failed/);
+            assert.equal(calls,code==='ACK_TIMEOUT'?2:1);
+        }finally{await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
+    }
 });

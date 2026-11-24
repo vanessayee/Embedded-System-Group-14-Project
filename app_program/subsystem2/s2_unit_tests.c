@@ -476,6 +476,34 @@ LOCAL INT test_execution(void)
 	TEST_CHECK("S2-U11", mc.has_active && mcmd_type(mc.active) == MCMD_TURN
 		   && min_v >= creep - 20,
 		   "queued TURN starts straight from creep speed (no full stop)");
+
+	/* Hardware trace: avoidance slowed a pivot to 14 mm/s on one wheel,
+	   below the configured controllable floor, while correcting imbalance. */
+	{
+		INT dir;
+		BOOL floor_ok = TRUE;
+		for (dir = -1; dir <= 1; dir += 2) {
+			mc_init(&mc);
+			plant_init(&pl);
+			mc_out_clear(&out);
+			(void)mc_submit(&mc, mcmd_pack(MCMD_TURN, MSRC_AVOID, 1, 0, 2, dir * 69),
+					VM_OBSTACLE, 0, &out);
+			plant_input(&pl, &in, VM_OBSTACLE);
+			in.dist_l_um = dir * (mc.target_um - 3000);
+			in.dist_r_um = -dir * (mc.target_um - 15000);
+			for (k = 0; k < 5U; k++) {
+				mc_out_clear(&out);
+				mc_step(&mc, &in, MOTION_PERIOD_MS, &out);
+			}
+			creep = mc_creep_speed(&mc);
+			if (!mc.has_active || iabs(mc.tgt_l_mms) < creep
+			    || iabs(mc.tgt_r_mms) < creep
+			    || mc.tgt_l_mms * dir <= 0 || mc.tgt_r_mms * dir >= 0)
+				floor_ok = FALSE;
+		}
+		TEST_CHECK("S2-U11a", floor_ok,
+			   "imbalanced avoidance pivots retain controllable wheel speed in both directions");
+	}
 	TEST_SUMMARY("s2 execution");
 	return test_fail_;
 }
@@ -836,6 +864,41 @@ LOCAL INT test_vehicle_fsm(void)
         vfsm_step(&f, &in, &o);
         TEST_CHECK("S2-U64", f.mode == VM_SAFE_STOP && (o.flt_set & SYS_FLT_INIT),
                    "missing local ultrasonic readiness times out safely");
+
+        /* Local buddies ready, hotspot slow: past the timeout, one invalid
+           ping (B5) and one I2C error (B4) each drop a bit for one cycle */
+        {
+            BOOL held = TRUE;
+            UW wait_ms;
+
+            vfsm_init(&f); in.faults = 0; in.dt_ms = MOTION_PERIOD_MS;
+            in.events = SYS_EV_IR_CAL_OK | SYS_EV_IMU_CAL_OK;
+            in.ready = SYS_READY_LOCAL;
+            for (wait_ms = 0; wait_ms <= INIT_TIMEOUT_MS + 2000U;
+                 wait_ms += MOTION_PERIOD_MS) {
+                vfsm_step(&f, &in, &o);
+                in.events = 0;
+                held = held && f.mode == VM_INIT && o.flt_set == 0;
+            }
+            in.ready = SYS_READY_LOCAL & ~SYS_READY_B5;
+            vfsm_step(&f, &in, &o);
+            held = held && f.mode == VM_INIT && o.flt_set == 0;
+            in.ready = SYS_READY_LOCAL;
+            vfsm_step(&f, &in, &o);
+            in.ready = SYS_READY_LOCAL & ~SYS_READY_B4;
+            vfsm_step(&f, &in, &o);
+            held = held && f.mode == VM_INIT && o.flt_set == 0;
+            TEST_CHECK("S2-U65", held,
+                       "one invalid ping after long MQTT wait does not latch INIT fault");
+            /* NORMAL still needs all five in the same cycle */
+            in.ready = SYS_READY_ALL & ~SYS_READY_B5;
+            vfsm_step(&f, &in, &o);
+            held = f.mode == VM_INIT;
+            in.ready = SYS_READY_ALL;
+            vfsm_step(&f, &in, &o);
+            TEST_CHECK("S2-U66", held && f.mode == VM_NORMAL,
+                       "fresh ping and MQTT release startup after transient sensor failure");
+        }
     }
 	TEST_SUMMARY("s2 vehicle fsm");
 	return test_fail_;

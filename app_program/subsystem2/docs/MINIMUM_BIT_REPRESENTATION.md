@@ -57,6 +57,7 @@ and the 20 ms control loop. C layouts are never used as a wire specification.
 | Vehicle mode | five modes, codes 0..4 | 3 | VFSM.mode; codes 5..7 still reach the invalid-mode fallback |
 | Vehicle epoch | modulo 8 | 3 | VFSM.epoch |
 | Vehicle calibration and line flags | Boolean each | 1 each | ir_ok, imu_ok, line_lost |
+| Local buddies seen ready in this INIT | Boolean | 1 | VFSM.local_seen; uses a spare bit of the existing word, so VFSM stays 8 bytes (S2-U65/U66) |
 | Vehicle events | ten defined independent bits | 10 | VFSM_IN.events |
 | Vehicle fault and critical masks | 27 defined independent bits each | 27 each | VFSM_IN.faults, crit_mask |
 | Startup readiness | five independent buddy bits | 5 | VFSM_IN.ready |

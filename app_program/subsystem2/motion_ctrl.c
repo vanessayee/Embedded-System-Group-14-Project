@@ -664,6 +664,14 @@ LOCAL void run_turn(MOTION_CTRL *mc, const MC_IN *in, W *des_l, W *des_r,
 	/* Axle-centred pivot with balanced wheel travel in either direction. */
 	vi = vo;
 	corr = balance((dir > 0) ? pl : pr, (dir > 0) ? pr : pl, vo);
+	if (mcmd_src(mc->active) == MSRC_AVOID) {
+		/* Balancing must not push a decelerating avoidance wheel below
+		   the controllable floor (the old half-speed limit allowed 11 mm/s).
+		   At creep use equal wheel targets; retain stall detection. */
+		W margin = vo - mc_creep_speed(mc);
+		if (margin < 0) margin = 0;
+		corr = clampw(corr, -margin, margin);
+	}
 	if (junction && done >= mc->seek_from_um) {
 		vo = vi = MIN_CTRL_SPEED_MMS;
 		corr = 0;

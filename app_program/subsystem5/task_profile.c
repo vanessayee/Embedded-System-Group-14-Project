@@ -73,6 +73,18 @@ EXPORT void profile_task(INT stacd, void *exinf)
 			continue;
 		}
 
+		/* One compact dump per completed sweep, never per monitor ping.
+		   Keep angle/range/status evidence for physical width calibration. */
+		{
+			UINT i;
+			tm_printf((UB*)"profile: scan %d rays angle:range:status", (INT)current.cur_id);
+			for (i = 0; i < current.n; i++) {
+				if (i != 0U && i % 8U == 0U) tm_printf((UB*)"\nprofile: rays");
+				tm_printf((UB*)" %d:%d:%d", (INT)buf[i].angle_deg,
+					  (INT)buf[i].dist_mm, (INT)buf[i].status);
+			}
+			tm_printf((UB*)"\n");
+		}
 		op_build(buf, current.n, current.limit, &prof);
 		raw_width = prof.width_mm;
 		if (current.aborted) {

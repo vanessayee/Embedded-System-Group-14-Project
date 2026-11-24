@@ -195,7 +195,7 @@ try {
   else throw new Error('Choose read or apply.');
  } else if (route === '/csc14/api/command') {
   const name = (req.body || {}).command;
-  if (!['STOP','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');
+  if (!['STOP','RESET','CLEAR','RESUME','REQ_STATUS'].includes(name)) throw new Error('Unsupported control.');
   msg.payload = await service.command(name);
  } else { msg.statusCode = 404; msg.payload = { error: 'Not found' }; }
 } catch (e) {

@@ -32,6 +32,8 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S5-U13f | narrow target width comes from one measured angular scan cell, not a fixed millimetre minimum |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13f PASS` |
 | S5-U13g | central median rejects one short reflection in the front-gap estimate |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13g PASS` |
 | S5-U13h | central three-ray median retains a narrow obstacle despite valid background echoes |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13h PASS` |
+| S5-U13n | corner echoes at the edges do not widen a recorded 130 mm box (24 Nov scan, was 174 mm) |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13n PASS` |
+| S5-U13o | corner trimming removes at most one scan cell per side |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13o PASS` |
 | S5-U14 | both sides free: use spare forward space, calculated departure, pass, shallow return, search, align |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U14 PASS` |
 | S5-U15 | calculated 30–75° path gives the configured 100 mm robot-to-obstacle side gap and clears the front face |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U15 PASS` |
 | S5-U15b | more front clearance produces a longer forward approach before departure |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U15b PASS` |

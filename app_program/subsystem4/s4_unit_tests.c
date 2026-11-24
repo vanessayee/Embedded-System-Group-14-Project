@@ -485,6 +485,30 @@ LOCAL INT test_nogyro(void)
 	}
 	TEST_CHECK("S4-U64", last.completed && h.count == 1 && iabs(last.height_um - 37622) < 1500,
 		   "LSM303 roll filter and packed queue measure a one-wheel hump at slow speed");
+	{
+	BOOL fine_sat;
+	imu_proc_init(&p, &cal);
+	hump_init(&h);
+	last.completed = FALSE;
+	for (k = 0; k < 140U; k++) {
+		S4_HUMP_SAMPLE packed, unpacked;
+		W roll = k >= 20U && k < 100U ? 260 : 0;
+		make_in_nogyro(&s, -1000 * imath_sin_q15(roll) / 32768, 0,
+			1000 * imath_sin_q15(roll + 9000) / 32768, 0, 400, -300);
+		(void)imu_proc_step(&p, &s, 10);
+		packed.tilt_ddeg = (H)(p.roll_cdeg / 10);
+		packed.ds_100um = k % 3U == 0U ? 10U : 0U;
+		packed.valid = 1;
+		packed.seq = k & 15U;
+		s4_sample_unpack(s4_sample_pack(&packed), &unpacked);
+		hump_roll_step(&h, (W)unpacked.tilt_ddeg * 10,
+			(W)unpacked.ds_100um * 100, unpacked.valid, &ev);
+		if (ev.completed) last = ev;
+	}
+	TEST_CHECK("S4-U70", last.completed && h.count == 1
+			   && hump_code(last.height_um, &fine_sat) == 53,
+			   "5 mm target survives accelerometer filter and packed queue");
+	}
 	TEST_SUMMARY("s4 no gyro");
 	return test_fail_;
 }
@@ -538,8 +562,8 @@ LOCAL INT test_hump(void)
 	}
 	TEST_CHECK("S4-U23", !any, "invalid sample mid-hump: measurement discarded");
 
-	TEST_CHECK("S4-U24", hump_code(0, &sat) == 0 && hump_code(999, &sat) == 0
-		   && hump_code(1000, &sat) == 1 && hump_code(100000, &sat) == HUMP_CODE_MAX && !sat
+	TEST_CHECK("S4-U24", hump_code(0, &sat) == 0 && hump_code(999, &sat) == 51
+		   && hump_code(1000, &sat) == 51 && hump_code(100000, &sat) == HUMP_CODE_MAX && !sat
 		   && hump_code(101000, &sat) == HUMP_CODE_MAX && sat
 		   && hump_code(-1, &sat) == HUMP_CODE_NONE
 		   && hump_code_to_um(50) == 100000 && hump_code_to_um(HUMP_CODE_NONE) == -1,
@@ -598,7 +622,7 @@ LOCAL INT test_hump(void)
 	for (k = 0; k < 100U; k++) hump_roll_step(&h, 2000, 0, TRUE, &ev);
 	TEST_CHECK("S4-U59", !hump_active(&h) && h.count == 0,
 		   "stationary sideways tilt cannot start a terrain measurement");
-	for (k = 0; k < 5U; k++) hump_roll_step(&h, 2000, 1000, TRUE, &ev);
+	for (k = 0; k < HUMP_ROLL_START_SAMPLES; k++) hump_roll_step(&h, 2000, 1000, TRUE, &ev);
 	TEST_CHECK("S4-U60", hump_active(&h) && h.count == 0 && h.peak_um > 37000,
 		   "one-wheel height tracks peak but waits for level before publishing a completed hump");
 	hump_roll_step(&h, 2000, 1000, FALSE, &ev);
@@ -617,6 +641,35 @@ LOCAL INT test_hump(void)
 	for (k = 0; k < 5U; k++) hump_roll_step(&h, 0, 1000, TRUE, &ev);
 	TEST_CHECK("S4-U63", h.count == 0 && !hump_active(&h),
 		   "long sideways slope is rejected without rearming before level");
+	/* 5 mm target, either wheel, sparse whole-mm odometry. */
+	{
+		W sign;
+		BOOL ok = TRUE;
+		for (sign = -1; sign <= 1; sign += 2) {
+			hump_init(&h); any = FALSE;
+			for (k = 0; k < 70U; k++) {
+				W roll = (k >= 10U && k < 50U) ? sign * 260 : 0;
+				hump_roll_step(&h, roll, k % 3U == 0U ? 1000 : 0, TRUE, &ev);
+				any = any || ev.completed;
+			}
+			ok = ok && any && h.count == 1 && hump_code(h.last_height_um, &sat) == 53;
+		}
+		TEST_CHECK("S4-U65", ok, "5 mm sideways hump on either wheel reports exact 5 mm code");
+	}
+	hump_init(&h);
+	for (k = 0; k < 5U; k++) hump_roll_step(&h, 600, 1000, TRUE, &ev);
+	for (k = 0; k < 10U; k++) hump_roll_step(&h, 0, 1000, TRUE, &ev);
+	TEST_CHECK("S4-U66", h.count == 0, "50 ms moving roll transient rejected");
+	hump_init(&h);
+	for (k = 0; k < 50U; k++) hump_roll_step(&h, 300, k == 0 ? 1000 : 0, TRUE, &ev);
+	for (k = 0; k < 10U; k++) hump_roll_step(&h, 0, 0, TRUE, &ev);
+	TEST_CHECK("S4-U67", h.count == 0, "tilt with only 1 mm encoder travel rejected");
+	TEST_CHECK("S4-U68", hump_code(5000, &sat) == 53 && hump_code_to_um(53) == 5000
+			   && hump_code_to_um(55) == 9000 && hump_code_to_um(56) == -1,
+			   "fine codes retain 6-bit format, invalid codes and exact 5 mm reporting");
+	hump_init(&h);
+	TEST_CHECK("S4-U69", h.count == 0 && h.last_height_um == -1 && h.max_height_um == -1,
+			   "boot/reset clears hump history");
 	TEST_SUMMARY("s4 hump");
 	return test_fail_;
 }

@@ -351,6 +351,10 @@ LOCAL INT test_validation(void)
 	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_ARG;
 	raw_cmd(f, CMD_PING, 0, 9, 0);
 	ok = ok && mp_cmd_decode(f, 8, &c) == 1 && c.cmd == CMD_PING;
+	raw_cmd(f, CMD_PING, CMD_RESET_ARG, 9, 0);
+	ok = ok && mp_cmd_decode(f, 8, &c) == 1 && c.arg == CMD_RESET_ARG;
+	raw_cmd(f, CMD_PING, CMD_RESET_ARG - 1U, 9, 0);
+	ok = ok && mp_cmd_decode(f, 8, &c) == MPE_ARG;
 	TEST_CHECK("S1-U09", ok,
 		   "command fields: reserved bits and invalid map args rejected; SET_SPEED 50..400 only");
 	{

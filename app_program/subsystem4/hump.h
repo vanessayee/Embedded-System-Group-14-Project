@@ -19,8 +19,9 @@
  *	Representation (Tribunal 1, Version B decision): heights are kept in
  *	micrometres internally (full resolution, also for the maximum) and
  *	compacted ONLY for storage/transmission to 0..100 mm in 2 mm steps =
- *	51 codes -> 6 bits; code 63 = no hump yet.  HUMP_STEP_MM may become 4
- *	(5 bits) after the known-hump test (Version B change log).
+ *	51 legacy codes -> 6 bits; codes 51..55 add odd 1..9 mm heights.
+ *	Thus 0..10 mm has 1 mm steps; above 10 mm retains 2 mm steps.
+ *	Code 63 = no hump yet; old code meanings and wire widths stay unchanged.
  */
 
 #ifndef HUMP_H
@@ -45,9 +46,21 @@
 #endif
 #define HUMP_PHYSICAL_TRACK_MM	110	/* measured wheel-centre spacing; not
 					   the effective encoder-turn calibration */
+/* Sideways 5 mm target: 110*sin(2.5 deg)=4.8 mm. Qualify motion
+   before starting, then require at least 5 mm total forward travel. */
+#define HUMP_ROLL_START_CDEG      250
+#define HUMP_ROLL_START_SAMPLES   8       /* nominal 80 ms at 10 ms */
+#define HUMP_ROLL_START_TRAVEL_UM 3000
+#define HUMP_ROLL_MIN_TRAVEL_UM   5000
+#define HUMP_ROLL_MIN_HEIGHT_UM   4500    /* rounds to 5 mm */
+#define HUMP_FINE_CODE_FIRST     51U     /* 51..55 = 1,3,5,7,9 mm */
+#define HUMP_FINE_CODE_LAST      55U
 #define HUMP_ROLL_FALL_UM		1000	/* falling peak hysteresis */
 
-/* Two consecutive rising samples and at most three level confirmations. */
+/* Legacy pitch uses two samples; sideways uses eight. */
+#if HUMP_ROLL_START_SAMPLES > 15U
+#error "Update Buddy 4 rise confirmation storage"
+#endif
 #if HUMP_LEVEL_SAMPLES > 3U
 #error "Update Buddy 4 level confirmation storage for this setting"
 #endif
@@ -70,7 +83,7 @@ typedef struct S4_LOCAL_BITS {
 
 	/* Local bounded fields, never serialized as a C layout. */
 	unsigned int state : 2;
-	unsigned int rise_count : 2;
+	unsigned int rise_count : 4; /* 0..8 sideways confirmation samples */
 	unsigned int level_count : 2;
 	unsigned int count : 8;		/* humps reported (saturating) */
 } HUMP;

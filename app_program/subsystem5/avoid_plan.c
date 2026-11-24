@@ -5,6 +5,40 @@
 
 #include "avoid_plan.h"
 #include "obstacle_profile.h"
+#include "../subsystem2/motion_ctrl.h"
+
+EXPORT W av_side_watch_limit_mm(const S5_PROFILE *p, const AV_PLAN *plan,
+			       INT look_deg, W allowance_mm)
+{
+	W s = op_sin_q15(look_deg);
+	W far_edge = (plan->side == AV_SIDE_LEFT) ? p->right_mm : -p->left_mm;
+	W lateral = plan->offset_mm + far_edge;
+	if (s < 0) s = -s;
+	if (s == 0 || lateral <= 0) return 0;
+	return (W)(((D)lateral * 32768 + s - 1) / s) + allowance_mm;
+}
+
+EXPORT UW av_motion_wait_ms(UW type, INT arg, W creep_mms, UW extra_ms)
+{
+	W distance = (type == MCMD_TURN) ? mc_turn_arc_um(arg)
+				      : ((arg < 0) ? -arg : arg) * 1000;
+	if (creep_mms < 1) creep_mms = 1;
+	return (UW)(distance / creep_mms) + extra_ms;
+}
+
+/* Perpendicular side distance is range * sin(look); its change over the
+   travelled distance gives the angle between the car and the obstacle side. */
+EXPORT INT av_side_convergence_deg(W r_from_mm, W r_to_mm, W travel_mm,
+				   INT look_deg)
+{
+	W s = op_sin_q15(look_deg);
+	W closing;
+
+	if (travel_mm <= 0) return 0;
+	if (s < 0) s = -s;
+	closing = (W)(((D)(r_from_mm - r_to_mm) * s) / 32768);
+	return op_atan_deg(closing, travel_mm);
+}
 
 EXPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock,
 			       BOOL centre_black, BOOL right_black)
@@ -16,15 +50,18 @@ EXPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock,
 	return lock->run >= AV_LINE_LOCK_SAMPLES;
 }
 
-/* Halve the former advance, retaining the calculated body-clearance floor. */
+/* Straight move after the far edge is confirmed.  body_path is how far the
+   sensor must be BEYOND the far edge (return_path_safe: y = 0 at the edge);
+   edge_allowance is how far that edge may still be AHEAD of the sensor when
+   it is confirmed (forward-looking beam + residual uncertainty).  Both must
+   be covered.  The former max(body_path, average) discarded the allowance
+   whenever it was smaller than body_path, so the return pivot could start
+   up to edge_allowance mm earlier than the clearance check assumed. */
 EXPORT W av_post_edge_advance_mm(W body_path, W edge_allowance)
 {
-	W reduced;
-
 	if (body_path < 0) body_path = 0;
 	if (edge_allowance < 0) edge_allowance = 0;
-	reduced = (body_path + edge_allowance + 1) / 2;
-	return (reduced < body_path) ? body_path : reduced;
+	return body_path + edge_allowance;
 }
 
 LOCAL W clamp_move(W mm)

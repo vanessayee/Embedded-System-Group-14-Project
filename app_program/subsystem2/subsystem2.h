@@ -88,6 +88,8 @@ IMPORT UW   motion_last_result(UW src);
 /* stop(): bypasses the queue, flushes it, output zero within one
    wake-up of the Motion Control task (NFR6: < 100 ms).  ISR-safe. */
 IMPORT void motion_stop(UW src);
+/* Stop, latch output inhibit and reboot after a short ACK-drain window. */
+IMPORT void motion_request_reset(void);
 /* Line steering, -63..63 (+ = right), speed fraction 0..15 of cruise */
 IMPORT void motion_set_steer(INT steer, UW speed_frac);
 IMPORT void motion_clear_steer(void);

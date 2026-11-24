@@ -136,3 +136,7 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-18 | S4-U30 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
 | 2026-11-18 | S4-U31 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
 | 2026-11-18 | S4-U32 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
+
+## 2026-11-24: 5 mm sideways target (host verification)
+S4-U65..70 and all existing host suites passed. Added sustained-tilt/motion qualification and reserved fine height codes. Protocol/ingestion tests: 26 passed. Physical 5 mm measurement and flat-course false-positive rate still require validation. See app_program/subsystem4/docs/HUMP_5MM_TARGET.md. External logs: outputs/hump5mm/host-tests.log and backend-tests.log in the Codex workspace.
+Firmware build NET=lwip MQTT=1 TEST=0 passed. Expanded protocol/ingestion/storage/dashboard regression: 42 passed, 0 failed. New firmware not flashed; no movement or safety-clear command sent.

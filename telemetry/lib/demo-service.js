@@ -29,12 +29,13 @@ class DemoService {
 	constructor(cfg, deps = {}) {
 		this.cfg = cfg;
 		this.transport = deps.mqtt || mqtt;
-		this.ackTimeoutMs = deps.ackTimeoutMs || 6500;
+		this.ackTimeoutMs = deps.ackTimeoutMs || 12000;
 		this.db = deps.db || new Pool({ ...cfg.pg, max: 3, application_name: 'csc14-demo', connectionTimeoutMillis: 4000 });
 		this.db.on('error', e => console.error('[demo database] ' + e.message));
 		this.tail = Promise.resolve();
 		this.confirmed = {};
 		this.mappingBusy = false;
+		this.controlGeneration = 0;
 		this.boot = null;
 		this.rulesFile = path.join(cfg.runtimeDir, 'barcode-rules.json');
 		this.desired = null;
@@ -76,18 +77,23 @@ class DemoService {
 
 	// Normal configuration commands serialize; STOP bypasses the batch queue.
 	command(name, arg = 0) {
-		if (!['STOP', 'RESUME', 'CLEAR', 'REQ_STATUS', 'SET_NAV_MAP', 'GET_NAV_MAP'].includes(name))
+		if (!['STOP', 'RESET', 'RESUME', 'CLEAR', 'REQ_STATUS', 'SET_NAV_MAP', 'GET_NAV_MAP'].includes(name))
 			return Promise.reject(new Error('Unsupported dashboard command.'));
+		if (name === 'RESET') { this.controlGeneration++; this.confirmed = {}; return this.request(name, arg); }
 		if (name === 'STOP') return this.request(name, arg);
 		if (this.mappingBusy && ['RESUME', 'CLEAR'].includes(name))
 			return Promise.reject(new Error('Wait for barcode configuration to finish before clearing or resuming.'));
-		const job = this.tail.then(() => this.request(name, arg));
+		const generation = this.controlGeneration;
+		const job = this.tail.then(() => {
+			if (generation !== this.controlGeneration) throw new Error('Command cancelled by reset.');
+			return this.request(name, arg);
+		});
 		this.tail = job.catch(() => {});
 		return job;
 	}
 
 	async request(name, arg) {
-		if (['RESUME', 'CLEAR'].includes(name) && process.env.CSC14_ALLOW_MOTION_COMMANDS !== '1')
+		if (['RESET', 'RESUME', 'CLEAR'].includes(name) && process.env.CSC14_ALLOW_MOTION_COMMANDS !== '1')
 			throw new Error('Motion commands are disabled in the server configuration.');
 		// Validate before allocating an ID or connecting.
 		codec.encodeCommand(name, arg, 0, 0);
@@ -116,7 +122,10 @@ class DemoService {
 					done = true; clearTimeout(timer); client.end(true);
 					err ? reject(err) : resolve(value);
 				};
-				const timer = setTimeout(() => finish(new Error('No robot acknowledgement. Check Pico Wi-Fi, broker and firmware.')), this.ackTimeoutMs);
+				const timer = setTimeout(() => {
+                        const e = new Error('No robot acknowledgement. Check Pico Wi-Fi, broker and firmware.');
+                        e.code = 'ACK_TIMEOUT'; finish(e);
+                    }, this.ackTimeoutMs);
 				client.on('error', e => finish(e));
 				client.on('connect', () => client.subscribe(this.cfg.topics.live + '/ack', { qos: 0 }, err => {
 					if (err) return finish(err);
@@ -124,7 +133,7 @@ class DemoService {
 				}));
 				client.on('message', (_topic, payload) => {
 					const a = codec.decode(payload);
-					if (!a.error && !a.issues.length && a.kind === 'ack' && a.cmd_id === cmdId && a.cmd === name) finish(null, a);
+					if (!a.error && !a.issues.length && a.kind === 'ack' && a.cmd_id === cmdId && (a.cmd === name || (name === 'RESET' && a.raw.cmd === 0))) finish(null, a);
 				});
 			});
 		} catch (e) {
@@ -133,6 +142,7 @@ class DemoService {
 		}
 		await this.db.query("UPDATE csc14.command SET status=$2,ack_result=$3,ack_detail=$4,acked_at=now() WHERE id=$1",
 			[row.id, ack.result === 'OK' ? 'accepted' : 'rejected', ack.result, String(ack.detail)]);
+		if (name === 'RESET' && ack.result === 'OK' && ack.detail !== 31) throw new Error('Firmware did not confirm reset support. Flash the current UF2.');
 		if (ack.result !== 'OK') throw new Error('Robot rejected ' + name + ': ' + ack.result + '. Stop the car and clear any queued barcode first.');
 		if (name === 'SET_NAV_MAP' || name === 'GET_NAV_MAP') {
 			const action = ACTIONS[Number(ack.detail)];
@@ -144,9 +154,21 @@ class DemoService {
 	}
 
 	async transferMap(rules) {
+		const generation = this.controlGeneration;
 		for (const letter of LETTERS) {
-			await this.command(rules ? 'SET_NAV_MAP' : 'GET_NAV_MAP',
-				rules ? mapArg(letter, rules[letter]) : letter.charCodeAt(0) - 55);
+			if (generation !== this.controlGeneration) throw new Error('Barcode configuration cancelled by reset.');
+            // Map SET/GET are idempotent. Retry a missing ACK once with a
+            // fresh command ID; never extend this policy to motion/reset.
+            for (let attempt = 0; attempt < 2; attempt++) {
+                if (generation !== this.controlGeneration) throw new Error('Barcode configuration cancelled by reset.');
+                try {
+                    await this.command(rules ? 'SET_NAV_MAP' : 'GET_NAV_MAP',
+                        rules ? mapArg(letter, rules[letter]) : letter.charCodeAt(0) - 55);
+                    break;
+                } catch (e) {
+                    if (e.code !== 'ACK_TIMEOUT' || attempt === 1) throw e;
+                }
+            }
 			await new Promise(r => setTimeout(r, 220));
 		}
 		return { confirmed: { ...this.confirmed } };

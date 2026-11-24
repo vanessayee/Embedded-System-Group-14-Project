@@ -35,6 +35,7 @@ typedef struct S2_LOCAL_BITS {
 	unsigned int ir_ok : 1; /* IR calibrated in this INIT epoch */
 	unsigned int imu_ok : 1; /* IMU calibrated in this INIT epoch */
 	unsigned int line_lost : 1; /* last line event was LOST */
+	unsigned int local_seen : 1; /* B2..B5 all ready together in this INIT */
 } VFSM;
 
 typedef struct S2_LOCAL_BITS {

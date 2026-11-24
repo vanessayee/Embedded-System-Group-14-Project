@@ -89,19 +89,24 @@ LOCAL BOOL wait_profile(UB phase, S5_PROFILE *p)
 LOCAL UW move_at_speed(UW type, INT arg, UW speed_lvl)
 {
 	UW	cmd, res = 0;
-	INT	mag = (arg < 0) ? -arg : arg;
 	TMO	tmo;
 
 	(void)tk_clr_flg(flg_avoid, ~AVEV_EMERGENCY);
-	tmo = (TMO)((type == MCMD_TURN)
-		? (UW)mag * 25U + S5_STEP_EXTRA_MS		/* ~40 deg/s worst case */
-		: (UW)mag * 1000U / (UW)motion_creep_speed_mms() + S5_STEP_EXTRA_MS);
+	tmo = (TMO)av_motion_wait_ms(type, arg, motion_creep_speed_mms(),
+				   S5_STEP_EXTRA_MS);
 	if (motion_command(type, MSRC_AVOID, arg, speed_lvl, &cmd) != E_OK) {
 		return MRES_REJECTED;
 	}
 	if (motion_wait_result(cmd, tmo, &res) != E_OK) {
 		motion_stop(MSRC_AVOID);
+		tm_printf((UB*)"avoid: motion wait expired, type %d arg %d after %d ms, faults 0x%x\n",
+			  (INT)type, arg, (INT)tmo, (UINT)sys_fault_get());
 		return MRES_FAULT;
+	}
+	if (mres_status(res) != MRES_DONE) {
+		tm_printf((UB*)"avoid: motion failed, type %d arg %d result %d reject %d faults 0x%x\n",
+			  (INT)type, arg, (INT)mres_status(res), (INT)mres_reason(res),
+			  (UINT)sys_fault_get());
 	}
 	return mres_status(res);
 }
@@ -173,7 +178,7 @@ LOCAL BOOL turn_to_line(INT direction, INT limit)
 	s3_get_line_status(&ls);
 	last = ls.time_ms;
 	if (motion_command(MCMD_TURN, MSRC_AVOID, direction * limit,
-			   S5_REVERSE_SPEED_LVL, &cmd) != E_OK) return FALSE;
+			   S5_AVOID_SPEED_LVL, &cmd) != E_OK) return FALSE;
 	while (!expired() && sys_mode() == VM_OBSTACLE
 	       && (UW)(app_now_ms() - start) < S5_LINE_ALIGN_TIMEOUT_MS) {
 		(void)tk_dly_tsk(S3_PERIOD_MS);
@@ -190,6 +195,16 @@ LOCAL BOOL turn_to_line(INT direction, INT limit)
 		}
 		res = motion_last_result(MSRC_AVOID);
 		if ((res & MRES_VALID) && mres_seq(res) == mcmd_seq(cmd)) break;
+	}
+
+	if (!acquired) {
+		res = motion_last_result(MSRC_AVOID);
+		tm_printf((UB*)"avoid: alignment incomplete, elapsed %d ms, mode %d, motion result %d, GP6 %d GP2 %d, faults 0x%x\n",
+			  (INT)(app_now_ms() - start), (INT)sys_mode(),
+			  ((res & MRES_VALID) && mres_seq(res) == mcmd_seq(cmd)) ? (INT)mres_status(res) : -1,
+			  (ls.ir_black & IR_BIT(IR_C)) != 0U,
+			  (ls.ir_black & IR_BIT(IR_SIDES_MIRRORED ? IR_L : IR_R)) != 0U,
+			  (UINT)sys_fault_get());
 	}
 	motion_stop(MSRC_AVOID);
 	if (motion_wait_result(cmd, 1000, &res) != E_OK) return FALSE;
@@ -317,7 +332,7 @@ LOCAL BOOL profile_obstacle(S5_PROFILE *p, BOOL *cleared)
    readings mark its far edge. Use the measured gap to calculate the return
    corner-clearance move, instead
    of waiting for the complete body length to pass while still parallel. */
-LOCAL INT pass_obstacle(const AV_PLAN *plan)
+LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 {
 	S5_SCAN_STATUS	ss;
 	UW		cmd, res, start;
@@ -331,8 +346,16 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 	W		farthest_side_mm = 0;
 	W		lateral_mm = AV_ROBOT_WIDTH_MM / 2 + plan->side_gap_mm;
 	W		side_sin = op_sin_q15(S5_SIDE_LOOK_DEG);
-	W		side_limit = (W)(((D)lateral_mm * 32768 + side_sin - 1) / side_sin)
-			   + S5_SIDE_ECHO_ALLOWANCE_MM;
+	W		side_limit = av_side_watch_limit_mm(profile, plan, S5_SIDE_LOOK_DEG,
+						       S5_SIDE_ECHO_ALLOWANCE_MM);
+	W		acquire_limit = plan->front_gap_mm + AV_SENSOR_BEHIND_FRONT_MM
+				      - plan->forward_before_pass_mm + AV_ROBOT_LENGTH_MM
+				      + S5_SIDE_ECHO_ALLOWANCE_MM;
+	UW		debug_at = 0;
+	BOOL		debug_sent = FALSE;
+	INT		away = (plan->side == AV_SIDE_RIGHT) ? 1 : -1;	/* turn sign away from obstacle */
+	W		confirm_travel = 0, ref_mm = -1, ref_travel = 0, last_side_mm = 0;
+	INT		heading_fix = 0;
 
 	s5_get_scan_status(&ss);
 	watch.last_seq = ss.seq;
@@ -386,6 +409,13 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 		if (ss.seq != watch.last_seq && ss.servo_deg == look) {
 			watch.last_seq = ss.seq;
 			side_mm = s5_dist_mm(ss.dist_code);
+			if (!debug_sent || (UW)(app_now_ms() - debug_at) >= 1000U) {
+				debug_sent = TRUE;
+				debug_at = app_now_ms();
+				tm_printf((UB*)"avoid: side watch travel %d mm, range %d mm result %d, limit %d, seen %d clears %d\n",
+					  (INT)travelled, (INT)side_mm, (INT)ss.us_result,
+					  (INT)side_limit, (INT)watch.seen, (INT)watch.clear_run);
+			}
 			if (ss.us_result == US_OK && side_mm > 0
 			    && side_mm <= side_limit) {
 				if (side_mm > farthest_side_mm) farthest_side_mm = side_mm;
@@ -398,11 +428,40 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 						- AV_ROBOT_WIDTH_MM / 2;
 
 					watch.seen = TRUE;
+					confirm_travel = travelled;
 					tm_printf((UB*)"avoid: side obstacle confirmed, measured body gap %d mm, "
 						  "planned %d mm (requested %d + reserve %d)\n",
 						  (INT)measured_gap, (INT)plan->side_gap_mm,
 						  AV_SIDE_GAP_MM, AV_EDGE_UNCERTAINTY_MM);
+				} else if (watch.seen && !watch.corrected
+					   && travelled - confirm_travel >= S5_HEADING_SETTLE_MM) {
+					/* Compare ranges S5_HEADING_BASELINE_MM apart; slide the
+					   reference while the car is parallel enough. */
+					if (ref_mm < 0) {
+						ref_mm = side_mm;
+						ref_travel = travelled;
+					} else if (travelled - ref_travel >= S5_HEADING_BASELINE_MM) {
+						INT conv = av_side_convergence_deg(ref_mm, side_mm,
+							travelled - ref_travel, S5_SIDE_LOOK_DEG);
+
+						if (conv >= S5_HEADING_FIX_MIN_DEG) {
+							heading_fix = (conv > S5_HEADING_FIX_MAX_DEG)
+								    ? S5_HEADING_FIX_MAX_DEG : conv;
+							tm_printf((UB*)"avoid: converging %d deg on the obstacle "
+								  "(side %d -> %d mm over %d mm)\n", conv,
+								  (INT)ref_mm, (INT)side_mm,
+								  (INT)(travelled - ref_travel));
+						} else {
+							ref_mm = side_mm;
+							ref_travel = travelled;
+						}
+					}
 				}
+				last_side_mm = side_mm;
+				/* Once established, track this side surface rather than accepting
+				   distant background anywhere inside the broad acquisition gate. */
+				if (watch.seen && side_mm + S5_SIDE_ECHO_ALLOWANCE_MM < side_limit)
+					side_limit = side_mm + S5_SIDE_ECHO_ALLOWANCE_MM;
 				watch.clear_run = 0;
 				clear_start_mm = -1;
 				watch.bad_run = 0;
@@ -423,6 +482,52 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			}
 		}
 
+		if (heading_fix > 0) {
+			W remaining = AV_SIDE_PASS_MAX_MM - travelled;
+			UW r;
+
+			watch.corrected = TRUE;
+			motion_stop(MSRC_AVOID);
+			if (motion_wait_result(cmd, 1000, &res) != E_OK
+			    || (mres_status(res) != MRES_ABORTED
+				&& mres_status(res) != MRES_DONE)) {
+				fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
+				return EXEC_FAILED;
+			}
+			tm_printf((UB*)"avoid: turning %d deg away to run parallel again\n",
+				  away * heading_fix);
+			r = move(MCMD_TURN, away * heading_fix);
+			if (r != MRES_DONE) {
+				if (sys_mode() != VM_OBSTACLE) return EXEC_ABANDONED;
+				if (tk_wai_flg(flg_avoid, AVEV_EMERGENCY, TWF_ORW | TWF_BITCLR,
+					       &ptn, TMO_POL) == E_OK) return EXEC_EMERGENCY;
+				fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
+				return EXEC_FAILED;
+			}
+			/* A pivot leaves the mean wheel odometry unchanged, so the
+			   pass distance continues from 'travelled'. */
+			if (remaining < 1) remaining = 1;
+			if (motion_command(MCMD_MOVE, MSRC_AVOID, (INT)remaining,
+					   S5_AVOID_SPEED_LVL, &cmd) != E_OK) {
+				fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
+				return EXEC_FAILED;
+			}
+			/* New heading: track the side surface from the latest range. */
+			closest_side_mm = last_side_mm;
+			farthest_side_mm = last_side_mm;
+			side_limit = last_side_mm + S5_SIDE_ECHO_ALLOWANCE_MM;
+			watch.clear_run = 0;
+			clear_start_mm = -1;
+			heading_fix = 0;
+			continue;
+		}
+		if (!watch.seen && travelled > acquire_limit) {
+			motion_stop(MSRC_AVOID);
+			tm_printf((UB*)"avoid: side obstacle never confirmed after %d mm (bound %d); stopping instead of driving full pass limit\n",
+				  (INT)travelled, (INT)acquire_limit);
+			fail(AVF_SENSOR, SYS_FLT_AVOID_FAILED);
+			return EXEC_FAILED;
+		}
 		if (watch.bad_run >= S5_SIDE_BAD_MAX) {
 			motion_stop(MSRC_AVOID);
 			tm_printf((UB*)"avoid: side ultrasonic unusable during pass\n");
@@ -458,14 +563,16 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 			if (depth < 0) depth = 0;
 			tm_printf((UB*)"avoid: far edge found after %d mm parallel travel; "
 				  "estimated obstacle length %d mm; measured side gap %d mm; "
-				  "edge allowance %d mm, body minimum %d mm; reduced advance %d mm, "
+				  "edge allowance %d mm, body minimum %d mm; advance %d mm, "
 				  "then return at %d deg\n",
 				  (INT)travelled, (INT)depth, (INT)measured_gap,
 				  (INT)edge_ahead, (INT)body_path, (INT)return_move,
 				  (INT)plan->return_turn_deg);
 			request_scan(SREQ_MONITOR, 0, 0, 0);
 			(void)tk_dly_tsk(S5_SIDE_CENTER_MS);
-			res = move(MCMD_MOVE, return_move);
+			/* A fully cleared body can require no extra straight travel.
+			   MOVE 0 is rejected by Buddy 2; proceed directly to the return. */
+			res = (return_move > 0) ? move(MCMD_MOVE, return_move) : MRES_DONE;
 			if (res == MRES_DONE) {
 				return EXEC_DONE;
 			}
@@ -491,7 +598,7 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan)
 	}
 }
 
-LOCAL INT execute_plan(const AV_PLAN *plan)
+LOCAL INT execute_plan(const AV_PLAN *plan, const S5_PROFILE *profile)
 {
 	UINT	i, ptn;
 	INT	s = (plan->side == AV_SIDE_RIGHT) ? 1 : -1;
@@ -557,7 +664,9 @@ LOCAL INT execute_plan(const AV_PLAN *plan)
 			set_state(AVST_ALIGNING);	/* REACQUIRE LINE */
 			if (!align_line(s)) {
 				if (sys_mode() != VM_OBSTACLE) return EXEC_ABANDONED;
-				fail(AVF_LINE, SYS_FLT_RECOVERY_TIMEOUT);
+				if (sys_fault_get() & (SYS_FLT_MOTOR_STALL | SYS_FLT_ENCODER))
+					fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);
+				else fail(AVF_LINE, SYS_FLT_RECOVERY_TIMEOUT);
 				return EXEC_FAILED;
 			}
 			/* Sensor alignment replaces the final planned encoder turn. */
@@ -565,7 +674,7 @@ LOCAL INT execute_plan(const AV_PLAN *plan)
 			continue;
 		}
 		if (st->kind == AVS_PASS) {
-			INT pass_result = pass_obstacle(plan);
+			INT pass_result = pass_obstacle(plan, profile);
 
 			if (pass_result != EXEC_DONE) {
 				return pass_result;
@@ -677,7 +786,7 @@ LOCAL void handle_obstacle(void)
 			  AV_ROBOT_WIDTH_MM / 2, AV_SIDE_GAP_MM, AV_EDGE_UNCERTAINTY_MM,
 			  (INT)plan.offset_mm, (INT)plan.approach_mm,
 			  (INT)plan.turn_deg, (INT)plan.n);
-		switch (execute_plan(&plan)) {
+		switch (execute_plan(&plan, &prof)) {
 		case EXEC_DONE:
 			finish(AVO_SUCCESS);
 			return;

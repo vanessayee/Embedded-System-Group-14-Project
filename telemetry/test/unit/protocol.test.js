@@ -135,7 +135,7 @@ test('structural errors reject the whole frame', () => {
 
 test('values v1 never produces are reported as issues', () => {
 	const cases = [['mode', 5], ['heading2', 180], ['steer', -64], ['bc_symbol', 50], ['pitch', 100],
-		['roll', -91], ['heading', 400], ['hump_last', 55], ['hump_max', 51], ['us_dist', 900],
+		['roll', -91], ['heading', 400], ['hump_last', 56], ['hump_max', 62], ['us_dist', 900],
 		['avoid_state', 9], ['avoid_side', 3], ['obst_bearing', -128]];
 	for (const [k, v] of cases) {
 		assert.deepEqual(tlm({ [k]: v }).issues, [k + '=' + v]);
@@ -214,4 +214,32 @@ test('event and heartbeat interpretation', () => {
 	const hb = codec.decode(codec.encodeFrame(T.HEARTBEAT, 1, { uptime_ds: 100, mode: 1, comm_state: 6,
 		critical: 0, fault_count: 1, reconnects: 15 }));
 	assert.deepEqual([hb.availability, hb.reconnects_saturated], ['RECOVERING', true]);
+});
+
+
+test('fine hump codes report exact 5 mm and preserve legacy heights', () => {
+    for (let n = 0; n <= 50; n++) assert.equal(codec.humpMm(n), n * 2);
+    for (let n = 51; n <= 55; n++) assert.equal(codec.humpMm(n), 1 + 2 * (n - 51));
+    for (const n of [null, -1, 56, 62, 63]) assert.equal(codec.humpMm(n), null);
+    const d = tlm({hump_last: 53, hump_max: 53, hump_count: 1});
+    assert.deepEqual(d.issues, []);
+    assert.equal(d.hump.last_mm, 5);
+    assert.equal(d.hump.max_boot_mm, 5);
+    const event = codec.decode(codec.encodeEvent(4, {last: 53, max: 53, count: 1}, 1));
+    assert.equal(event.last_mm, 5);
+    assert.equal(event.max_boot_mm, 5);
+});
+
+
+test('RESET extension is exact and preserves legacy PING and 8-byte frames', () => {
+    const frame = codec.encodeCommand('RESET',0,17,3);
+    const d = codec.decode(frame);
+    assert.equal(frame.length, 8);
+    assert.deepEqual(d.issues, []);
+    assert.equal(d.cmd,'RESET'); assert.equal(d.raw.cmd,0); assert.equal(d.arg,421);
+    assert.equal(codec.decode(codec.encodeCommand('PING',0,18,4)).cmd,'PING');
+    assert.throws(()=>codec.encodeCommand('RESET',1,1,1));
+    assert.throws(()=>codec.encodeCommand('PING',420,1,1));
+    const ack=codec.decode(codec.encodeFrame(codec.TYPE.ACK,0,{cmd_id:17,cmd:0,result:0,detail:31}));
+    assert.equal(ack.cmd,'RESET');
 });

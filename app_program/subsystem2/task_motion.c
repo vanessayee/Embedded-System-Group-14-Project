@@ -247,6 +247,26 @@ LOCAL void resume_button(void)
 	out_w(WDG_CTRL, WDG_CTRL_TRIGGER);	/* full chip reset */
 }
 
+/* The motor-owning task performs the reset in every operating mode.
+   The short drain window allows the network worker to publish an ACK;
+   failure to receive that ACK never cancels a requested reset. */
+LOCAL BOOL dashboard_reset_pending;
+
+LOCAL void dashboard_reset(void)
+{
+	static UW started;
+	if (app_atomic_xchg(&s2_reset_req, 0U) != 0U && !dashboard_reset_pending) {
+		dashboard_reset_pending = TRUE;
+		started = app_now_ms();
+		tm_printf((UB*)"reset: dashboard request, stopping then rebooting\n");
+	}
+	if (dashboard_reset_pending) {
+		motor_off();
+		if ((UW)(app_now_ms() - started) >= 500U)
+			out_w(WDG_CTRL, WDG_CTRL_TRIGGER);
+	}
+}
+
 LOCAL void handle_command(UW cmd)
 {
 	UW	type = mcmd_type(cmd);
@@ -395,6 +415,7 @@ LOCAL void control_cycle(void)
 	cycle_ms += MOTION_PERIOD_MS;
 	measure();
 	resume_button();
+	dashboard_reset();
 
 	/* 1. control with the current mode */
 	in.dist_l_um = dist_l_um;
@@ -481,7 +502,7 @@ LOCAL void control_cycle(void)
 
 	/* 3. outputs: nothing moves outside the driving modes */
 	if (vf.mode == VM_INIT || vf.mode == VM_SAFE_STOP || !armed
-	    || wdog_tripped != 0U || vout.changed) {
+	    || wdog_tripped != 0U || vout.changed || dashboard_reset_pending) {
 		motor_off();
 	} else {
 		motor_set(mout.duty_l_pm, mout.duty_r_pm);

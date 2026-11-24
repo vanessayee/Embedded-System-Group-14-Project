@@ -23,8 +23,8 @@
  *	cleaned sample shared as a timestamped snapshot with a validity flag").
  *
  *	Hump status word (writer: Hump & Terrain Analysis task)
- *	    bits  0..5   last height     (6)  2 mm steps 0..50, 63 = none
- *	    bits  6..11  highest height  (6)  2 mm steps 0..50, 63 = none
+ *	    bits  0..5   last height     (6)  0..50: 2 mm; 51..55: odd 1..9; 63 none
+ *	    bits  6..11  highest height  (6)  0..50: 2 mm; 51..55: odd 1..9; 63 none
  *	    bits 12..15  hump count      (4)  saturating at 15
  *	    bit  16      hump in progress(1)
  *	    bit  17      last saturated  (1)  > 100 mm

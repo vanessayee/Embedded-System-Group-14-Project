@@ -344,7 +344,9 @@ EXPORT void imu_task(INT stacd, void *exinf)
 				task_bits.collision_latched = FALSE;	/* "cleared" by the operator */
 			}
 			/* A handling/collision stop is not a completed terrain hump. */
-			send_hump_sample(!task_bits.collision_latched && !proc.handling);
+			/* Turns/obstacle manoeuvres are not qualified terrain traversals. */
+			send_hump_sample(!task_bits.collision_latched && !proc.handling
+							 && mode == VM_NORMAL);
 			publish(TRUE);
 			break;
 

@@ -303,3 +303,12 @@ test('explicit boot identity detects quick RUN resets and survives reconnect, re
  const event = again.evt(T0+4100,3,{symbol:10,result:1,nav:1,nav_valid:1});
  assert.equal(ofTable(event,'event').filter(e=>e.kind==='EVENTS_MISSED').length,0);
 });
+
+
+test('5 mm extension code persists as 5 mm in hump event storage', () => {
+    const ing = new Ingestor(CFG);
+    const result = ing.humpOp({boot:{id:'boot'}}, {robot_id:'car',source:'live',received_at:new Date(T0)},
+        {code:53,max:53,count:1,by:'robot_event'});
+    assert.equal(result.row.height_mm, 5);
+    assert.equal(result.row.max_boot_mm, 5);
+});

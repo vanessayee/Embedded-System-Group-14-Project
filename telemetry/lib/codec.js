@@ -169,7 +169,7 @@ const EVT_DATA = {
 /* Values a field can never take in a v1 frame.  Fields not listed use
    their whole bit range (all codes valid, some of them special). */
 const angleOk = (v) => (v >= -90 && v <= 90) || v === -128;
-const humpOk = (v) => v <= 50 || v === 63;
+const humpOk = (v) => v <= 55 || v === 63;
 const distOk = (v) => v <= 800 || v === 1022 || v === 1023;
 const TLM_RANGE = {
 	mode: (v) => v <= 4,
@@ -299,7 +299,9 @@ function checkFrame(buf) {
 const name = (list, code) => (list[code] !== undefined ? list[code] : 'CODE_' + code);
 const orNull = (v, invalid) => ((v === invalid) ? null : v);
 const symbolOf = (code) => ((code < CODE39.length) ? CODE39[code] : null);
-const humpMm = (code) => ((code === 63) ? null : code * 2);
+// 0..50 retain legacy 2 mm values; reserved 51..55 add odd 1..9 mm.
+const humpMm = (code) => code === null || code === undefined || !Number.isInteger(code) || code < 0 || !humpOk(code) || code === 63
+    ? null : code <= 50 ? code * 2 : 1 + 2 * (code - 51);
 const distMm = (code) => ((code <= 800) ? code * 5 : null);
 
 /* Line position in the car's real sides.  The line follower only names
@@ -499,14 +501,14 @@ function decode(buf, opts) {
 	case TYPE.ACK:
 		return Object.assign(base, {
 			issues: rangeIssues(raw, ACK_RANGE), cmd_id: raw.cmd_id,
-			cmd: name(ENUMS.command, raw.cmd), result: name(ENUMS.ack_result, raw.result),
+			cmd: raw.cmd === 0 && raw.detail === 31 ? 'RESET' : name(ENUMS.command, raw.cmd), result: name(ENUMS.ack_result, raw.result),
 			detail: (raw.result === 6) ? name(ENUMS.reject_reason, raw.detail) : raw.detail
 		});
 	default: {				/* a command: validate like the robot */
 		const issues = [];
 		if (raw.reserved !== 0 || raw.cmd >= ENUMS.command.length) { issues.push('FIELD'); }
 		if (!commandArgValid(raw.cmd, raw.arg)) { issues.push('ARG'); }
-		return Object.assign(base, { issues, cmd: name(ENUMS.command, raw.cmd), arg: raw.arg,
+		return Object.assign(base, { issues, cmd: raw.cmd === 0 && raw.arg === 421 ? 'RESET' : name(ENUMS.command, raw.cmd), arg: raw.arg,
 					      cmd_id: raw.cmd_id });
 	}
 	}
@@ -553,12 +555,17 @@ function encodeEvent(code, fields, seq) {
 /* Build a command frame for csc14/cmd.  The robot validates it again. */
 function commandArgValid(cmd, arg) {
 	if (!Number.isInteger(arg) || arg < 0 || arg > 1023) return false;
+	if (cmd === 0 && arg === 421) return true;
 	if (cmd === 4) return arg >= 50 && arg <= 400;
 	if (cmd === 6) return (arg & 63) >= 10 && (arg & 63) <= 35 && (arg >> 6) <= 4;
 	if (cmd === 7) return arg >= 10 && arg <= 35;
 	return arg === 0;
 }
 function encodeCommand(cmdName, arg, cmdId, seq) {
+	if (cmdName === 'RESET') {
+		if (arg !== 0) throw new Error('RESET takes no argument');
+		cmdName = 'PING'; arg = 421;
+	}
 	const cmd = ENUMS.command.indexOf(cmdName);
 	if (cmd < 0) { throw new Error('unknown command ' + cmdName); }
 	if (!commandArgValid(cmd, arg)) {
@@ -633,7 +640,7 @@ function selfTest() {
 const csc14 = {
 	VERSION, HDR_LEN, CRC_LEN, TYPE, TYPE_NAMES, PAYLOAD_LEN, ENUMS, CODE39, FAULTS, FAULT_TABLE,
 	FAULT_MASK_ALL, SEV, DEFAULT_POLICY, TLM_FIELDS, HB_FIELDS, EVT_FIELDS, CMD_FIELDS, ACK_FIELDS,
-	EVT_DATA, GOLDEN, crc16, checkFrame, decode, encodeFrame, encodeEvent, encodeCommand,
+	EVT_DATA, GOLDEN, humpMm, crc16, checkFrame, decode, encodeFrame, encodeEvent, encodeCommand,
 	faultSeverity, criticalMask, faultList, linePosPhys, usContext, profileState, availability, selfTest
 };
 

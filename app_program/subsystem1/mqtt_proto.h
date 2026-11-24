@@ -86,8 +86,8 @@ typedef struct S1_LOCAL_PACKED {
 	unsigned int tilt : 1;		/*  1                                    */
 	unsigned int collision : 1;	/*  1                                    */
 	unsigned int shock : 5;		/*  5  0.5 g steps                       */
-	unsigned int hump_last : 6;	/*  6  2 mm steps, 63 = none             */
-	unsigned int hump_max : 6;	/*  6  2 mm steps, 63 = none             */
+	unsigned int hump_last : 6;	/*  6  legacy 2 mm; 51..55 odd 1..9 mm; 63 none             */
+	unsigned int hump_max : 6;	/*  6  legacy 2 mm; 51..55 odd 1..9 mm; 63 none             */
 	unsigned int hump_count : 4;	/*  4                                    */
 	unsigned int hump_active : 1;	/*  1                                    */
 	/* obstacle (Buddy 5) */
@@ -153,6 +153,10 @@ typedef struct S1_LOCAL_PACKED {
 #define CMD_REQ_STATUS		5U	/* send telemetry now       */
 #define CMD_SET_NAV_MAP		6U	/* arg: Code39 symbol 6 | action 3; 4=unmapped */
 #define CMD_GET_NAV_MAP		7U	/* arg: A-Z Code39 index; ACK detail=action */
+/* RESET extension: PING + exact reserved argument; legacy firmware rejects it.
+   Keeps the existing 3-bit command and ACK layouts unchanged. */
+#define CMD_RESET_ARG            421U
+#define ACK_RESET_PENDING        31U
 #define CMD_COUNT		8U
 typedef struct S1_LOCAL_PACKED {
 	unsigned int cmd : 3;		/*  3 */

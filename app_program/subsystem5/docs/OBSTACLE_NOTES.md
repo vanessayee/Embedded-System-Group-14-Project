@@ -102,19 +102,22 @@ Each sample becomes a point: lateral x = d·sin θ, forward y = d·cos θ.
    unknown the profile is INSUFFICIENT, and no bypass is ever planned
    through unknown space (brief: "do not invent a successful bypass").
 
-Accuracy against ray-cast synthetic boxes is within 10 % in width and
-1 cm in distance (S5-U06, 4 boxes, simulation). `US_BEAM_COMP_DEG` (default
-0, conservative: the obstacle looks wider) can subtract a measured beam
-half-width. Tribunal 1 rejected "assuming ultrasonic scanning determines
-exact obstacle geometry".
+Accuracy against ideal ray-cast boxes is checked in simulation; physical
+ultrasonic width remains an estimate because of beam spread and reflections.
+Production `S5_BEAM_COMP_DEG` is now zero: preserve the observed scan edges.
+The former 24-degree-per-edge correction came from one approximately 200 mm
+object and could substantially underestimate other objects, including a
+130 mm target. It also incorrectly increased reported free side clearance.
 
-On this car, repeated hardware sweeps expanded a roughly 200 mm central
-obstacle to 470–525 mm. Production profiles therefore apply a measured 24°
-inward edge correction (`S5_BEAM_COMP_DEG`) after raw geometry is built. If
-the apparent angular blob is narrower than twice that correction, one observed
-3° scan cell is retained. Its millimetre width therefore still comes from the
-measured range and angle; there is no fixed minimum obstacle width. The console
-prints both corrected and raw widths. Unknown edges are never corrected.
+There is now only one optional correction stage. Any future calibrated
+allowance is limited to one 3-degree scan cell per edge, retains at least
+one cell of obstacle span, and cannot increase measured side clearance.
+Unknown edges are never corrected. The console retains both final and raw
+widths for calibration. Tests cover 50/130/200/300 mm ideal targets at three
+ranges, excessive calibration, and unknown clearance. No physical obstacle
+width is hardcoded into the estimator. An uncorrected acoustic envelope can
+overestimate the physical width; validate against several measured objects
+before applying any nonzero correction.
 
 ## 4. Avoidance plan (`avoid_plan.c`; Briefing p.8 workflow)
 
@@ -123,7 +126,7 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   Each known obstacle edge defines a candidate route and the planner chooses
   the one requiring less lateral deviation; equal routes prefer right
   (`AV_PREFER_RIGHT`). The path uses the 125 mm robot width
-  (`AV_ROBOT_WIDTH_MM`), the requested 80 mm side gap (`AV_SIDE_GAP_MM`) and a
+  (`AV_ROBOT_WIDTH_MM`), the requested 50 mm side gap (`AV_SIDE_GAP_MM`, was 80 mm) and a
   15 mm edge-uncertainty allowance (`AV_EDGE_UNCERTAINTY_MM`). If both
   obstacle edges are unknown →
   `OBSTACLE_UNAVOIDABLE` → Safe Stop (FR12).
@@ -140,7 +143,7 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   closest valid side range, subtracts 10 mm measurement uncertainty, and uses
   the resulting live body-to-obstacle gap to find the earliest safe 30° return.
   The corner calculation checks the complete in-place pivot and subsequent
-  diagonal move while retaining the requested 80 mm gap. A conservative full
+  diagonal move while retaining the requested 50 mm gap. A conservative full
   body-length fallback remains when the side measurement proves no spare gap.
   The far-edge search itself is bounded only by Buddy 2's 2 m single-motion
   safety limit.
@@ -153,7 +156,7 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   can establish the side gap before the front face; otherwise bounded
   reverse/rescan is attempted.
 * **Bounded drift (NFR5):** the lateral offset is measured obstacle edge +
-  62 mm half-width + requested 80 mm side gap + 15 mm edge-uncertainty
+  62 mm half-width + requested 50 mm side gap + 15 mm edge-uncertainty
   allowance (`avoid_plan.c`). Obstacle width and route offset are not fixed. There is no board
   width or board length assumption; only the motion command's representable
   distance remains a hard safety limit.
@@ -196,12 +199,19 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   `SYS_EV_AVOID_DONE` and Buddy 2 returns to NORMAL (INT-10, INT-14).
 
 Simulated bypass of a 150 mm box at 300 mm with the plant model (INT-10,
-host run on commit `74cd94f`, 22 November 2026):
+host run on the uncommitted working tree, 24 November 2026, after the side
+gap was reduced from 80 mm to 50 mm):
 
-* the car's body stays at least 84 mm from the box while beside it
-  (configured side gap 80 mm);
-* back on the line (offset 0 mm) after 755 mm of travel;
-* end heading 0.346° (within ±10°).
+* the car's body stays at least 52 mm from the box while beside it
+  (configured side gap 50 mm; it was 84 mm with the former 80 mm setting);
+* back on the line (offset 0 mm) after 740 mm of travel;
+* end heading 0.036° (within ±10°).
+
+The straight move after the far edge is now the body-clearance distance
+plus the distance the edge may still be ahead of the sensor
+(`av_post_edge_advance_mm`, S5-U14f). The former max(body, average) dropped
+that edge allowance; on the 24 November robot run the return pivot started
+about 39 mm earlier than the clearance check assumed.
 
 This is a simulation with the configured robot geometry. It does not replace
 the track test in section 6.
@@ -213,10 +223,101 @@ the track test in section 6.
 2. Servo: calibrate `SERVO_CENTER_US`, `SERVO_US_PER_DEG_X10` and
    `SERVO_DIR`; measure the settle time per degree.
 3. Scan known boxes at several distances: profile width and edges against
-   the tape measure; calibrate production `S5_BEAM_COMP_DEG`. Keep the
-   optional raw-geometry `US_BEAM_COMP_DEG` at zero to avoid applying
-   beam compensation twice.
+   the tape measure. Leave `S5_BEAM_COMP_DEG` at zero until repeated
+   measurements justify a small correction across different widths and ranges.
 4. Measure the car's width, length, turning behaviour and the margins in
    `avoid_plan.h`.
 5. Full avoidance on the track (FR8–FR12), including the recovery timeout
    and an unavoidable obstacle → Safe Stop.
+
+
+## Near-range profile and pass regression (24 November 2026)
+
+The 130 mm physical target was reported as 341 mm with compensation disabled.
+Its plan used a 277 mm centre offset. That run failed during the first -69-degree
+pivot with MOTOR_STALL/AVOID_FAILED, before PASS; it does not demonstrate a
+far-edge failure. Motor/encoder operation on the actual surface still requires
+checking. Stall and collision protection remain enabled.
+
+Front-face membership now uses a range-scaled depth tolerance: 5% of measured
+front distance, bounded to 10..50 mm, instead of always permitting 50 mm.
+Side-neighbour classification uses the same plane band so rejected peripheral
+returns do not become false adjacent walls. This is a calibrated noise model,
+not a guarantee of physical width accuracy. No-echo rays prevent the identical-
+range check from falsely marking a narrow, edged target as a frozen servo.
+The completed-sweep angle/range/status dump supports validation on real targets.
+
+PASS acquisition covers the original profile transformed to the bypass offset,
+rather than just the requested gap. Once the side is confirmed, the threshold
+can tighten to that measured surface plus the existing 40 mm allowance, so
+farther background does not indefinitely hide its end. If the side is never
+confirmed after the expected front overlap plus one robot length and allowance,
+the robot stops instead of driving the entire actuator-distance limit. This is
+not permission to return blindly. A compact side-watch message is limited to
+once per second during PASS. Existing three-clear confirmation and body-corner
+return-clearance calculations remain in place.
+
+Buddy 5's command wait now covers the same encoder wheel arc at creep as Buddy 2,
+plus 3000 ms slack; the former fixed 25 ms/degree wait could expire first.
+Failure diagnostics distinguish a wait expiry from a returned motion result.
+Regression tests cover peripheral beam spill, real front-plane dropout,
+mirrored side acquisition bounds, and slow-turn wait symmetry. Physical testing
+must confirm width, actual side gap, side acquisition, far-edge detection, and
+line reacquisition before calling the maneuver validated.
+
+
+## Corner echoes at the obstacle edges (24 November scan)
+
+A second scan of the same ~130 mm box (24 November robot log) reported
+174 mm. A smooth face echoes straight back only while its perpendicular
+foot is inside the beam: rays -15..+18 deg all read 205 mm. Beyond that the
+sensor hears the corner, at sqrt(205^2 + 65^2) = 215 mm, and the +-21 deg
+rays read exactly 215. Projected forward (215 cos 21 = 200.7 mm) they fell
+inside the +-10 mm face band and moved each edge out by one scan cell.
+
+`op_build` now drops the outermost face ray on each side when it looks like
+such a corner echo: outside the 15 deg direct beam, at least 8 mm farther
+than the face (more than one 5 mm range step) and projecting at least 3 mm
+nearer than the face plane. Only one ray per side is dropped, so a
+genuinely wider face loses at most one scan cell, which the 15 mm edge
+uncertainty reserve covers.
+
+| Scan of the ~130 mm box | Before | After |
+|---|---:|---:|
+| 24 Nov robot run (S5-U13n) | 174 mm | 140 mm |
+| Earlier capture (S5-U13m) | 125 mm | 125 mm |
+
+The result is the same for direct-beam angles 9-18 deg and range margins
+6-10 mm, so it is not tuned to a single value. Both scans are of one box at
+one distance (205 mm); other widths and distances still need recorded scans
+(the `profile: scan ... rays` dump) and a tape measurement.
+
+Known limitation, unchanged by this work: in a rough-surface model a wide
+face turned 5-10 deg toward the car is reported up to 103 mm too narrow
+(300 mm box at 205 mm, 10 deg), because a sloping face leaves the +-10 mm
+same-plane band. Real scans of an angled box are needed before changing it.
+
+## Captured 130 mm target and final-alignment correction
+
+Replaying the 51 angle/range/status samples supplied on 24 November produced
+208 mm with the previous code. A valid short return outside the front-plane
+band was bridged to a further group of hits, inflating the left edge. Such a
+nearer mismatch is no longer treated as a dropout. Where another hit follows,
+the first mismatched ray is retained as a bounded edge allowance instead of
+joining the full group. Missing echoes and far-background dropouts retain their
+previous bridging behavior. The exact replay now yields 125 mm (left -55,
+right +70, front 205 mm), versus the user's approximately 130 mm measurement.
+No 130 mm target size or fixed width subtraction is used by production code.
+This result validates that captured scan; other objects and poses still require
+physical checking. Existing side-gap, uncertainty and geometry values remain.
+
+The same run completed the outward pivots, parallel pass, far-edge detection,
+return and first line contact. It failed at the final alignment pivot while
+requesting 25 mm/s and reporting MOTOR_STALL. Final alignment now uses the same
+50 mm/s speed level as the earlier successful pivots. Fresh IR centre-only
+confirmation still ends the pivot; its angle/time limits are safety bounds.
+Motor stall, encoder and collision protections remain active. A motor/encoder
+failure during alignment is reported as AVF_MOTION rather than being labelled
+only as missing line recovery. Incomplete alignment prints elapsed time, mode,
+result, sensor bits and faults. These changes need another supervised robot
+run to validate motor torque and physical line alignment.

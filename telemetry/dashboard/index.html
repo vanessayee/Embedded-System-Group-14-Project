@@ -73,8 +73,8 @@ h1{font-size:35px;letter-spacing:-1.3px;line-height:1.2;margin:8px 0 12px}h2{fon
 <div class="controls"><button class="btn soft" id="read-rules">Read robot rules</button><button class="btn" id="restore-rules">Load saved choices</button></div>
 <div class="divider"></div><div class="eyebrow">Confirmed by robot</div><div class="chips" id="confirmed-rules"><span class="sub">Not read from the robot yet.</span></div>
 <div class="note">Applying replaces all A–Z assignments. The laptop saves your choices; the robot map is in RAM. Reapply after switching the Pico off and on. No changes are reported as applied until the robot acknowledges them.</div>
-<div class="controls"><button class="btn danger" data-command="STOP">■ Stop motors</button><button class="btn" data-command="CLEAR">Clear faults</button><button class="btn soft" data-command="RESUME">▶ Resume</button></div>
-<div class="sub" style="margin-top:10px">Resume can start movement. Keep the robot upright and ready on the course.</div>
+<div class="controls"><button class="btn danger" data-command="STOP">■ Stop motors</button><button class="btn danger" data-command="RESET">↻ Reset Pico</button><button class="btn" data-command="CLEAR">Clear faults</button><button class="btn soft" data-command="RESUME">▶ Resume</button></div>
+<div class="sub" style="margin-top:10px">Reset stops motors and reboots the Pico, including during avoidance. Current-run data clears after the new boot arrives. Reset and Resume can start movement once readiness checks pass. Reapply barcode rules after reset.</div>
 </div></section>
 <section class="card"><div class="card-head"><h2>Terrain &amp; recovery</h2><span class="tag" id="avoid-status">WAITING</span></div><div class="card-body"><div class="live-detail">
 <div class="detail"><label>Pitch</label><strong id="pitch">—</strong><div class="bar"><span id="pitch-bar"></span></div></div><div class="detail"><label>Roll</label><strong id="roll">—</strong><div class="bar"><span id="roll-bar"></span></div></div>

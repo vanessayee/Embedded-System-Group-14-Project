@@ -262,6 +262,8 @@ EXPORT INT mp_cmd_decode(const UB *frame, UINT len, CMD_RECORD *r)
 		if (symbol < 10U || symbol > 35U || action > 4U) return MPE_ARG;
 	} else if (r->cmd == CMD_GET_NAV_MAP) {
 		if (r->arg < 10U || r->arg > 35U) return MPE_ARG;
+	} else if (r->cmd == CMD_PING && r->arg == CMD_RESET_ARG) {
+		/* Explicit reset extension; no other nonzero PING argument is legal. */
 	} else if (r->arg != 0U) {
 		return MPE_ARG;
 	}

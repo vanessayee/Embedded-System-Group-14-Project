@@ -122,7 +122,7 @@ LOCAL void init_out(S5_PROFILE *out, UB status)
 	out->clear_right_mm = -1;
 }
 
-/* Frozen servo: every valid reading identical across a wide sweep */
+/* Frozen servo: identical returns across a wide sweep, with no open rays. */
 LOCAL BOOL looks_frozen(const OP_SAMPLE *o, UINT n)
 {
 	W	dmin = 0x7FFFFFFF, dmax = -1;
@@ -130,6 +130,10 @@ LOCAL BOOL looks_frozen(const OP_SAMPLE *o, UINT n)
 	UINT	i, valid = 0;
 
 	for (i = 0; i < n; i++) {
+		/* A hit-to-no-echo transition is evidence of a changing scene.
+		   Narrow targets can otherwise have <10 mm range spread and be
+		   misclassified as a stuck servo despite clear edges. */
+		if (o[i].status == SS_NO_ECHO) return FALSE;
 		if (o[i].status != SS_OK) {
 			continue;
 		}
@@ -153,58 +157,57 @@ LOCAL W planar(W y, INT deg)
 
 EXPORT void op_beam_compensate(S5_PROFILE *p, INT half_angle_deg)
 {
-	INT	left_a, right_a, centre_a, raw_span, corrected_span, min_span;
-	W	old_left, old_right;
-	W	gain;
+	INT left_a, right_a, raw_span, correction;
+	W left, right;
 
-	/* Both edges must be known.  Never manufacture an edge on a side whose
-	   clearance is unknown. */
+	/* Unknown edges cannot be corrected into known free space. */
 	if (p->status != PRF_VALID || p->dist_mm <= 0 || half_angle_deg <= 0
-	    || p->clear_left_mm < 0 || p->clear_right_mm < 0) {
-		return;
-	}
+	    || p->clear_left_mm < 0 || p->clear_right_mm < 0) return;
 	left_a = op_atan_deg(p->left_mm, p->dist_mm);
 	right_a = op_atan_deg(p->right_mm, p->dist_mm);
-	old_left = p->left_mm;
-	old_right = p->right_mm;
 	raw_span = right_a - left_a;
-	if (raw_span <= 0) {
-		return;
-	}
-	/* Remove the calibrated beam footprint, but retain one observed angular
-	   cell.  Unlike the former 50 mm clamp, this residual width scales with
-	   range and therefore remains an ultrasonic-derived estimate. */
-	min_span = (raw_span < OP_EDGE_RESOLUTION_DEG)
-		   ? raw_span : OP_EDGE_RESOLUTION_DEG;
-	corrected_span = raw_span - 2 * half_angle_deg;
-	if (corrected_span < min_span) corrected_span = min_span;
-	centre_a = (left_a + right_a) / 2;
-	left_a = centre_a - corrected_span / 2;
-	right_a = left_a + corrected_span;
-	p->left_mm = planar(p->dist_mm, left_a);
-	p->right_mm = planar(p->dist_mm, right_a);
-	p->width_mm = p->right_mm - p->left_mm;
-	p->bearing_deg = op_atan_deg((p->left_mm + p->right_mm) / 2,
-				     p->dist_mm);
+	if (raw_span <= OP_EDGE_RESOLUTION_DEG) return;
 
-	/* Moving an apparent edge inward exposes the same amount of additional
-	   free corridor; retain any nearer side object already found. */
-	gain = p->left_mm - old_left;
-	if (gain > 0) {
-		p->clear_left_mm += gain;
-		if (p->clear_left_mm > OP_CLEAR_CAP_MM) p->clear_left_mm = OP_CLEAR_CAP_MM;
-	}
-	gain = old_right - p->right_mm;
-	if (gain > 0) {
-		p->clear_right_mm += gain;
-		if (p->clear_right_mm > OP_CLEAR_CAP_MM) p->clear_right_mm = OP_CLEAR_CAP_MM;
-	}
+	/* A single-object calibration must not erase most of another object's
+	   measured span. Limit any future allowance to one scan cell per edge,
+	   retaining at least one cell of the observed obstacle. */
+	correction = half_angle_deg;
+	if (correction > OP_EDGE_RESOLUTION_DEG) correction = OP_EDGE_RESOLUTION_DEG;
+	if (correction > (raw_span - OP_EDGE_RESOLUTION_DEG) / 2)
+		correction = (raw_span - OP_EDGE_RESOLUTION_DEG) / 2;
+	if (correction <= 0) return;
+	left = planar(p->dist_mm, left_a + correction);
+	right = planar(p->dist_mm, right_a - correction);
+	if (left < p->left_mm || right > p->right_mm || right <= left) return;
+	p->left_mm = left;
+	p->right_mm = right;
+	p->width_mm = right - left;
+	p->bearing_deg = op_atan_deg((left + right) / 2, p->dist_mm);
+	/* Correcting a model is not an additional observation of free space.
+	   Keep both measured side clearances unchanged. */
+}
+
+LOCAL W depth_tolerance(W range)
+{
+	W tol = range / OP_DEPTH_RANGE_DIV;
+	if (tol < OP_DEPTH_MIN_MM) tol = OP_DEPTH_MIN_MM;
+	return (tol > OP_DEPTH_TOL_MM) ? OP_DEPTH_TOL_MM : tol;
 }
 
 LOCAL BOOL is_hit(const OP_SAMPLE *o, const H *y, INT n, INT i, W y_near)
 {
 	return (i >= 0 && i < n && o[i].status == SS_OK
-		&& iabs((W)y[i] - y_near) <= OP_DEPTH_TOL_MM) ? TRUE : FALSE;
+		&& iabs((W)y[i] - y_near) <= depth_tolerance(y_near)) ? TRUE : FALSE;
+}
+
+/* A face-band echo that is really the obstacle corner heard off-axis:
+   outside the direct beam, clearly farther than the face, and projecting
+   nearer than the face plane (OP_CORNER_* in obstacle_profile.h). */
+LOCAL BOOL corner_echo(const OP_SAMPLE *o, H y, W y_near)
+{
+	return (iabs(o->angle_deg) > OP_BEAM_DIRECT_DEG
+		&& (W)o->dist_mm - y_near >= OP_CORNER_RANGE_MM
+		&& (W)y < y_near - OP_CORNER_DEPTH_MM) ? TRUE : FALSE;
 }
 
 /*
@@ -221,6 +224,10 @@ LOCAL BOOL region_continues(const OP_SAMPLE *o, const H *y, INT n, INT i,
 	if (is_hit(o, y, n, i, y_near) || (i >= 0 && i < n && o[i].status == SS_INVALID)) {
 		return TRUE;
 	}
+	/* Only a missing/far background reflection can be bridged. A valid
+	   nearer return does not support continuity of this front plane. Bridging it merged separate echo groups in the 208 mm log. */
+	if (i >= 0 && i < n && o[i].status == SS_OK
+	    && (W)y[i] < y_near - depth_tolerance(y_near)) return FALSE;
 	for (j = 1; j <= OP_MAX_HIT_GAP; j++) {
 		if (is_hit(o, y, n, i + step * j, y_near)) {
 			return TRUE;
@@ -246,7 +253,7 @@ LOCAL W side_clearance(const OP_SAMPLE *o, const H *y, UINT n, INT from, INT ste
 		W	x;
 
 		if (o[i].status != SS_OK
-		    || iabs((W)y[i] - y_near) > OP_NEIGHBOUR_DEPTH_MM) {
+		    || iabs((W)y[i] - y_near) > depth_tolerance(y_near)) {
 			continue;
 		}
 		x = lateral(o[i].dist_mm, o[i].angle_deg);
@@ -355,6 +362,16 @@ EXPORT void op_build(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
 	while (ri > near_i && !is_hit(o, y, (INT)n, ri, y_near)) {
 		ri--;
 	}
+	/* Drop at most ONE corner echo per side: bounds any underestimate of a
+	   genuinely wider (e.g. angled) face to a single scan cell. */
+	if (li < near_i && corner_echo(&o[li], y[li], y_near)) {
+		li++;
+		while (li < near_i && !is_hit(o, y, (INT)n, li, y_near)) li++;
+	}
+	if (ri > near_i && corner_echo(&o[ri], y[ri], y_near)) {
+		ri--;
+		while (ri > near_i && !is_hit(o, y, (INT)n, ri, y_near)) ri--;
+	}
 	for (k = li; k <= ri; k++) {
 		if (is_hit(o, y, (INT)n, k, y_near)) {
 			hits++;
@@ -369,10 +386,15 @@ EXPORT void op_build(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
 	r_known = (ri < (INT)n - 1) ? TRUE : FALSE;
 	edge_l = l_known ? (o[li].angle_deg + o[li - 1].angle_deg) / 2 : o[li].angle_deg;
 	edge_r = r_known ? (o[ri].angle_deg + o[ri + 1].angle_deg) / 2 : o[ri].angle_deg;
-	if (US_BEAM_COMP_DEG > 0 && edge_r - edge_l > 2 * US_BEAM_COMP_DEG) {
-		edge_l += US_BEAM_COMP_DEG;
-		edge_r -= US_BEAM_COMP_DEG;
-	}
+	/* If a nearer mismatched ray separated another hit group, allow up
+	   to that first ray for edge uncertainty, without absorbing the group.
+	   This is bounded by the actual scan spacing, not a fixed object size. */
+	if (l_known && o[li - 1].status == SS_OK
+	    && (W)y[li - 1] < y_near - depth_tolerance(y_near)
+	    && is_hit(o, y, (INT)n, li - 2, y_near)) edge_l = o[li - 1].angle_deg;
+	if (r_known && o[ri + 1].status == SS_OK
+	    && (W)y[ri + 1] < y_near - depth_tolerance(y_near)
+	    && is_hit(o, y, (INT)n, ri + 2, y_near)) edge_r = o[ri + 1].angle_deg;
 
 	out->dist_mm = y_near;
 	out->left_mm = planar(y_near, edge_l);

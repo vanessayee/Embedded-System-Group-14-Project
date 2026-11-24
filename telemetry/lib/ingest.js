@@ -358,8 +358,8 @@ class Ingestor {
 
 	humpOp(s, base, f) {
 		return op('hump', Object.assign({}, base, {
-			boot_id: s.boot.id, height_mm: (f.code === null || f.code === 63) ? null : f.code * 2,
-			height_code: f.code, count_after: f.count, max_boot_mm: (f.max === 63) ? null : f.max * 2,
+			boot_id: s.boot.id, height_mm: codec.humpMm(f.code),
+			height_code: f.code, count_after: f.count, max_boot_mm: codec.humpMm(f.max),
 			detected_by: f.by
 		}), true);
 	}

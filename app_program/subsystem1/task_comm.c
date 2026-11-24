@@ -130,6 +130,12 @@ LOCAL void execute(const CMD_RECORD *c)
 	INT	arg;
 	UB	result = ACK_OK, detail = 0;
 
+	if (c->cmd == CMD_PING && c->arg == CMD_RESET_ARG) {
+		motion_request_reset();
+		send_ack(c->cmd_id, c->cmd, ACK_OK, ACK_RESET_PENDING);
+		return;
+	}
+
 	if (c->cmd == CMD_SET_NAV_MAP || c->cmd == CMD_GET_NAV_MAP) {
 		UB symbol = (UB)(c->arg & 63U), nav = NAV_UNMAPPED;
 		S3_BC_STATUS bc;
@@ -196,7 +202,7 @@ LOCAL void handle_rx(void)
 			}
 			continue;
 		}
-		if (c.cmd != CMD_STOP) {		/* a STOP is never throttled */
+		if (c.cmd != CMD_STOP && !(c.cmd == CMD_PING && c.arg == CMD_RESET_ARG)) {		/* a STOP is never throttled */
 			UW	now = app_now_ms();
 
 			if ((UW)(now - rate_start_ms) >= 1000U) {

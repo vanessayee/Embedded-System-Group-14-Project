@@ -56,7 +56,6 @@
 #define S5_SIDE_BAD_MAX	10	/* unusable side readings before failure */
 #define S5_SIDE_READY_MS	2000	/* servo reach + first side sample */
 #define S5_SIDE_CENTER_MS	700	/* centre servo before final forward clearance */
-
 /* Avoidance and recovery (bounded) [CAL] */
 #define S5_HOLD_MS		300	/* "hold position briefly"          */
 #define S5_STOP_WAIT_MS		1500

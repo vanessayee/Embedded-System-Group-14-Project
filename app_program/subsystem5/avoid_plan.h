@@ -32,7 +32,8 @@
 #define AV_ROBOT_WIDTH_MM	125
 #define AV_ROBOT_LENGTH_MM	175
 #define AV_SENSOR_BEHIND_FRONT_MM 0	/* sensor is directly above front bumper */
-#define AV_SIDE_GAP_MM		80	/* requested closest side gap (8 cm) */
+#define AV_SIDE_GAP_MM		50	/* requested closest side gap (5 cm; was 8 cm,
+					   measured ~95-100 mm on the robot) */
 #define AV_EDGE_UNCERTAINTY_MM	15	/* [CAL] reserve beyond the requested body gap */
 #define AV_ASSUME_OPEN_BOARD	1	/* road has no known lateral boundary */
 #define AV_REQUIRED_CORRIDOR_MM	(AV_ROBOT_WIDTH_MM + AV_SIDE_GAP_MM \
@@ -102,6 +103,26 @@ typedef struct S5_LOCAL_BITS {
 	W	forward_before_pass_mm; /* approach + diagonal forward progress */
 	W	return_turn_deg;	/* configured encoder-reliable return */
 } AV_PLAN;
+
+/* Maximum side range covered by the original measured profile after
+   departure; not just the requested gap from its apparent near edge. */
+IMPORT W av_side_watch_limit_mm(const S5_PROFILE *p, const AV_PLAN *plan,
+			       INT look_deg, W allowance_mm);
+IMPORT UW av_motion_wait_ms(UW type, INT arg, W creep_mms, UW extra_ms);
+/* Pass heading correction.  The departure turn pair does not cancel on the
+   robot (24 Nov right bypass: side range 190 -> 165 mm over 107 mm, ~13 deg
+   toward the obstacle).  The same error points a LEFT bypass away from the
+   obstacle, which is why only the right side failed.  Correct convergence
+   once per pass from the live side ranges; never turn toward the obstacle. */
+#define S5_HEADING_SETTLE_MM	40	/* skip near-corner echoes after confirmation */
+#define S5_HEADING_BASELINE_MM	100	/* travel between compared side ranges */
+#define S5_HEADING_FIX_MIN_DEG	5	/* > two 5 mm range steps over the baseline */
+#define S5_HEADING_FIX_MAX_DEG	20	/* bound one correction turn */
+
+/* Heading toward the obstacle side from two side-watch ranges taken
+   travel_mm apart at look_deg: + = converging, - = diverging, degrees. */
+IMPORT INT av_side_convergence_deg(W r_from_mm, W r_to_mm, W travel_mm,
+				   INT look_deg);
 
 IMPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan);
 /* -1 = reversing is unsafe/unhelpful, 0 = not needed, positive = reverse mm */
