@@ -1,8 +1,8 @@
 # Videos
 
 Short videos of tests and demos running on the real hardware. A video shows
-what a log cannot: the LED blinking, the motor turning, the robot reaching
-the line. List **every** video in the table at the bottom of this page.
+what a log cannot: the robot following the line, turning at a barcode
+junction, going around an obstacle and rejoining the line. List **every** video in the table at the bottom of this page.
 
 ## What to record
 
@@ -36,6 +36,7 @@ put its link in the *Log / evidence* column of that test's row in
 
 Newest at the bottom. Never delete a row.
 
+No videos have been listed yet (22 November 2026).
+
 | Date | Subsystem | Test ID / demo | Commit | Student ID | Link | Notes |
 |---|---|---|---|---|---|---|
-| YYYY-MM-DD | S1 | S1-U03 | `abc1234` | | <https://youtu.be/...> | LED blinks at 2 Hz |

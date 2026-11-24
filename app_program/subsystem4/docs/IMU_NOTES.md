@@ -2,8 +2,9 @@
 
 Code: `drv_i2c0.c`, `drv_imu.c` (hardware); `imu_proc.c`, `hump.c`,
 `s4_status.c` (pure logic); `task_imu.c`, `task_hump.c` (tasks). Tests:
-`s4_unit_tests.c` S4-U01..U29 and S4-U33..U45 (including the no-gyro path), on-target
-S4-U30..U32, integration INT-16.
+`s4_unit_tests.c` S4-U01..U29 and S4-U33..U64 (including the no-gyro path,
+sideways hump and handling detection), minimum-bit checks S4-M01..M06,
+on-target S4-U30..U32, integration INT-16.
 
 ## 1. The IMU chip: LSM303DLHC (GY-511), no gyroscope
 
@@ -57,8 +58,9 @@ not read** (on-target check S4-U31). At boot the console prints
   INIT or SAFE_STOP; Tribunal 1: "Buddy 2 must keep the motors off during
   calibration"). It repeats on every new INIT epoch, i.e. after each RESUME.
 * **Hump & Terrain Analysis:** priority 18, fed by a bounded 32-entry
-  queue of 24-bit packed samples (pitch 0.1°, distance step 0.1 mm, valid
-  bit, 4-bit sequence). A sequence gap (dropped sample) or an invalid sample
+  queue of 24-bit packed samples (tilt 0.1°, which is roll in the default
+  sideways mode and pitch with `HUMP_SIDEWAYS=0`; distance step 0.1 mm;
+  valid bit; 4-bit sequence). A sequence gap (dropped sample) or an invalid sample
   discards the hump in progress rather than measuring across missing data
   (Tribunal 1: "consumers ignore invalid or stale samples"). Distance comes
   from the change in Buddy 2's cumulative encoder odometry, not speed times
@@ -76,6 +78,7 @@ not read** (on-target check S4-U31). At boot the console prints
 | Turn rate (FR19) | Bias-corrected gyro Z (+ = left/CCW), integrated heading | turning above 15 °/s |
 | Motion class (FR18) | STATIONARY / MOVING / TURN_LEFT / TURN_RIGHT | still: gyro < 3 °/s on all axes and horizontal accel < 50 mg for 300 ms |
 | Collision (FR18) | Gravity-compensated horizontal acceleration magnitude | > 1.5 g; 500 ms refractory period; latched until CLEAR / RESUME |
+| Handling (car picked up) | Any of: \|a\| departs from 1 g, free fall, or severe tilt. Treated like a collision (`SYS_FLT_COLLISION` + `SYS_EV_COLLISION`, motors stop) and never counted as a hump. A gentle level lift cannot be detected without a contact sensor | \|a\| − 1 g > 400 mg for 80 ms; \|a\| < 350 mg for 60 ms; pitch or roll ≥ 60° for 200 ms |
 | Data validity (FR15, NFR14) | Saturated samples, identical raw data 20 times (stuck sensor), I2C failures | 10 bad samples in a row (100 ms) → FAULT |
 
 Computation stays at full resolution (mg, mdps, 0.01°). Only the published

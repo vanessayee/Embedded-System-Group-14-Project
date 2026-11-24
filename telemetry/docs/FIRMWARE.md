@@ -60,20 +60,24 @@ side by side. Ordered by value for trustworthy measurements:
 
 ## 5. Shortest live check (robot on a stand, wheels off the ground)
 
-1. Connect this Mac to the hotspot the robot uses and check that
-   `ipconfig getifaddr en0` prints `172.20.10.7` (the `MQTT_BROKER_IP` in
-   `config/wifi_secrets.h`). If not, the robot cannot reach this Mac.
-2. `cd /Users/junjiang/Embedded_System_Workspace/ES_Sample_Code/telemetry && bin/csc14 start`
+1. Connect this computer to the hotspot the robot uses and check that its
+   address there (`ipconfig getifaddr en0` on a Mac) equals
+   `MQTT_BROKER_IP` in `config/wifi_secrets.h`. If not, the robot cannot
+   reach this computer: change the file and rebuild the firmware.
+2. `cd telemetry && bin/csc14 start` from the repository root
    (starts `mosquitto -c ~/mosquitto-dev.conf` if nothing listens on 1883).
 3. Power the robot. Within about 30 s `bin/csc14 status` shows
-   `robot csc14-car (live): ONLINE`; the dashboard
-   http://127.0.0.1:3000/d/csc14-robot shows telemetry 2/s, heartbeat 1/s.
-4. `bin/csc14 run start "stand check"`. Hold black tape under the car's LEFT
-   IR sensor: the IR panel must show **left** BLACK. Tilt the car nose up:
-   pitch positive. Turn it left by hand: IMU turn rate positive.
-5. Switch the hotspot off for 20 s, then on: the link goes STALE, then
-   OFFLINE, then ONLINE; the robot's reconnect count goes up by one; the
-   time series show a gap.
+   `robot csc14-car (live): ONLINE`; the console at
+   http://127.0.0.1:3000/d/csc14-robot shows ROBOT ONLINE and updating values.
+4. `bin/csc14 run start "stand check"`. Hold black tape under the car's
+   physical RIGHT IR sensor (GP2): the console's "Centre / right" reading
+   must show `WHITE / BLACK`. Tilt the car nose up: pitch positive. (The
+   console does not show the left sensor or the IMU turn rate; both are
+   stored in PostgreSQL.)
+5. Switch the hotspot off for 20 s, then on: `bin/csc14 status` shows the
+   link going STALE, then OFFLINE, then ONLINE; the robot's reconnect count
+   goes up by one; the console shows its stale banner while the robot is
+   offline.
 6. `bin/csc14 run end` prints the run summary.
 7. Optional: `bin/csc14 command ping` → `ACCEPTED: OK`.
 

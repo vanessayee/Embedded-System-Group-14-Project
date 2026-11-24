@@ -1,7 +1,10 @@
 # micro T-Kernel 3.0 project for Raspberry Pi Pico W
 
-A starting point for your project: micro T-Kernel 3.0 running on **both cores**
-of the Pico W's RP2040, with a USB serial console and the WiFi driver built in.
+Group 14's robot car firmware: micro T-Kernel 3.0 running on **both cores**
+of the Pico W's RP2040, with a USB serial console, WiFi and MQTT. Five
+subsystems share one firmware image (`app_program/`, ownership in `TEAM.md`).
+The telemetry server (Mosquitto, Node-RED, PostgreSQL, Grafana) is in
+`telemetry/`.
 
 You need a **Raspberry Pi Pico W**, a USB cable, and a computer running
 macOS, Linux, or Windows with **WSL (Ubuntu)**. On Windows, run every
@@ -37,10 +40,11 @@ sudo apt update && sudo apt install -y git make g++
 mkdir -p ~/pico && cd ~/pico
 git clone --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git
 cd pico-sdk
-git submodule update --init lib/tinyusb lib/cyw43-driver
+git submodule update --init lib/tinyusb lib/cyw43-driver lib/lwip
 ```
 
-The `submodule` line is required: it downloads the USB and WiFi drivers.
+The `submodule` line is required: it downloads the USB and WiFi drivers and
+the lwIP network stack that the robot's MQTT link needs.
 (SDK 2.3.0 has also been tested and works.)
 
 **1.3 Install the Arm GNU Toolchain (the compiler)**
@@ -88,16 +92,32 @@ git clone <URL-of-this-repo> my-project
 cd my-project
 ```
 
-**2.2 Build**
+**2.2 Set the Wi-Fi network and MQTT broker**
+
+```sh
+cp config/wifi_secrets.example.h config/wifi_secrets.h
+```
+
+Edit `config/wifi_secrets.h`: set `WIFI_SSID` and `WIFI_PASSWORD` to the
+2.4 GHz hotspot the robot joins, and `MQTT_BROKER_IP` to the address of the
+computer running Mosquitto on that hotspot (see `telemetry/README.md`).
+The file is in `.gitignore`, so the password is never committed.
+
+**2.3 Build the robot firmware**
 
 ```sh
 cd build_make
-make -j8
+make NET=lwip MQTT=1 -j8
 ```
 
 A successful build ends with a line like
-`tools/elf2uf2 mtk3pico_smp1_usb_cdc_wifi.elf mtk3pico_smp1_usb_cdc_wifi.uf2`.
-Your firmware is **`build_make/mtk3pico_smp1_usb_cdc_wifi.uf2`**.
+`tools/elf2uf2 mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.elf mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.uf2`.
+Your firmware is **`build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.uf2`**.
+
+> ⚠️ **Always build the robot with `NET=lwip MQTT=1`.** A plain `make -j8`
+> leaves out the network stack. Buddy 2 keeps the motors off until Buddy 1
+> reports MQTT online, so that image never leaves INIT and the car never
+> drives.
 
 If `make` stops with an error, it tells you which one is wrong:
 `arm-none-eabi-gcc not found` means fix `PATH`, and
@@ -105,14 +125,14 @@ If `make` stops with an error, it tells you which one is wrong:
 
 To build a single-core, UART-only or test version, see section 3.
 
-**2.3 Flash it onto the Pico W**
+**2.4 Flash it onto the Pico W**
 
 1. Hold the **BOOTSEL** button and plug the Pico W into USB, then release.
    A drive called **RPI-RP2** appears.
 2. Copy the `.uf2` file onto that drive. On WSL, run `explorer.exe .` in
    `build_make` to open the folder in Windows. The Pico reboots by itself.
 
-**2.4 See the output**
+**2.5 See the output**
 
 Open the Pico's USB serial port at 115200 baud:
 
@@ -122,10 +142,12 @@ screen /dev/ttyACM0 115200            # Linux
 ```
 
 On Windows, use PuTTY or the VS Code *Serial Monitor* on the new COM port.
-You should see the task reports. Connect an LED with a 330 Ω resistor from
-**GP19** to GND to see subsystem 1's LED blink.
+Every few seconds during startup Buddy 2 prints a line such as
+`startup: B1 MQTT 0 B2 motion 1 B3 IR/barcode 1 B4 IMU/hump 1 B5 ultrasonic 1; motors held until all ready`.
+The car starts driving only when all five values are 1. `comm:` lines show
+Buddy 1's Wi-Fi and MQTT connection state.
 
-**2.5 Write your own code**
+**2.6 Write your own code**
 
 Your code lives in **`app_program/`**. Every `.c` file there, and in its
 subfolders, is compiled automatically.
@@ -154,12 +176,15 @@ between subsystems in **`TEAM.md`**, and record every test in **`testing/`**
 the subsystem tests at power-up. Short videos of tests and demos are shared
 as unlisted YouTube links, listed in **`videos/`**.
 
-Pins: use **GP0–GP22 and GP26–GP28**. GP0/GP1 are free unless your team
-builds with `CRASH_REPORT=1` (section 3), which needs them. Never use
+Pins: use **GP0–GP22 and GP26–GP28**, and claim each one in `TEAM.md`
+first. GP0/GP1 carry Buddy 2's right-wheel encoder. A `CRASH_REPORT=1` or
+`CONSOLE=uart` build (section 3) takes them for UART0 and disables that
+encoder, so the car cannot drive in such a build. Never use
 GP23/GP24/GP25/GP29: they are wired to the Pico W radio. The Pico W's
 on-board LED is also on the radio, so use an external LED instead.
 
-After editing, run `make -j8` again in `build_make` and copy the new `.uf2`.
+After editing, run `make NET=lwip MQTT=1 -j8` again in `build_make` and copy
+the new `.uf2`.
 
 ---
 
@@ -169,7 +194,8 @@ After editing, run `make -j8` again in `build_make` and copy the new `.uf2`.
 after `make`. They can be combined in any order:
 
 ```sh
-make -j8                          # defaults: SMP=1 CONSOLE=usb_cdc WIFI=cyw43 TEST=0 CRASH_REPORT=0
+make -j8                          # defaults: SMP=1 CONSOLE=usb_cdc WIFI=cyw43 NET=none MQTT=0 TEST=0 CRASH_REPORT=0
+make NET=lwip MQTT=1 -j8          # the robot firmware (section 2.3)
 make SMP=0 -j8                    # single-core build
 make CONSOLE=uart WIFI=none -j8   # no USB console, radio off (no Pico SDK needed)
 make TEST=1 -j8                   # firmware with the subsystem self-tests
@@ -248,9 +274,11 @@ Each option goes through the same steps:
 - **Kernel settings** such as the maximum number of tasks, semaphores or
   mailboxes are not make options. They are in `config/config.h` (`CNF_MAX_...`).
 
-The makefile also has `NET=lwip` and `MQTT=1` (TCP/IP and MQTT over WiFi).
-They need the SDK's `lib/lwip` submodule and a `config/wifi_secrets.h`
-(copy `config/wifi_secrets.example.h`). This guide does not cover them.
+The makefile also has `NET` (**`none`**, `lwip`) and `MQTT` (**`0`**, `1`):
+the TCP/IP stack and the MQTT client over WiFi, image suffixes `_lwip` and
+`_mqtt`. `MQTT=1` requires `NET=lwip`, which requires `WIFI=cyw43`. They
+need the SDK's `lib/lwip` submodule (step 1.2) and `config/wifi_secrets.h`
+(step 2.2). The robot firmware always uses both (section 2.3).
 
 ---
 

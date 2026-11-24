@@ -3,7 +3,8 @@
 Code: `drv_ultrasonic.c`, `drv_servo.c` (hardware); `s5_msg.c`,
 `obstacle_profile.c`, `avoid_plan.c` (pure logic); `task_scan.c`,
 `task_profile.c`, `task_avoid.c` (tasks). Tests: `s5_unit_tests.c`
-S5-U01..U20, on-target S5-U21..U23, integration INT-10, INT-14, INT-18.
+S5-U01..U20, minimum-bit checks S5-M01..M08, on-target S5-U21..U23,
+integration INT-10, INT-14, INT-18.
 
 ## 1. Three tasks, kept separate (Tribunal 1 Version B: "No change")
 
@@ -118,12 +119,13 @@ prints both corrected and raw widths. Unknown edges are never corrected.
 ## 4. Avoidance plan (`avoid_plan.c`; Briefing p.8 workflow)
 
 * **Side choice:** with `AV_ASSUME_OPEN_BOARD=1`, the board is treated like an
-  open road. The 240/130 mm scan reaches are not interpreted as board edges.
+  open road. The lateral reach of the scan is not interpreted as a board edge.
   Each known obstacle edge defines a candidate route and the planner chooses
   the one requiring less lateral deviation; equal routes prefer right
-  (`AV_PREFER_RIGHT`). The path uses the measured 152 mm robot width, requested
-  100 mm obstacle gap and 25 mm scan/turn/odometry allowance. If both obstacle
-  edges are unknown →
+  (`AV_PREFER_RIGHT`). The path uses the 125 mm robot width
+  (`AV_ROBOT_WIDTH_MM`), the requested 80 mm side gap (`AV_SIDE_GAP_MM`) and a
+  15 mm edge-uncertainty allowance (`AV_EDGE_UNCERTAINTY_MM`). If both
+  obstacle edges are unknown →
   `OBSTACLE_UNAVOIDABLE` → Safe Stop (FR12).
 * **Manoeuvre** (side s = ±1):
   `[MOVE approach], TURN s·T, MOVE d1, TURN −s·T, PASS, TURN −s·30°, SEARCH ≤ dS, TURN s·30°`.
@@ -131,18 +133,19 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   the smallest safe integer departure angle T between 30° and 75° from the
   measured lateral offset and remaining front clearance. Here
   d1 = lateral offset / sin T. During PASS the servo looks 80° toward
-  the obstacle. Two side hits establish it; five consecutive readings beyond
+  the obstacle. Two side hits establish it; three consecutive readings beyond
   a plan-derived side-range limit (or NO_ECHO) establish the far edge. The
   limit is the planned sensor-to-edge distance at 80° plus a 40 mm range/pose
   tolerance, rather than a fixed board-clearance number. Buddy 5 records the
   closest valid side range, subtracts 10 mm measurement uncertainty, and uses
   the resulting live body-to-obstacle gap to find the earliest safe 30° return.
   The corner calculation checks the complete in-place pivot and subsequent
-  diagonal move while retaining the requested 100 mm gap. A conservative full
+  diagonal move while retaining the requested 80 mm gap. A conservative full
   body-length fallback remains when the side measurement proves no spare gap.
   The far-edge search itself is bounded only by Buddy 2's 2 m single-motion
   safety limit.
-  The measured geometry is 152 mm width, 215 mm length, with the sensor
+  The configured geometry is 125 mm width, 175 mm length
+  (`AV_ROBOT_WIDTH_MM`, `AV_ROBOT_LENGTH_MM`), with the sensor
   directly above the front bumper. The forward monitor triggers at 210 mm,
   including 60 mm of stopping allowance, so the requested stopped gap is
   approximately 150 mm. The planner may then use verified spare space and move
@@ -150,8 +153,8 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   can establish the side gap before the front face; otherwise bounded
   reverse/rescan is attempted.
 * **Bounded drift (NFR5):** the lateral offset is measured obstacle edge +
-  76 mm half-width + requested 100 mm side gap + 25 mm measured motion
-  allowance. Obstacle width and route offset are not fixed. There is no board
+  62 mm half-width + requested 80 mm side gap + 15 mm edge-uncertainty
+  allowance (`avoid_plan.c`). Obstacle width and route offset are not fixed. There is no board
   width or board length assumption; only the motion command's representable
   distance remains a hard safety limit.
 * **Too-close recovery:** when a bypass side is already known safe but the
@@ -192,15 +195,16 @@ prints both corrected and raw widths. Unknown edges are never corrected.
   steering is ignored in that mode. On success Buddy 5 posts
   `SYS_EV_AVOID_DONE` and Buddy 2 returns to NORMAL (INT-10, INT-14).
 
-Simulated bypass of a 150 mm box at 300 mm with the plant model (INT-10):
+Simulated bypass of a 150 mm box at 300 mm with the plant model (INT-10,
+host run on commit `74cd94f`, 22 November 2026):
 
-* closest robot-centre position 252 mm beside the 75 mm half-width box,
-  giving about 101 mm edge-to-edge clearance for the 152 mm-wide robot;
-* back on the line (offset 0 mm);
-* end heading 0.455° (within ±10°).
+* the car's body stays at least 84 mm from the box while beside it
+  (configured side gap 80 mm);
+* back on the line (offset 0 mm) after 755 mm of travel;
+* end heading 0.346° (within ±10°).
 
-The heading error comes mostly from the 10 mm encoder tick (20 slots/rev
-`[CAL]`); see `subsystem2/docs/VERIFICATION_REPORT.md` §7.
+This is a simulation with the configured robot geometry. It does not replace
+the track test in section 6.
 
 ## 6. Remaining hardware validation (assumption A6 stays open)
 

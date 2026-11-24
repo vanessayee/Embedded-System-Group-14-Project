@@ -49,6 +49,14 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S5-U21 | Obstacle Scan ranges every 60 ms (+ one 10 ms tick) while monitoring |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U21 PASS` |
 | S5-U22 | ranging result and distance code agree; a silent sensor raises US_NO_RESPONSE |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U22 PASS` |
 | S5-U23 | outside navigation: avoidance idle, servo centred, forward monitoring |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U23 PASS` |
+| S5-M01 | request, sample and status locals fit one aligned word |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M01 PASS` |
+| S5-M02 | bounded task and plan storage uses aligned words |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M02 PASS` |
+| S5-M03 | fault-run saturation and original byte detection wrap are retained |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M03 PASS` |
+| S5-M04 | unset profile identity cannot alias the first real sample |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M04 PASS` |
+| S5-M05 | full profile capacity and abs(-128) limit fit without neighbouring corruption |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M05 PASS` |
+| S5-M06 | pass confirmation, faults and signed side-watch angle coexist at limits |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M06 PASS` |
+| S5-M07 | full sensor range and actuator argument fit compact local storage |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M07 PASS` |
+| S5-M08 | unknown echo and negative turn retained; public line-lock counter not truncated |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-M08 PASS` |
 
 *Method:* **auto** = `TEST_CHECK` in code, result printed on the console;
 **manual** = a person observes the result (LED, scope, meter, phone app…).
@@ -101,4 +109,3 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-18 | S5-U21 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
 | 2026-11-18 | S5-U22 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
 | 2026-11-18 | S5-U23 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem5_target.txt` | Pico target run. |
-| YYYY-MM-DD | S5-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_subsystem5_test.txt` | |

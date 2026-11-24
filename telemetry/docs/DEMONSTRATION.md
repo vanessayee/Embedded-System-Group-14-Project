@@ -1,15 +1,20 @@
 # Group 14 demonstration console
 
-Open **http://127.0.0.1:1880/csc14/dashboard** for the mission console.
-The existing Grafana dashboard at **http://127.0.0.1:3000/d/csc14-robot**
-links to this console and retains detailed historical charts.
+Open **http://127.0.0.1:3000/d/csc14-robot?theme=light&kiosk** for the
+mission console. This Grafana dashboard has a single panel that embeds the
+live console page served by Node-RED at
+**http://127.0.0.1:1880/csc14/dashboard** (which also works on its own).
+Grafana no longer has separate historical charts; past data stays in
+PostgreSQL.
 
 ## Starting on this laptop
 
 PostgreSQL (local port 55432), Mosquitto (1883) and Grafana (3000) use the
 existing installation in Documents/Codex/csc14-local. Enable the laptop's
 2.4 GHz hotspot and connect the Pico using the configured credentials.
-Flash the current build_make/group14_robot.uf2 once to enable remote mapping.
+Flash firmware built with `make NET=lwip MQTT=1 -j8` (repository
+`README.md` §2.3) once to enable remote mapping. `config/wifi_secrets.h`
+must hold this hotspot's name and password and this laptop's address on it.
 
 From the repository root in PowerShell:
 
@@ -130,8 +135,8 @@ Pressing the Pico physical RUN/reset button restarts the firmware. Its new boot
 identity resets the mission console's current measurements, ten evidence flags,
 event list, chart and confirmed barcode rules after MQTT reconnects. Saved laptop
 barcode choices remain available to reapply while stopped. Historical database
-records and Grafana time-series remain available; current-value Grafana cards
-show only the latest boot. The boot identity is repeated every five seconds to
+records remain in PostgreSQL; the console's current values show only the
+latest boot. The boot identity is repeated every five seconds to
 recover from a dropped MQTT event; reconnecting alone does not reset the session.
 
 ## Live activation — 19 November 2026

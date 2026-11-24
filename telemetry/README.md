@@ -18,19 +18,21 @@ The robot (Pico W) sends small binary messages to an MQTT broker
 which reads PostgreSQL through the Node-RED backend.
 
 ```
-Pico W ──Wi-Fi──> Mosquitto ──> Node-RED ──> PostgreSQL ──> Grafana (browser)
-          csc14/tlm, hb, evt, ack   validate,     history      dashboard
-                                    decode, store
+Pico W ──Wi-Fi──> Mosquitto ──> Node-RED ──────────> PostgreSQL
+   csc14/tlm, hb, evt, ack      validate, decode,     history
+                                store; console API
+Pico W <──Wi-Fi── Mosquitto <── Node-RED <── Grafana (browser) embeds
+   csc14/cmd                    commands       the live console page
 ```
 
-Everything for the server is in this folder:
-`/Users/junjiang/Embedded_System_Workspace/ES_Sample_Code/telemetry` (on the
-Mac). The commands below are run from there.
+Everything for the server is in this folder, `telemetry/` in the repository.
+The commands below are run from there. On the Windows demonstration laptop,
+use `docs/DEMONSTRATION.md` instead.
 
-## First time on this Mac (done once)
+## First time on a Mac or Linux computer (done once)
 
 ```sh
-cd /Users/junjiang/Embedded_System_Workspace/ES_Sample_Code/telemetry
+cd telemetry
 bin/csc14 setup
 ```
 
@@ -71,10 +73,12 @@ can never become part of a live run.
 
 ## With the robot
 
-The robot connects to `MQTT_BROKER_IP` in `config/wifi_secrets.h`
-(currently `172.20.10.7`, this Mac on the phone hotspot). Join that
-hotspot, run `bin/csc14 start`, power the robot. The step-by-step check
-is in [docs/FIRMWARE.md](docs/FIRMWARE.md) §5.
+The robot connects to `MQTT_BROKER_IP` in `config/wifi_secrets.h`, which
+must be this computer's address on the 2.4 GHz hotspot the robot joins.
+That file is not in git, so check it on the computer that builds the
+firmware, and rebuild with `make NET=lwip MQTT=1 -j8` after changing it.
+Join that hotspot, run `bin/csc14 start`, power the robot. The step-by-step
+check is in [docs/FIRMWARE.md](docs/FIRMWARE.md) §5.
 
 ## Settings you may need to change (`telemetry/.env`)
 
@@ -82,8 +86,8 @@ is in [docs/FIRMWARE.md](docs/FIRMWARE.md) §5.
 |---|---|
 | `CSC14_IR_SIDES_MIRRORED`, `CSC14_SYS_*` | if the flashed firmware was built with different `IR_SIDES_MIRRORED` / `SYS_COLLISION_STOPS` / `SYS_IMU_REQUIRED` / `SYS_US_REQUIRED` |
 | `CSC14_MQTT_HOST`, `CSC14_MQTT_PORT` | broker on another computer |
-| `CSC14_GRAFANA_HOST=0.0.0.0` | to open the dashboard from another laptop |
-| `CSC14_ALLOW_MOTION_COMMANDS=1` | only if you want `bin/csc14 command stop/resume/clear/speed` |
+| `CSC14_GRAFANA_HOST=0.0.0.0` | to open Grafana from another laptop. The embedded console is loaded from `http://127.0.0.1:1880` (`grafana/dashboards/csc14-robot.json`), so on another computer that panel stays empty unless the iframe address and `CSC14_NODERED_HOST` are changed too |
+| `CSC14_ALLOW_MOTION_COMMANDS=1` | to enable the dashboard's **Resume** and **Clear faults** buttons, and `bin/csc14 command stop/resume/clear/speed`. The dashboard's **Stop motors** button works without it. `tools/start-windows-dashboard.ps1` sets it for you |
 
 ## Tests
 

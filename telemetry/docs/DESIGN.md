@@ -15,7 +15,7 @@ except for the one firmware change in [FIRMWARE.md](FIRMWARE.md).
 | FR13 | heartbeat; online / disconnected / recovering | robot heartbeat stored; backend link state ONLINE / STALE / OFFLINE / UNKNOWN from frame age; robot-reported comm state and reconnect count shown |
 | FR14 | validate, store valid measurements in PostgreSQL, show current and historical telemetry | Node-RED validation (length, CRC, version, type, every field range); PostgreSQL; Grafana dashboard |
 | FR15–19 | validity/calibration, tilt, motion class, collision, turn rate | stored as typed columns and server events (TILT_ON/OFF, COLLISION, IMU status), shown with the IMU's real conventions |
-| NFR9–11 | robot independent of server/database; non-blocking reconnection; malformed messages handled | backend never publishes; no firmware path waits for it; malformed frames go to `csc14.rejected_frame` |
+| NFR9–11 | robot independent of server/database; non-blocking reconnection; malformed messages handled | the backend publishes only commands an operator requests on the console, never on its own; no firmware path waits for it; malformed frames go to `csc14.rejected_frame` |
 | Change Req. 1 | compact binary application fields | unchanged binary v1 frames; JSON only on the server |
 | Week 6 §6.1 | Mosquitto → Node-RED → PostgreSQL → Grafana, on the Raspberry Pi | same chain; native install (§3) |
 
@@ -96,11 +96,21 @@ uses. Docker being installed did not decide it either way.
 3. Function "store in PostgreSQL" → `lib/store.js`: bounded queue,
    parameterized INSERTs, retry.
 4. Every 1 s link state, every 10 s pipeline health, every 5 s saved state.
-5. Grafana reads with a SELECT-only role.
+5. The live console page (`dashboard/`) is served by Node-RED at
+   `/csc14/dashboard` and reads PostgreSQL through Node-RED's
+   `/csc14/api/snapshot` route every 1.2 s. Grafana has no database
+   connection; its one dashboard embeds that page.
 
-The flow never publishes; the only publisher in `telemetry/` is
-`tools/command.js` (manual, PING/REQ_STATUS unless motion commands are
-explicitly enabled).
+The ingestion flow never publishes. Commands reach `csc14/cmd` only when an
+operator asks for them:
+
+- the console's `/csc14/api/command` and `/csc14/api/rules` routes
+  (`lib/demo-service.js`): STOP, CLEAR, RESUME, REQ_STATUS and the A–Z map
+  (SET_NAV_MAP / GET_NAV_MAP). Each command is stored in `csc14.command` and
+  waits for the robot's ACK. RESUME and CLEAR also need
+  `CSC14_ALLOW_MOTION_COMMANDS=1`;
+- `tools/command.js` (manual, PING/REQ_STATUS unless motion commands are
+  explicitly enabled).
 
 ## 5. Storage
 
@@ -138,11 +148,14 @@ run. No partitioning: a 2 Hz robot adds a few MB per hour.
   robot sends no clock time; this is never presented as the physical event
   time. `rx_delay_ms` / `late` estimate how long a telemetry frame waited
   (relative to the session's fastest frame).
-- Boot sessions are inferred from uptime continuity (no boot id in v1):
-  uptime and receive time advance together; a mismatch beyond tolerance
-  starts a new session (`robot_restart` when the uptime is shorter than
-  the time since the previous frame). The session state survives Node-RED
-  restarts (`.runtime/nodered/ingest-state.json`).
+- Boot sessions come from the robot's BOOT event (protocol §5.3): a
+  16-bit token chosen at power-up and repeated every 5 s. A new token starts
+  a new session (`robot_restart`); the same token after a reconnect does
+  not. Until a BOOT event arrives, and for older firmware without it, the
+  session is inferred from uptime continuity: uptime and receive time
+  advance together, and a mismatch beyond tolerance starts a new session.
+  The session state survives Node-RED restarts
+  (`.runtime/nodered/ingest-state.json`).
 - Database ids are identities; 8-bit sequence numbers are only used to
   count gaps (exact up to 120 periods, otherwise estimated from time).
 
@@ -172,26 +185,31 @@ run. No partitioning: a 2 Hz robot adds a few MB per hour.
   it and reports a `BACKEND_BUFFER_OVERFLOW` event when the database is back.
   On Node-RED stop the remainder is saved to
   `.runtime/nodered/unwritten-rows.jsonl` and queued again at start.
-- **Health** is separate from robot faults: `/csc14/health`,
-  `csc14.ingest_health`, the "Backend pipeline" panel.
+- **Health** is separate from robot faults: `/csc14/health` and
+  `csc14.ingest_health`.
 
-The history is therefore NOT guaranteed complete. The dashboard shows gaps,
-the run summary lists the reasons a figure may be incomplete.
+The history is therefore NOT guaranteed complete. The console marks stale
+data, and the run summary lists the reasons a figure may be incomplete.
 
 ## 8. Dashboard rules
 
-Every time series has one row per bucket over the whole range, so an
-outage is a gap at every zoom; the smallest bucket is 1 s (two frames).
-"Current" panels say STALE when the newest row is older than 5 s. Labels
-name the car's real sides, units and sign conventions. Nothing is shown that
-the robot does not measure (no battery, position, per-wheel target or PWM).
-Refresh 5 s = Grafana's `min_refresh_interval`.
+The live console (`dashboard/`, embedded in Grafana) polls Node-RED every
+1.2 s. It treats the robot as live only while the newest telemetry frame is
+at most 5 s old; otherwise a banner says the values are stale and shows
+their age. Current values, evidence flags and the event list cover the
+latest robot boot only. Labels name the car's real sides, units and sign
+conventions. Nothing is shown that the robot does not measure (no battery,
+position, per-wheel target or PWM). The earlier Grafana time-series panels
+were removed; history stays in PostgreSQL.
 
 ## 9. Security
 
 Mosquitto accepts anonymous clients because the Pico has no MQTT
 credentials; keep it on a private network. Node-RED's editor listens on
 127.0.0.1 only (set `CSC14_NODERED_ADMIN_HASH` before exposing it).
-Grafana uses a SELECT-only database role; anonymous viewing is on by
-default for the local dashboard (`CSC14_GRAFANA_ANONYMOUS`). Passwords are
-only in `telemetry/.env` (mode 600, ignored by git).
+Grafana has no database connection; anonymous viewing is on by default for
+the local dashboard (`CSC14_GRAFANA_ANONYMOUS`). Node-RED's console routes,
+including the command routes, accept same-origin requests and use the
+writer role. The SELECT-only reader role (`CSC14_PG_READER_USER`) is still
+created by setup. Passwords are only in `telemetry/.env` (mode 600, ignored
+by git).

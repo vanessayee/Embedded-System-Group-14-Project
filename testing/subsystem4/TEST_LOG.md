@@ -44,6 +44,40 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S4-U30 | IMU Monitoring runs every 10 ms (100 per s) |  | auto (target only) | `subsystem4/subsystem4_test.c` | `[TEST] S4-U30 PASS` |
 | S4-U31 | IMU snapshot honest and fresh: valid data only from a calibrated chip, else invalid codes + IMU fault |  | auto (target only) | `subsystem4/subsystem4_test.c` | `[TEST] S4-U31 PASS` |
 | S4-U32 | standing car: no hump reported; IMU -> hump queue never overflowed |  | auto (target only) | `subsystem4/subsystem4_test.c` | `[TEST] S4-U32 PASS` |
+| S4-U33 | no gyro: static 10 deg pitch from the accelerometer within 0.5 deg |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U33 PASS` |
+| S4-U34 | no gyro: single bump spike rejected, pitch error < 1 deg |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U34 PASS` |
+| S4-U35 | no gyro: tilt only after the filter settles and 200 ms beyond 15 deg |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U35 PASS` |
+| S4-U36 | no gyro: 2.5 g impact detected once, peak recorded |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U36 PASS` |
+| S4-U37 | no gyro: left turn from the magnetometer, rate within 3 dps, heading within 2 deg |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U37 PASS` |
+| S4-U38 | no gyro: right turn gives a negative yaw rate |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U38 PASS` |
+| S4-U39 | no gyro: heading tilt-compensated, climbing 10 deg moves it < 2 deg, no false turn |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U39 PASS` |
+| S4-U40 | no gyro: magnetometer overflow invalidates heading only, not the IMU |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U40 PASS` |
+| S4-U41 | no gyro: still for 300 ms: STATIONARY |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U41 PASS` |
+| S4-U42 | no gyro: 40 mm hump through the accelerometer filter within +-4 mm, no false turn |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U42 PASS` |
+| S4-U43 | no gyro: 40 mm hump at 30 mm/s (0.3 mm per sample) within +-4 mm |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U43 PASS` |
+| S4-U44 | shallow road grade is not accumulated into a later hump candidate |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U44 PASS` |
+| S4-U45 | reverse motion rejects an active forward hump measurement |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U45 PASS` |
+| S4-U50 | level 1g remains normal; gentle level lifting cannot be inferred |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U50 PASS` |
+| S4-U51 | sustained vertical pickup jolt triggers handling stop |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U51 PASS` |
+| S4-U52 | sustained low-g/free-fall triggers handling stop |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U52 PASS` |
+| S4-U53 | robot held on its side triggers severe-tilt handling stop |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U53 PASS` |
+| S4-U54 | ordinary 20-degree hump tilt does not trigger severe handling stop |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U54 PASS` |
+| S4-U55 | 30 mm/s hump survives real 20 ms whole-mm odometry sampled at 10 ms |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U55 PASS` |
+| S4-U56 | sustained uphill tilt without wheel travel cannot start a hump |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U56 PASS` |
+| S4-U57 | confirmed uphill tilt starts with actual forward travel after zero increments |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U57 PASS` |
+| S4-U58 | one-wheel 20-degree roll on either side measures about 37.6 mm with sparse odometry |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U58 PASS` |
+| S4-U59 | stationary sideways tilt cannot start a terrain measurement |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U59 PASS` |
+| S4-U60 | one-wheel height tracks peak but waits for level before publishing a completed hump |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U60 PASS` |
+| S4-U61 | lost IMU sample discards the side hump and blocks partial remeasurement until level |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U61 PASS` |
+| S4-U62 | overturn/severe tilt is not reported as a hump |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U62 PASS` |
+| S4-U63 | long sideways slope is rejected without rearming before level |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U63 PASS` |
+| S4-U64 | LSM303 roll filter and packed queue measure a one-wheel hump at slow speed |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U64 PASS` |
+| S4-M01 | local flags compact without narrowing numeric sensor values |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M01 PASS` |
+| S4-M02 | snapshot storage bounded; explicit shared-word packers retained |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M02 PASS` |
+| S4-M03 | stuck and invalid counters retain 255 saturation without wrap |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M03 PASS` |
+| S4-M04 | full collision refractory delay retained |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M04 PASS` |
+| S4-M05 | magnetic history retains full window and circular index |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M05 PASS` |
+| S4-M06 | hump count saturates while highest peak keeps micrometre precision |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M06 PASS` |
 
 *Method:* **auto** = `TEST_CHECK` in code, result printed on the console;
 **manual** = a person observes the result (LED, scope, meter, phone app…).
@@ -102,4 +136,3 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-18 | S4-U30 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
 | 2026-11-18 | S4-U31 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
 | 2026-11-18 | S4-U32 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem4_target.txt` | Pico target run. |
-| YYYY-MM-DD | S4-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |

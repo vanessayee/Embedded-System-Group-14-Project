@@ -2,7 +2,9 @@
 
 Owner: Buddy 3. Code: `barcode.c` (symbology and capture
 state machine), `drv_ir.c` (edge capture), `nav_map.c` (meanings),
-`task_barcode.c` (task). Tests: `s3_unit_tests.c` S3-U01..U17.
+`task_barcode.c` (task). Tests: `s3_unit_tests.c` S3-U01..U88 (barcode
+decoding is S3-U01..U17; the rest cover line following, calibration,
+junctions and the navigation map).
 
 ## 1. Sources examined
 
@@ -80,16 +82,18 @@ characters are decoded and reported (telemetry fields 17–23, `EVT_BARCODE`)
 but produce no motion unless explicitly mapped. S3-U15 verifies these
 assignments.
 
+The operator can change the mapping of any letter A–Z from the dashboard
+(MQTT commands SET_NAV_MAP / GET_NAV_MAP, `MQTT_BINARY_PROTOCOL.md` §5.4),
+but only while the car is in INIT or Safe Stop with no barcode instruction
+pending. Changes live in RAM and return to the defaults above at power-up.
+
 * Navigation codes use 2 bits plus a separate valid bit (Tribunal 1,
   Buddy 3: "2-bit codes for up to 4 navigation commands").
-
-Also open:
-
-* Whether a command is executed **at once** (Week 6 statechart order
-  decode → execute) or **at the next junction**. This is the switch
-  `S3_NAV_AT_JUNCTION` in `subsystem3.h`, default 0 = at once.
+* A decoded instruction is executed **at the next confirmed junction**,
+  not at once: `S3_NAV_AT_JUNCTION` in `subsystem3.h` is 1. Setting it to 0
+  restores the Week 6 statechart order (decode → execute at once).
 * How far `STRAIGHT` drives through a junction: `S3_STRAIGHT_MM` = 120 mm
-  `[CAL]`.
+  `[CAL]` (`nav_map.h`).
 
 ## 4. Why edge capture is needed (Tribunal 1, Version B change)
 
