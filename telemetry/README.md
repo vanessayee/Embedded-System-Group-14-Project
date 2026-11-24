@@ -8,7 +8,11 @@ dashboard-configurable A–Z barcode instructions.
 Follow [the demonstration guide](docs/DEMONSTRATION.md) for startup,
 acknowledged letter changes and pickup-detection limits.
 Flash the latest UF2 once to enable these controls; letter changes then
-require no code edits or rebuild. Reapply saved letters after a power cycle.
+require no code edits or rebuild and can be applied while the robot drives.
+Reapply saved letters after a power cycle. After pulling or editing anything
+under `telemetry/`, restart the service
+(`.\telemetry\tools\start-windows-dashboard.ps1 -Restart`) and hard-refresh
+the page; the running service otherwise keeps the old page and backend.
 
 Grafana is now the main entry point and embeds the live HTML console. Node-RED on port 1880 remains its backend and page source. The former detailed dashboard, design previews and their generators have been removed. Historical data remains in PostgreSQL.
 

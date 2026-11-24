@@ -1,0 +1,79 @@
+# Telemetry backend unit tests
+# Date: 2026-11-25   Commit: 6a5b715 + working-tree changes of 25 Nov
+# Command: npm test   (node --test test/unit/*.test.js; deps from the dashboard's installed node_modules)
+
+✔ flows.json is generated from the current source (10.3055ms)
+✔ flow: subscribes as Buffer, never publishes, every Function node compiles (5.3552ms)
+✔ main Grafana embeds the live controls, with no sample dashboard provisioned (3.1568ms)
+✔ all 26 letters and five actions round-trip through the wire codec (13.871ms)
+✔ complete mapping validation rejects incomplete, extra and unsupported assignments (1.372ms)
+✔ mapping is confirmed only by matching robot ACK, with non-retained binary publishing and audit row (7.3084ms)
+✔ rejected and missing acknowledgements cannot appear as applied mappings (38.0055ms)
+✔ configuration blocks resume and overlapping changes while STOP bypasses the batch (4.235ms)
+✔ HTTP controls reject cross-origin or missing-header requests before any command (0.9714ms)
+✔ physical reset selects new boot before telemetry arrives and scopes all current-run data (3.777ms)
+✔ read and apply mapping batches cover all 26 letters and release the batch lock (12046.6534ms)
+✔ RESET bypasses a configuration batch, cancels queued commands and clears confirmation (4.386ms)
+✔ reset generation interrupts an in-progress map transfer (233.9073ms)
+✔ mapping retries one missing ACK, only for the same idempotent letter operation (518.8537ms)
+✔ mapping retry budget is bounded and a rejected command is never retried (5.5068ms)
+✔ rules apply while driving; a letter refused during a barcode is retried (6531.1026ms)
+✔ topics: live, simulated and foreign topics (11.6205ms)
+✔ first frame opens a session; telemetry rows carry columns, frame and decoded record (3.0252ms)
+✔ uptime wrap (16-bit, 6553.6 s) stays in one session and is unwrapped (6.739ms)
+✔ a reboot (uptime restarts) opens a new session; a backend restart with saved state does not (3.1659ms)
+✔ frames queued during an outage arrive late without starting a new session (5.9293ms)
+✔ sequence numbers: gaps, wrap, duplicates and ambiguous long gaps (1.8055ms)
+✔ humps: baseline at first sight, increments, several between snapshots, saturation (3.5661ms)
+✔ derived events: faults per bit, tilt, line state, avoidance failure, comm state (1.8982ms)
+✔ the first FAULTS event of a boot is labelled as the since-boot union (1.6417ms)
+✔ link: online -> stale -> offline -> online, and UNKNOWN when the broker is lost (2.3843ms)
+✔ malformed frames are rejected (and their storage rate-limited); nothing reaches telemetry (1.7442ms)
+✔ a command frame seen on an observed topic is logged as a bus event; ACKs are routed (1.0349ms)
+✔ virtual robot scenario end to end through the ingestor (130 s, outage, collision) (78.7728ms)
+✔ explicit boot identity detects quick RUN resets and survives reconnect, repeat, and backend restart (2.6712ms)
+✔ 5 mm extension code persists as 5 mm in hump event storage (0.58ms)
+✔ golden frames decode to the documented values and re-encode byte for byte (6.1174ms)
+✔ random records survive encode -> decode with every field intact (signed fields included) (97.735ms)
+✔ scaling and units (1.0167ms)
+✔ invalid codes become NULL in the typed columns, with their status kept (2.8137ms)
+✔ structural errors reject the whole frame (1.2373ms)
+✔ values v1 never produces are reported as issues (5.3411ms)
+✔ fault severity follows sys_state_logic.c and its policy flags (2.5872ms)
+✔ IR sensors and line position use the car's real sides (5.5876ms)
+✔ ultrasonic meaning depends on the avoidance phase; zero profile words mean no profile (4.3282ms)
+✔ event and heartbeat interpretation (2.178ms)
+✔ fine hump codes report exact 5 mm and preserve legacy heights (1.0411ms)
+✔ RESET extension is exact and preserves legacy PING and 8-byte frames (1.6718ms)
+✔ rows are written in arrival order with parameterized multi-row INSERTs and JSONB casts (25.6969ms)
+✔ database outage: rows are buffered, retried, and all written after recovery (171.5334ms)
+✔ a full buffer drops the oldest bulk rows, keeps priority rows, and reports the loss (15.4543ms)
+✔ a row the database refuses as bad data is isolated and dropped; the rest is written (15.8398ms)
+✔ missing table or permission is not "bad data": rows are kept and retried (118.3751ms)
+✔ keyed upserts (link state) coalesce while queued (35.0618ms)
+✔ rows left at shutdown are spilled to disk and queued again on the next start (25.1229ms)
+✔ deque keeps order through shift and unshiftAll (2.6526ms)
+ℹ tests 51
+ℹ suites 0
+ℹ pass 51
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20523.083
+
+# Binary codec self-test (node lib/codec.js)
+PASS heartbeat
+PASS command encode
+PASS ack
+PASS event
+PASS telemetry
+PASS encode golden telemetry
+PASS encode golden heartbeat
+PASS encode golden ack
+PASS encode golden event
+PASS line recovery degraded
+PASS ir physical sides
+PASS crc rejected
+PASS short rejected
+PASS range issue reported

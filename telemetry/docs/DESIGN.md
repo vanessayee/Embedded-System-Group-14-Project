@@ -10,7 +10,7 @@ except for the one firmware change in [FIRMWARE.md](FIRMWARE.md).
 
 | Source | Requirement (mandatory) | How it is met |
 |---|---|---|
-| FR6 | record hump data, highest hump of the complete run | `csc14.hump` (one row per hump), run maximum in `csc14.run_summary()`; robot's since-boot maximum kept separately |
+| FR6 | record hump data, highest hump of the complete run | `csc14.hump` (one row per hump), run maximum in `csc14.run_summary()`; robot's since-boot (or since-RESUME) maximum kept separately |
 | FR7 | transmit speed, sensor status, state, measurements | robot side, protocol v1 (unchanged) |
 | FR13 | heartbeat; online / disconnected / recovering | robot heartbeat stored; backend link state ONLINE / STALE / OFFLINE / UNKNOWN from frame age; robot-reported comm state and reconnect count shown |
 | FR14 | validate, store valid measurements in PostgreSQL, show current and historical telemetry | Node-RED validation (length, CRC, version, type, every field range); PostgreSQL; Grafana dashboard |

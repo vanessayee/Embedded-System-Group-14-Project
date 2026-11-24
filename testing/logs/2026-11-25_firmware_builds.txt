@@ -1,0 +1,15 @@
+# Firmware builds, 2026-11-25 (commit 6a5b715 + working-tree changes of 25 Nov)
+# Toolchain: arm-none-eabi-gcc 15.2.1, Pico SDK 2.3.0, MSYS2 make; command: make NET=lwip MQTT=1 [TEST=1 | S5_SCAN_ONLY=1] -j8
+
+## TEST=1: exit 0, compiler warnings 0
+   text	   data	    bss	    dec	    hex	filename
+ 530048	    132	  86836	 617016	  96a38	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
+
+## S5_SCAN_ONLY=1: exit 0, compiler warnings 0
+   text	   data	    bss	    dec	    hex	filename
+ 393214	    128	  84784	 478126	  74bae	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_scan_only.elf
+
+## normal: exit 0, compiler warnings 0
+   text	   data	    bss	    dec	    hex	filename
+ 402622	    128	  84788	 487538	  77072	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.elf
+

@@ -188,7 +188,7 @@ the new `.uf2`.
 
 ---
 
-## 3. Build options: `SMP`, `CONSOLE`, `WIFI`, `TEST`, `CRASH_REPORT`
+## 3. Build options: `SMP`, `CONSOLE`, `WIFI`, `TEST`, `CRASH_REPORT`, `S5_SCAN_ONLY`
 
 `make` on its own uses the defaults. To build differently, put options
 after `make`. They can be combined in any order:
@@ -200,6 +200,7 @@ make SMP=0 -j8                    # single-core build
 make CONSOLE=uart WIFI=none -j8   # no USB console, radio off (no Pico SDK needed)
 make TEST=1 -j8                   # firmware with the subsystem self-tests
 make CRASH_REPORT=1 -j8           # also see crash reports, on GP0/GP1 (uses those pins)
+make NET=lwip MQTT=1 S5_SCAN_ONLY=1 -j8   # stationary ultrasonic width calibration (motors disabled)
 ```
 
 To set several options at once, list them all, separated by spaces. For
@@ -221,6 +222,7 @@ the next plain `make` goes back to the defaults.
 | `WIFI` | **`cyw43`**, `none` | `cyw43` powers up the Pico W radio and its driver task; `none` leaves the radio off | `_wifi` / *(nothing)* | `TM_WIFI_CYW43` |
 | `TEST` | **`0`**, `1` | `1` compiles every `subsystemN_test.c` and runs the tests at power-up | `_test` / *(nothing)* | `APP_TEST` (1 or 0) |
 | `CRASH_REPORT` | **`0`**, `1` | `1` also copies the console to UART0 on **GP0 (TX) / GP1 (RX)**, 115200 baud, so you can see the last messages and the kernel's crash report (see below). **Uses GP0/GP1.** `CONSOLE=uart` always does this. | `_crash` / *(nothing)* | `TM_CONSOLE_UART` (1 or 0) |
+| `S5_SCAN_ONLY` | **`0`**, `1` | `1` builds the stationary width-calibration image: motors are always off, the car repeats obstacle sweeps and prints the profiles (see `app_program/subsystem5/docs/SCAN_ONLY_CALIBRATION.md`). Needs `TEST=0`. | `_scan_only` / *(nothing)* | `APP_S5_SCAN_ONLY` (1 or 0) |
 
 **Why `CRASH_REPORT` exists.** USB output is not sent the moment you call
 `tm_printf`: it waits in a buffer until the kernel's USB task sends it. If the

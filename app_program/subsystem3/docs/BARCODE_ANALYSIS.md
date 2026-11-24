@@ -84,8 +84,11 @@ assignments.
 
 The operator can change the mapping of any letter A–Z from the dashboard
 (MQTT commands SET_NAV_MAP / GET_NAV_MAP, `MQTT_BINARY_PROTOCOL.md` §5.4),
-but only while the car is in INIT or Safe Stop with no barcode instruction
-pending. Changes live in RAM and return to the defaults above at power-up.
+in any mode, also while driving. Only while a barcode is being decoded or its
+instruction is executing is a change refused (the dashboard retries), so that
+instruction keeps its meaning. Each entry changes atomically and Buddy 3 reads
+the map once per barcode. Changes live in RAM and return to the defaults
+above at power-up.
 
 * Navigation codes use 2 bits plus a separate valid bit (Tribunal 1,
   Buddy 3: "2-bit codes for up to 4 navigation commands").

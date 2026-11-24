@@ -82,7 +82,7 @@ padding bit: 35 bytes. Values retain the same units, sentinels and resolutions.
 | 31 | collision | 185 | 1 | no | latched until CLEAR / RESUME | 0/1 | — | B4 |
 | 32 | shock | 186 | 5 | no | 0.5 g (peak horizontal impact) | 0..31 (0..15.5 g) | — | B4 |
 | 33 | hump_last | 191 | 6 | no | 2 mm | 0..50 (0..100 mm) | 63 = none yet | B4 |
-| 34 | hump_max | 197 | 6 | no | 2 mm, highest since boot | 0..50 (0..100 mm) | 63 = none yet | B4 |
+| 34 | hump_max | 197 | 6 | no | 2 mm, highest since boot or last RESUME | 0..50 (0..100 mm) | 63 = none yet | B4 |
 | 35 | hump_count | 203 | 4 | no | count | 0..15, saturates | — | B4 |
 | 36 | hump_active | 207 | 1 | no | flag | 0/1 | — | B4 |
 | 37 | us_dist | 208 | 10 | no | 5 mm, latest ranging at the current servo angle (forward only while monitoring, §11) | 0..800 (0..4000 mm) | 1022 = no echo (clear), 1023 = invalid | B5 |

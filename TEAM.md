@@ -187,7 +187,7 @@ sends to it or waits on it. Agree on the data format before coding.
 | IF-O1/O2/O3 | S5 → S1, S2 | snapshot getters | `s5_get_scan_status()`, `s5_get_avoid_status()`, `s5_get_profile()` | obstacle telemetry; S2 uses scan status for the startup gate | |
 | IF-C1 | S1 → S2 | validated supervisory motion commands + stop bypass | `motion_command()`, `motion_stop()` | stop, speed, clear and resume requests | |
 | IF-C2 | S1 ↔ MQTT service | bounded message buffers | `mbf_mqtt_tx`, `mbf_mqtt_rx` | binary MQTT protocol frames | |
-| IF-C3 | S1 → S3 | packed table, compare-and-swap updates | `nav_map_set()`, `nav_map_remove()`, `nav_map_lookup()` | operator's A–Z barcode instruction map; set only in INIT or Safe Stop | |
+| IF-C3 | S1 → S3 | packed table, compare-and-swap updates | `nav_map_set()`, `nav_map_remove()`, `nav_map_lookup()` | operator's A–Z barcode instruction map; set in any mode except while a barcode is being decoded or executed | |
 | IF-C4 | S1 → S2 | single-writer atomic word | `s1_get_comm_status()` | MQTT link state for the startup gate | |
 
 Integration tests for these interfaces are listed in

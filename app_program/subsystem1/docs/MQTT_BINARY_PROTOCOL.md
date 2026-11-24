@@ -128,7 +128,7 @@ with valid data.
 | 31 | collision | 185 | 1 | no | latched until CLEAR / RESUME | 0/1 | — | B4 |
 | 32 | shock | 186 | 5 | no | 0.5 g (peak horizontal impact) | 0..31 (0..15.5 g) | — | B4 |
 | 33 | hump_last | 191 | 6 | no | 2 mm | 0..50 (0..100 mm) | 63 = none yet | B4 |
-| 34 | hump_max | 197 | 6 | no | 2 mm, highest since boot | 0..50 (0..100 mm) | 63 = none yet | B4 |
+| 34 | hump_max | 197 | 6 | no | 2 mm, highest since boot or last RESUME | 0..50 (0..100 mm) | 63 = none yet | B4 |
 | 35 | hump_count | 203 | 4 | no | count | 0..15, saturates | — | B4 |
 | 36 | hump_active | 207 | 1 | no | flag | 0/1 | — | B4 |
 | 37 | us_dist | 208 | 10 | no | 5 mm, latest ranging at the current servo angle (forward only while monitoring, §11) | 0..800 (0..4000 mm) | 1022 = no echo (clear), 1023 = invalid | B5 |
@@ -203,10 +203,13 @@ onto Buddy 2's supervisory source (`mp_cmd_to_motion()`). Buddy 2 decides
 whether each is safe in the current mode:
 
 * STOP is accepted in every mode. It latches `REMOTE_STOP`, which puts the
-  vehicle in Safe Stop.
+  vehicle in Safe Stop. Buddy 5 reads the same bit: an obstacle sweep ends
+  at the next angle (servo centred) and obstacle avoidance is abandoned
+  without adding an avoidance fault, so one RESUME starts cleanly.
 * RESUME is accepted only in Safe Stop, and only when no critical
   *condition* remains. It clears latched critical *events*, then the vehicle
-  re-initialises and recalibrates.
+  re-initialises and recalibrates. Leaving Safe Stop also clears Buddy 4's
+  last and highest hump height (the hump count keeps running in the boot).
 * CLEAR clears latched events and transient bits. It never leaves Safe Stop.
 * SET_SPEED is refused during obstacle avoidance.
 * PING and REQ_STATUS are answered by Buddy 1 itself. REQ_STATUS triggers an

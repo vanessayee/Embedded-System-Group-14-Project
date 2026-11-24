@@ -13,9 +13,13 @@ It runs independently of vehicle readiness and WiFi/MQTT connection.
 1. Flash the `_scan_only.uf2` using BOOTSEL.
 2. Open the USB serial monitor, 115200 baud. Keep the robot stationary.
 3. Centre the 10 cm object, with its face square to the sensor, 20 cm from
-   the ultrasonic sensor's front face. Keep other objects out of the sweep.
-4. The first sweep starts after 10 seconds. Each sweep goes from -75 to
-   +75 degrees in 3-degree steps. Do not move the object during the sweep.
+   the ultrasonic sensor's front face (the firmware prompt says 200 mm).
+   Driving firmware stops and scans at about 15 cm, so also record groups at
+   150 mm to calibrate the operating distance. Keep other objects out of the
+   sweep.
+4. The first sweep starts after 10 seconds. Each sweep goes from -69 to
+   +69 degrees in 3-degree steps (47 samples). Do not move the object during
+   the sweep.
 5. Save the `calib: BEGIN`, all `profile: ... rays` lines, `profile: scan`
    summary and `calib: END` messages. Status 0 is a valid profile; other
    statuses and timeouts must not be treated as successful measurements.

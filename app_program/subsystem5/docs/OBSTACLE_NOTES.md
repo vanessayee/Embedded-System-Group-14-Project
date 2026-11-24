@@ -3,14 +3,21 @@
 Code: `drv_ultrasonic.c`, `drv_servo.c` (hardware); `s5_msg.c`,
 `obstacle_profile.c`, `avoid_plan.c` (pure logic); `task_scan.c`,
 `task_profile.c`, `task_avoid.c` (tasks). Tests: `s5_unit_tests.c`
-S5-U01..U20, minimum-bit checks S5-M01..M08, on-target S5-U21..U23,
-integration INT-10, INT-14, INT-18.
+S5-U01..U20e (with lettered sub-checks), minimum-bit checks S5-M01..M08,
+on-target S5-U21..U23, integration INT-10, INT-14, INT-18, and the robot
+checks INT-23 (operator STOP during obstacle handling) and SYS-06..SYS-08.
+
+**Current configuration (25 November 2026):** forward trigger 155 mm
+(150 mm bumper gap + 5 mm stopping allowance), caution cap 100 mm/s below
+305 mm, emergency stop at a 100 mm bumper gap while moving; one sweep
+−69°..+69° in 3° steps (47 angles); 45 mm servo-shaft-to-transducer radius;
+requested side gap 50 mm + 15 mm reserve → 190 mm corridor per side.
 
 ## 1. Three tasks, kept separate (Tribunal 1 Version B: "No change")
 
 | Task | Prio | Owns | Does |
 |---|---|---|---|
-| Obstacle Scan | 15, core 1 | HC-SR04 (TRIG GP4, ECHO GP5 via the shared GPIO interrupt), SG90 servo (GP15, PWM slice 7B) | forward ranging every 60 ms; detection begins at 210 mm so braking settles near the requested 150 mm bumper gap; speed cap 100 mm/s below 360 mm; emergency stop at 100 mm bumper gap; one full-resolution sweep on request |
+| Obstacle Scan | 15, core 1 | HC-SR04 (TRIG GP4, ECHO GP5 via the shared GPIO interrupt), SG90 servo (GP15, PWM slice 7B) | forward ranging every 60 ms; detection begins at 155 mm so braking settles near the requested 150 mm bumper gap; speed cap 100 mm/s below 305 mm; emergency stop at 100 mm bumper gap; one full-resolution sweep on request, ended early by an operator STOP |
 | Obstacle Profile | 19 | nothing | collects one packed scan phase, builds the profile, sends it on |
 | Avoidance & Recovery | 16 | nothing | stop → full fine scan → profile → plan → execute through Buddy 2 → search line → align → resume, all bounded |
 
@@ -43,9 +50,9 @@ identical ranges (± 10 mm) over a ≥ 60° sweep give an INVALID profile
 Scan motion is slew-limited to 3° every 20 ms (about 150°/s) and allowed
 50 ms to settle before each range measurement.  These values are hardware
 calibration points in `drv_servo.h`; PWM remains at the servo-required 50 Hz.
-The per-scan timeout is 22 s. The 51-point −75°..+75° fine scan uses three
-pings per angle. Normal echoes finish in about 10 s, but many NO_ECHO angles
-can approach 18 s because each waits for the ultrasonic timeout.
+The per-scan timeout is 22 s. The 47-point −69°..+69° fine scan uses three
+pings per angle. Normal echoes finish in about 9 s, but many NO_ECHO angles
+can take considerably longer because each waits for the ultrasonic timeout.
 
 With `SERVO_DEBUG=1`, the console reports servo initialisation, each target
 angle and PWM pulse, the slew step count, the detection distance, and every
@@ -87,8 +94,10 @@ Each sample becomes a point: lateral x = d·sin θ, forward y = d·cos θ.
    scan limit. Forward distance, not range, is used, so a flat face or wall
    is recognised as one surface (S5-U10, S5-U13c).
 4. **Edges:** midway between the last hit and the first miss. The fine
-   scan (3° steps) narrows that gap. Its fixed ±75° bounds measure the widest
+   scan (3° steps) narrows that gap. Its fixed ±69° bounds measure the widest
    corridor visible to the sensor without needing a preliminary coarse pass.
+   The edges are then refined by the face-band / echo-envelope method
+   described in "Edge finding" below.
    Edge positions are taken on the
    face plane: x = y_near · tan θ.
 5. **Clearance per side:** from the edge to the nearest other object
@@ -148,9 +157,10 @@ before applying any nonzero correction.
   safety limit.
   The configured geometry is 125 mm width, 175 mm length
   (`AV_ROBOT_WIDTH_MM`, `AV_ROBOT_LENGTH_MM`), with the sensor
-  directly above the front bumper. The forward monitor triggers at 210 mm,
-  including 60 mm of stopping allowance, so the requested stopped gap is
-  approximately 150 mm. The planner may then use verified spare space and move
+  directly above the front bumper. The forward monitor triggers at 155 mm,
+  including 5 mm of stopping allowance (the car arrives under the 100 mm/s
+  caution cap and was measured to stop within about 5 mm), so the requested
+  stopped gap is approximately 150 mm. The planner may then use verified spare space and move
   to a 120 mm minimum calculated turn-start gap. A plan is accepted only when its diagonal
   can establish the side gap before the front face; otherwise bounded
   reverse/rescan is attempted.
@@ -192,6 +202,16 @@ before applying any nonzero correction.
   FAILED, fail code): profile invalid, no clearance, manoeuvre failed, line
   not found, timeout. Leaving Safe Stop takes a supervisory RESUME, and only
   once no critical condition remains.
+* **Operator STOP (dashboard Stop, remote STOP, dashboard Reset):** Buddy 1/2
+  latch `SYS_FLT_REMOTE_STOP` and cut the motors. Buddy 5 checks the same bit
+  (`S5_OPERATOR_STOP()`): an active sweep ends at the next angle with an
+  ABORTED last sample (its profile is INVALID and never acted on) and the
+  servo centres; the avoid task polls it every 50 ms while waiting for a
+  profile, never starts a new sweep, and `fail()` / `finish()` abandon the
+  obstacle quietly (`avoid: STOP from operator - obstacle handling abandoned,
+  waiting for RESUME`) instead of adding AVOID_FAILED or posting
+  RECOVERY_FAILED / AVOID_DONE. One RESUME therefore starts cleanly. Forward
+  ranging continues with the servo centred (sensing only).
 * **Mode hand-over:** Buddy 5 posts `SYS_EV_OBSTACLE`; Buddy 2 switches to
   OBSTACLE (new epoch, current command aborted, motors stopped). Line
   steering is ignored in that mode. On success Buddy 5 posts

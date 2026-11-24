@@ -50,6 +50,7 @@ EXPORT void av_trend_reset(AV_TREND *t)
 
 EXPORT void av_trend_add(AV_TREND *t, W travel_mm, W side_mm)
 {
+	if (t->n == 0xFFFFU) return;	/* saturated: keep the sums consistent */
 	if (t->n == 0) t->t_first = travel_mm;
 	t->t_last = travel_mm;
 	t->n++;

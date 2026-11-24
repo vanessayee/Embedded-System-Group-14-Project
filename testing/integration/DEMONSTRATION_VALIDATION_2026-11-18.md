@@ -1,5 +1,7 @@
 # Demonstration update validation — 18 November 2026
 
+> **Historical record (18 November 2026).** Values below (scan range, trigger distance, side gap, check counts, UF2 names) describe that date. Current configuration: `app_program/subsystem5/docs/OBSTACLE_NOTES.md`; current test status: `testing/*/TEST_LOG.md` (host run 2026-11-25: 375 checks, 0 failed). The firmware to flash is `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.uf2`.
+
 Implemented a local mission console at http://127.0.0.1:1880/csc14/dashboard.
 The existing Grafana dashboard links to it and retains its historical charts.
 The console exposes ten demonstration evidence indicators, decoded letter or

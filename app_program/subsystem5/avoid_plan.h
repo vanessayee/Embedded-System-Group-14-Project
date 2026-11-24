@@ -123,9 +123,9 @@ IMPORT UW av_motion_wait_ms(UW type, INT arg, W creep_mms, UW extra_ms);
 
 /* Least-squares trend of the perpendicular side distance against travel */
 typedef struct {
-	W	n;
-	W	t_first, t_last;
-	D	st, sd, stt, std;
+	UH	n;		/* samples, saturating; a 2 m pass gives < 700 */
+	W	t_first, t_last;	/* odometry mm: full width */
+	D	st, sd, stt, std;	/* least-squares sums: full width */
 } AV_TREND;
 IMPORT void av_trend_reset(AV_TREND *t);
 IMPORT void av_trend_add(AV_TREND *t, W travel_mm, W side_mm);

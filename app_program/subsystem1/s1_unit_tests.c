@@ -564,7 +564,7 @@ LOCAL INT test_storage(void)
  UINT i;
  BOOL ok = TRUE;
  TEST_INIT();
- TEST_CHECK("S1-U30", sizeof(TLM_RECORD) == 35U && sizeof(COMM_FSM) == 9U
+ TEST_CHECK("S1-U36", sizeof(TLM_RECORD) == 35U && sizeof(COMM_FSM) == 9U
             && sizeof(S1_RX_STATE) == 1U && sizeof(S1_TLM_STATE) == 1U
             && sizeof(S1_COMM_STATUS) == 6U && sizeof(HB_RECORD) == 5U
             && sizeof(CMD_RECORD) == 3U && sizeof(ACK_RECORD) == 3U
@@ -573,7 +573,7 @@ LOCAL INT test_storage(void)
  for (i = 0; i < 10000U; i++) {
   if (s1_rate_accept(&rx) != (i < S1_CMD_RATE_MAX)) ok = FALSE;
  }
- TEST_CHECK("S1-U31", ok && rx.rate_count == S1_CMD_RATE_MAX,
+ TEST_CHECK("S1-U37", ok && rx.rate_count == S1_CMD_RATE_MAX,
             "command flood never wraps the packed rate counter or bypasses the limit");
  rx.rate_count = 0;
  TEST_CHECK("S1-U32", s1_rate_accept(&rx) && rx.rate_count == 1U,

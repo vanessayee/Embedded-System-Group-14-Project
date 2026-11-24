@@ -1,0 +1,40 @@
+# Host logic tests, all five buddies + integration
+# Date: 2026-11-25   Commit: 6a5b715 + working-tree changes of 25 Nov (see TEST_LOG notes)
+# Command: make -C testing/host CC=gcc   (MSYS2 UCRT64 gcc, -O1 -Wall -Wextra)
+# Also built and run with -O2 -Wall -Wextra -Werror: 375 PASS, 0 failed
+# Extract: Buddy 1 lines of the all-buddies run (testing/integration/logs/2026-11-25_host_all_buddies.txt)
+
+[TEST] S1-U01 PASS  CRC-16/CCITT-FALSE: catalogue check value 0x29B1; empty input 0xFFFF
+[TEST] S1-U02 PASS  LSB-first bit order (known bytes FD BC DA), signed fields, overflow/underflow flagged
+[TEST] s1 bits SUMMARY 2 passed, 0 failed
+[TEST] S1-U03 PASS  heartbeat = golden bytes 12 2A 04 34 12 EC 3D 60 E5; decodes; reconnects saturate at 15
+[TEST] S1-U04 PASS  command frame = golden bytes; decoded and validated (SET_SPEED 250, id 0x5A)
+[TEST] S1-U05 PASS  acknowledgement and event frames = golden bytes; both decode
+[TEST] S1-U06 PASS  telemetry: 279 bits -> 40-byte frame = golden frame; decodes field by field
+[TEST] S1-U07 PASS  telemetry round trip with every field at its maximum and at its minimum
+[TEST] s1 frames SUMMARY 5 passed, 0 failed
+[TEST] S1-U08 PASS  rejected: bad CRC, truncated, version, unknown type, length byte, wrong type, schema size
+[TEST] S1-U09 PASS  command fields: reserved bits and invalid map args rejected; SET_SPEED 50..400 only
+[TEST] S1-U09m PASS  all A-Z runtime map actions and query commands validate; invalid actions rejected
+[TEST] S1-U10 PASS  decoder errors map to distinct acknowledgement codes
+[TEST] S1-U11 PASS  commands map to supervisory requests only; Buddy 2's refusal is acknowledged with its reason
+[TEST] s1 validation SUMMARY 5 passed, 0 failed
+[TEST] S1-U12 PASS  every encoder refuses a buffer one byte too small (no overrun)
+[TEST] S1-U13 PASS  binary telemetry frame (40 B) at least 10x smaller than the JSON text form
+[TEST] s1 sizes SUMMARY 2 passed, 0 failed
+[TEST] S1-U14 PASS  no network stack in the image: DISABLED without faults; starts once configured
+[TEST] S1-U15 PASS  connect sequence WIFI -> MQTT -> SUBSCRIBE -> ONLINE
+[TEST] S1-U16 PASS  WiFi lost while online: WIFI_LOSS (degraded) and RECOVERING reported
+[TEST] S1-U17 PASS  retries wait 1, 2, 4, 8, 16, 16 s (capped, non-blocking); every 3rd restarts the client
+[TEST] S1-U18 PASS  automatic reconnection: ONLINE again, counted, back-off reset, faults cleared
+[TEST] S1-U19 PASS  broker lost with WiFi up: MQTT_LOSS only; each wait for the broker bounded to 10 s
+[TEST] s1 comm fsm SUMMARY 6 passed, 0 failed
+[TEST] S1-U20 PASS  communication status word: 17 bits, counters saturate at 15
+[TEST] s1 status word SUMMARY 1 passed, 0 failed
+[TEST] S1-U36 PASS  task-owned records use minimum fields and only byte-tail padding
+[TEST] S1-U37 PASS  command flood never wraps the packed rate counter or bypasses the limit
+[TEST] S1-U32 PASS  new rate window admits commands after resetting the counter
+[TEST] S1-U33 PASS  255 attempts and 16000 ms backoff retain the original recovery cadence
+[TEST] S1-U34 PASS  packed reconnect counter saturates without wrapping
+[TEST] S1-U35 PASS  v1 compatibility bit cannot convert an invalid argument into a valid command
+[TEST] s1 packed storage SUMMARY 6 passed, 0 failed

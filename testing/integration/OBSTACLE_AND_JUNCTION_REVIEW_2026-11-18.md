@@ -1,5 +1,7 @@
 # Obstacle recovery and junction review
 
+> **Historical record (18 November 2026).** Values below (scan range, trigger distance, side gap, check counts, UF2 names) describe that date. Current configuration: `app_program/subsystem5/docs/OBSTACLE_NOTES.md`; current test status: `testing/*/TEST_LOG.md` (host run 2026-11-25: 375 checks, 0 failed). The firmware to flash is `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.uf2`.
+
 ## Left versus right junction turns
 
 The previous right turn used a fresh centre-sensor transition to end the pivot, inside the 70–105 degree encoder window. The previous left turn instead stopped its pivot about 3 degrees early, waited 120 ms, and searched forward up to 60 mm. It accepted either tracking sensor, including GP2 alone. After 20 mm its search curved right. Consequently the left turn could miss a centre contact during the pivot, finish from the wrong edge, or change heading again before handing back to tracking.

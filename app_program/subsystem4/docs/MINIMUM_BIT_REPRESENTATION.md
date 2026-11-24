@@ -49,3 +49,17 @@ The two-word IMU snapshot plus publication timestamp, sequence-lock synchronizat
 - An existing test's HUMP_EVT last fixture is now zero-initialized to avoid an optimizer warning; this does not alter firmware operation.
 
 These are software and build checks. The firmware has not been flashed during this change. Physical sensor calibration, timing and course behaviour still need a supervised hardware run; software checks alone cannot certify them.
+
+## Update 25 November 2026 (RESUME clears hump history)
+
+The hump task now starts a new height record when the vehicle leaves Safe Stop (only a
+validated RESUME can do that): `hump_init()` clears last height and highest
+height as at boot; the 8-bit count is restored so it keeps numbering the
+boot's humps (the server stores one row per boot and count). The only added
+state is one bit,
+`was_safe_stop`, in the task's existing `sequence` bit-field (expect 4 bits,
+first 1, was_active 1, was_safe_stop 1 = 7 bits in one byte). The queue wait
+is now bounded to 100 ms (`HUMP_MODE_POLL_MS`) so the transition is seen
+even when no IMU samples arrive. Shared words, queue messages and packers are
+unchanged. S4-U69 covers the cleared state; the RESUME transition itself is a
+robot check (INT-24).

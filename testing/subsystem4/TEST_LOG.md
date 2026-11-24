@@ -72,6 +72,12 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S4-U62 | overturn/severe tilt is not reported as a hump |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U62 PASS` |
 | S4-U63 | long sideways slope is rejected without rearming before level |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U63 PASS` |
 | S4-U64 | LSM303 roll filter and packed queue measure a one-wheel hump at slow speed |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U64 PASS` |
+| S4-U65 | 5 mm sideways hump on either wheel reports exact 5 mm code |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U65 PASS` |
+| S4-U66 | 50 ms moving roll transient rejected |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U66 PASS` |
+| S4-U67 | tilt with only 1 mm encoder travel rejected |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U67 PASS` |
+| S4-U68 | fine codes retain 6-bit format, invalid codes and exact 5 mm reporting |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U68 PASS` |
+| S4-U69 | boot/reset clears hump history |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U69 PASS` |
+| S4-U70 | 5 mm target survives accelerometer filter and packed queue |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-U70 PASS` |
 | S4-M01 | local flags compact without narrowing numeric sensor values |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M01 PASS` |
 | S4-M02 | snapshot storage bounded; explicit shared-word packers retained |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M02 PASS` |
 | S4-M03 | stuck and invalid counters retain 255 saturation without wrap |  | auto (host + target) | `subsystem4/s4_unit_tests.c` | `[TEST] S4-M03 PASS` |
@@ -140,3 +146,72 @@ Add a new row for every run. Never edit or delete old rows.
 ## 2026-11-24: 5 mm sideways target (host verification)
 S4-U65..70 and all existing host suites passed. Added sustained-tilt/motion qualification and reserved fine height codes. Protocol/ingestion tests: 26 passed. Physical 5 mm measurement and flat-course false-positive rate still require validation. See app_program/subsystem4/docs/HUMP_5MM_TARGET.md. External logs: outputs/hump5mm/host-tests.log and backend-tests.log in the Codex workspace.
 Firmware build NET=lwip MQTT=1 TEST=0 passed. Expanded protocol/ingestion/storage/dashboard regression: 42 passed, 0 failed. New firmware not flashed; no movement or safety-clear command sent.
+| 2026-11-25 | S4-U01 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U02 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U03 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U04 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U05 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U06 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U07 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U08 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U09 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U10 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U11 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U12 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U13 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U14 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U15 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U16 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U17 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U18 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U33 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U34 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U35 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U36 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U37 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U38 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U39 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U40 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U41 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U42 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U43 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U50 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U51 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U52 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U53 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U54 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U55 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U64 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U70 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U19 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U20 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U21 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U22 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U23 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U24 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U25 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U44 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U45 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U56 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U57 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U58 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U59 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U60 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U61 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U62 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U63 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U65 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U66 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U67 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U68 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U69 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U26 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U27 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U28 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U29 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-M01 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-M02 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-M03 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-M04 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-M05 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-M06 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |

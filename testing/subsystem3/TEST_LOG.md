@@ -22,38 +22,39 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S3-U08 | invalid: wide inter-character gap rejected |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U08 PASS` |
 | S3-U09 | invalid: missing start/stop character |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U09 PASS` |
 | S3-U10 | 15/15 reads at 100, 200 and 300 mm/s (+-15 % ripple, 5 % speed bias, 0.6 mm blur) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U10 PASS` |
-| S3-U11 | same barcode again within 600 mm: DUPLICATE (no second command) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U11 PASS` |
-| S3-U11a | first pass over Z: VALID |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U11a PASS` |
-| S3-U12 | 60 mm black run rejected as not-a-barcode at once |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U12 PASS` |
+| S3-U11 | same barcode again within 2 s: DUPLICATE (no second command) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U11 PASS` |
+| S3-U11a | first pass over Z: VALID, with 29 diagnostic element widths |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U11a PASS` |
+| S3-U12 | isolated black run times out without a complete symbol |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U12 PASS` |
 | S3-U13 | no edge for 3 s while capturing: aborted (bounded) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U13 PASS` |
-| S3-U14 | capture longer than the 450 mm window: aborted |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U14 PASS` |
-| S3-U15 | default mapping A=LEFT, F=RIGHT, Z=U-TURN, X=STRAIGHT |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U15 PASS` |
-| S3-U16 | mapping override/reset works; '*' and nav > 3 rejected |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U16 PASS` |
+| S3-U14 | short white gap keeps sensor capture open |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U14 PASS` |
+| S3-U15 | default barcode mapping: A=RIGHT, W=LEFT, Z=LEFT, X=STRAIGHT, Y=U-TURN; F/U unmapped |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U15 PASS` |
+| S3-U15m | runtime mapping holds all 26 letters independently and supports unmapping |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U15m PASS` |
+| S3-U16 | mapping overrides work; '*' and nav > 3 rejected; reset restores defaults |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U16 PASS` |
 | S3-U17 | LEFT/RIGHT/U-TURN/STRAIGHT -> encoder TURN/MOVE commands |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U17 PASS` |
-| S3-U18 | calibration on the line: black = high |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U18 PASS` |
-| S3-U19 | inverted sensor polarity is learnt, not assumed |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U19 PASS` |
-| S3-U20 | ambiguous start position -> calibration failure |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U20 PASS` |
+| S3-U18 | stable centre-on-black start: configured black-high polarity |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U18 PASS` |
+| S3-U19 | all-white start is stable and immediately qualifies IR startup |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U19 PASS` |
+| S3-U20 | all-black start is stable and immediately qualifies IR startup |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U20 PASS` |
 | S3-U21 | flickering sensor while still -> calibration failure |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U21 PASS` |
-| S3-U22 | centred: straight at full cruise fraction |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U22 PASS` |
-| S3-U23 | line drifting to IR_L: steer towards it |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U23 PASS` |
-| S3-U24 | line under IR_L only: stop and pivot towards it |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U24 PASS` |
-| S3-U25 | centre and IR_L white: arc towards IR_R (car's left) at once, then pivot; LOST |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U25 PASS` |
-| S3-U26 | line reacquired -> FOUND; keeps turning gently towards IR_R for LF_REALIGN_MS, then straight |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U26 PASS` |
+| S3-U22 | centre black: gradual physical-left correction through mirrored steering |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U22 PASS` |
+| S3-U23 | wide line filling the C-to-IR_L corridor: drive straight |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U23 PASS` |
+| S3-U24 | line on outer boundary: smooth moving correction, never a pivot |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U24 PASS` |
+| S3-U25 | explicit known loss uses an arc, then pivot; normal white corridor does not trigger it |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U25 PASS` |
+| S3-U26 | line reacquired on centre -> FOUND and gradual physical-left correction |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U26 PASS` |
 | S3-U27 | line never found: keeps pivoting towards IR_R; no RECOVERY_FAIL |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U27 PASS` |
-| S3-U28 | all three sensors black for >= 8 mm: one JUNCTION event |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U28 PASS` |
+| S3-U28 | GP6 + GP2 black for 60 ms, barcode white: one JUNCTION event |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U28 PASS` |
 | S3-U29 | black under the barcode sensor (IR_R) beside the line does not disturb steering |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U29 PASS` |
-| S3-U52 | side pivot held through all-white until the centre has the line; then half speed, no kick back |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U52 PASS` |
-| S3-U53 | black under IR_R alone is not the line: lost, turning towards IR_R, search not ended |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U53 PASS` |
-| S3-U54 | lost-line turn, then IR_L has the line: FOUND, pivot towards IR_L |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U54 PASS` |
-| S3-U55 | lost-line arc ends after LF_LOST_ARC_MM of travel, then pivot |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U55 PASS` |
-| S3-U56 | turning on after a find, line drifts to IR_L: steer towards IR_L |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U56 PASS` |
-| S3-U57 | short lost-line arc (< LF_REALIGN_MIN_MS) finds the line: straight on, no turn-on |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U57 PASS` |
 | S3-U30 | line status word round trip at limits (steer -63) |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U30 PASS` |
 | S3-U31 | barcode status word round trip at limits |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U31 PASS` |
 | S3-U32 | Line Following runs every 20 ms (50 per s) within half its period |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U32 PASS` |
 | S3-U33 | line status word republished every period with a fresh timestamp (IF-L1) |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U33 PASS` |
 | S3-U34 | IR calibration decided within 1 s of INIT (calibrated, or IR_CAL fault): never stalls |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U34 PASS` |
 | S3-U35 | barcode reader idle outside NORMAL, no edge overflow; GPIO callbacks frozen once running |  | auto (target only) | `subsystem3/subsystem3_test.c` | `[TEST] S3-U35 PASS` |
+| S3-U52 | white corridor straight; centre black ramps physical-left correction |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U52 PASS` |
+| S3-U53 | black under IR_R alone is not the line: lost, turning towards IR_R, search not ended |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U53 PASS` |
+| S3-U54 | lost-line turn, then IR_L has the line: FOUND, smooth moving correction |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U54 PASS` |
+| S3-U55 | lost-line arc ends after LF_LOST_ARC_MM of travel, then pivot |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U55 PASS` |
+| S3-U56 | line spanning both corridor edges after a find: drive straight |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U56 PASS` |
+| S3-U57 | short white corridor remains straight and ramps smoothly at the centre edge |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U57 PASS` |
 | S3-U58 | white corridor gradually returns to straight with no loss event |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U58 PASS` |
 | S3-U59 | physical-right-only black start qualifies and preserves its position |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U59 PASS` |
 | S3-U60 | stationary wheels: digital transition timing decodes A |  | auto (host + target) | `subsystem3/s3_unit_tests.c` | `[TEST] S3-U60 PASS` |
@@ -142,3 +143,72 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-18 | S3-U33 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem3_target.txt` | Pico target run. |
 | 2026-11-18 | S3-U34 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem3_target.txt` | Pico target run. |
 | 2026-11-18 | S3-U35 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem3_target.txt` | Pico target run. |
+| 2026-11-25 | S3-U01 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U02 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U03 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U61 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U62 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U04 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U05 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U79 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U06 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U07 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U08 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U09 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U72 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U73 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U74 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U75 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U78 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U80 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U81 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U76 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U77 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U10 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U11a | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U11 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U12 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U13 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U14 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U60 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U63 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U84 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U15 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U15m | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U16 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U17 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U18 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U19 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U20 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U59 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U21 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U22 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U23 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U24 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U52 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U25 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U26 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U58 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U57 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U55 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U56 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U27 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U28 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U29 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U53 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U54 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U64 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U65 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U66 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U67 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U68 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U69 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U70 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U71 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U82 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U85 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U86 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U87 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U88 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U30 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U31 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |

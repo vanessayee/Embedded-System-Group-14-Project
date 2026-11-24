@@ -175,6 +175,8 @@ available with HUMP_SIDEWAYS=0; the following subsection describes that optional
   known-hump test, as the change log allows. Quantisation error ≤ 1 mm
   (S4-U25).
 * **Highest hump** is tracked at full resolution (µm) inside the task and
+  restarts (with the last height) at boot and when a RESUME leaves Safe
+  Stop; the hump count keeps running within a boot. It is
   compacted only when published (Tribunal 1: "no change, full resolution").
 * **Evidence (simulation):** a 40 mm hump is measured within ±4 mm
   (S4-U19, the Tribunal 1 success criterion). Over 3 humps the maximum is

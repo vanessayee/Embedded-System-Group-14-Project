@@ -1,0 +1,93 @@
+# Host logic tests, all five buddies + integration
+# Date: 2026-11-25   Commit: 6a5b715 + working-tree changes of 25 Nov (see TEST_LOG notes)
+# Command: make -C testing/host CC=gcc   (MSYS2 UCRT64 gcc, -O1 -Wall -Wextra)
+# Also built and run with -O2 -Wall -Wextra -Werror: 375 PASS, 0 failed
+# Extract: Buddy 5 lines of the all-buddies run (testing/integration/logs/2026-11-25_host_all_buddies.txt)
+
+[TEST] S5-U01 PASS  10-bit distance code: 5 mm steps, 0..4 m, 1022/1023 reserved
+[TEST] S5-U02 PASS  scan sample message round trip at limits
+[TEST] S5-U02b PASS  scan sample positive limits
+[TEST] S5-U03 PASS  scan request message round trip
+[TEST] S5-U04b PASS  profile packing rounds outward and never narrows the obstacle
+[TEST] S5-U04 PASS  profile message: limits kept, 'unknown' clearance stays unknown
+[TEST] S5-U05 PASS  scan and avoidance status words round trip
+[TEST] s5 codes SUMMARY 7 passed, 0 failed
+[TEST] S5-U06a PASS  range consensus preserves median of clustered pings
+[TEST] S5-U06b PASS  range consensus rejects isolated background reflection
+[TEST] S5-U06c PASS  range consensus rejects isolated short echo
+[TEST] S5-U06d PASS  three inconsistent pings cannot invent a distance
+[TEST] S5-U06e PASS  two pings require relative agreement at short range
+[TEST] S5-U06f PASS  invalid counts and ranges cannot produce a distance
+[TEST] S5-U06 PASS  width within 10 % and distance within 1 cm (4 boxes, full fine scan)
+[TEST] S5-U07 PASS  obstacle left of the path: negative bearing, more room on the right
+[TEST] S5-U08 PASS  no echo anywhere: path clear (NO_OBSTACLE)
+[TEST] S5-U09 PASS  object beyond 700 mm is not an obstacle to avoid
+[TEST] S5-U10 PASS  wall across the whole scan: edges unknown (INSUFFICIENT)
+[TEST] S5-U11 PASS  identical range at every angle: servo suspect (INVALID)
+[TEST] S5-U12 PASS  too few valid samples: INVALID
+[TEST] S5-U13 PASS  wall beside the obstacle limits that side's clearance
+[TEST] S5-U13b PASS  single 3-deg dropout stays in one obstacle; open sides ignore deep background
+[TEST] S5-U13c PASS  extreme-angle near echoes stay outside the symmetric front-plane band
+[TEST] S5-U13d PASS  captured production profile has two known edges for planning
+[TEST] S5-U13e PASS  production retains observed width and clearance without uncalibrated shrinkage
+[TEST] S5-U13f PASS  default production correction preserves a small measured obstacle
+[TEST] S5-U13i PASS  excessive calibration is bounded and cannot invent free side space
+[TEST] S5-U13j PASS  unknown side remains unknown even with optional correction
+[TEST] S5-U13k PASS  50/130/200/300 mm objects at three ranges retain geometry within scan resolution
+[TEST] S5-U13g PASS  central median rejects one short reflection in the front-gap estimate
+[TEST] S5-U13h PASS  central three-ray median retains a narrow obstacle despite background echoes
+[TEST] S5-U13l PASS  near-range plane tolerance rejects peripheral same-range beam spill
+[TEST] S5-U13m PASS  recorded target keeps central face without merging nearer echo groups
+[TEST] S5-U13n PASS  corner echoes at the edges do not widen a recorded 130 mm box
+[TEST] S5-U13p PASS  both recorded 130 mm scans measure 115..160 mm
+[TEST] S5-U13q PASS  echo envelope moves an edge inward by at most the 15 mm reserve
+[TEST] S5-U13r PASS  off-centre 15 cm box: no edge lies more than the 15 mm reserve inside the box
+[TEST] S5-U13s PASS  recorded 15 cm box at 160 mm: own corner echoes are not side obstacles; plan succeeds
+[TEST] S5-U13t PASS  second recorded 15 cm scan, +-69 deg sweep: width within reserve, plan succeeds
+[TEST] S5-U13u PASS  servo-to-transducer radius: lateral geometry from the shaft, front gap from the bumper
+[TEST] S5-U13o PASS  corner trimming removes at most one scan cell per side
+[TEST] s5 profile SUMMARY 34 passed, 0 failed
+[TEST] S5-U14a PASS  all-white surface cannot prove return-to-line alignment
+[TEST] S5-U14b PASS  white pair interrupts centre-edge confirmation
+[TEST] S5-U14c PASS  centre-only black requires three consecutive samples
+[TEST] S5-U14d PASS  junction black on both sensors is not the centre-only edge
+[TEST] S5-U14e PASS  confirmed centre-only black establishes the recovery edge
+[TEST] S5-U14f PASS  post-edge advance covers body clearance plus the edge still ahead
+[TEST] S5-U14 PASS  plan uses forward space, calculated departure, pass, shallow return and align
+[TEST] S5-U15d PASS  calculated return uses less forward travel than the fixed 30 degree return
+[TEST] S5-U15 PASS  calculated path preserves the configured side gap and clears the front face
+[TEST] S5-U15b PASS  more measured front clearance produces a longer forward approach
+[TEST] S5-U15c PASS  live side gap shortens return while preserving the configured clearance
+[TEST] S5-U16 PASS  right-shifted obstacle: shorter calculated route bypasses on the left
+[TEST] S5-U16b PASS  planning has no hardcoded 320 mm board-width limit
+[TEST] S5-U16c PASS  route beyond the motion-command capacity is rejected safely
+[TEST] S5-U17 PASS  bumper gap below minimum: no plan; Safe Stop
+[TEST] S5-U17b PASS  100 mm close stop reverses only to the calculated safe path gap
+[TEST] S5-U17d PASS  minimum calculated bumper gap plans directly without reverse
+[TEST] S5-U17c PASS  reverse beyond the 150 mm bound is refused
+[TEST] S5-U18a PASS  240 mm left corridor qualifies while 130 mm right corridor is too narrow
+[TEST] S5-U18 PASS  no known safe side: no plan (Safe Stop), never an invented bypass
+[TEST] S5-U19 PASS  no valid profile: no plan
+[TEST] S5-U20 PASS  every planned step is valid and every avoidance MOVE is forward
+[TEST] S5-U20a PASS  inflated scan profile cannot hide a real 300 mm side return behind a 200 mm gap gate
+[TEST] S5-U20b PASS  mirrored departure covers the same measured profile envelope
+[TEST] S5-U20c PASS  both turn directions allow the wheel arc at creep plus bounded slack
+[TEST] S5-U20d PASS  side ranges give the convergence angle; one 5 mm range step is not a correction
+[TEST] S5-U20e PASS  side trend detects 16 deg closing within 40 mm; 5 mm flicker and short spans do not trigger
+[TEST] S5-U21a PASS  blocked shorter left route cannot override the usable right route
+[TEST] S5-U21b PASS  mirrored blocked shorter right route chooses usable left
+[TEST] S5-U21c PASS  two narrow routes produce no move or unhelpful reverse
+[TEST] S5-U21d PASS  profile packing cannot round an insufficient corridor into acceptance
+[TEST] S5-U21e PASS  exact required corridor qualifies; unknown opposite side cannot win
+[TEST] S5-U21f PASS  equal qualifying routes retain right preference
+[TEST] S5-U21g PASS  outward edge quantization consumes clearance instead of inventing room
+[TEST] s5 plan SUMMARY 34 passed, 0 failed
+[TEST] S5-M01 PASS  request, sample and status locals fit one aligned word
+[TEST] S5-M02 PASS  bounded task and plan storage uses aligned words
+[TEST] S5-M03 PASS  fault-run saturation and original byte detection wrap are retained
+[TEST] S5-M04 PASS  unset profile identity cannot alias the first real sample
+[TEST] S5-M05 PASS  full profile capacity and abs(-128) limit fit without neighbouring corruption
+[TEST] S5-M06 PASS  pass confirmation, faults and signed side-watch angle coexist at limits
+[TEST] S5-M07 PASS  full sensor range and actuator argument fit compact local storage
+[TEST] S5-M08 PASS  unknown echo and negative turn retained; public line-lock counter not truncated
+[TEST] s5 bounded storage SUMMARY 8 passed, 0 failed

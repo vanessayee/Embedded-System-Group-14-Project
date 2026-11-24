@@ -1,0 +1,92 @@
+# Host logic tests, all five buddies + integration
+# Date: 2026-11-25   Commit: 6a5b715 + working-tree changes of 25 Nov (see TEST_LOG notes)
+# Command: make -C testing/host CC=gcc   (MSYS2 UCRT64 gcc, -O1 -Wall -Wextra)
+# Also built and run with -O2 -Wall -Wextra -Werror: 375 PASS, 0 failed
+# Extract: Buddy 2 lines of the all-buddies run (testing/integration/logs/2026-11-25_host_all_buddies.txt)
+
+[TEST] S2-U01 PASS  command word round trip at field limits (arg -2048)
+[TEST] S2-U01b PASS  command word arg +2047
+[TEST] S2-U02 PASS  reserved bits, unknown type and source rules rejected
+[TEST] S2-U03 PASS  argument ranges enforced at the boundaries
+[TEST] S2-U04 PASS  result, steering (clamped -63) and speed-cap words
+[TEST] S2-U05 PASS  motion status 2-word pack/unpack at limits
+[TEST] s2 formats SUMMARY 6 passed, 0 failed
+[TEST] S2-U06 PASS  zero error: output = feed-forward
+[TEST] S2-U07 PASS  saturated output: integrator frozen (anti-windup)
+[TEST] s2 pid SUMMARY 2 passed, 0 failed
+[TEST] S2-U08 PASS  turn arc for 90 deg = pi*track/4 using the measured wheel spacing
+[TEST] S2-U08a PASS  unpowered simulated wheels decay to rest without integer-rounding drift
+[TEST] S2-U09a PASS  MOVE accepted in Obstacle Handling
+[TEST] S2-U09 PASS  MOVE 500 mm: DONE, within 25 mm, wheels within 15 mm
+[TEST] S2-U09b PASS  bounded AVOID reverse accepted only in Obstacle Handling
+[TEST] S2-U09c PASS  negative MOVE drives both wheels backward and completes
+[TEST] S2-U10 PASS  TURN +90: left forward, right backward, arc within 12 mm
+[TEST] S2-U10b PASS  barcode RIGHT: equal wheel arcs, right-leading contact then confirmed white gap
+[TEST] S2-U10c PASS  barcode LEFT: cross the centre black edge and stop in the centre-right white gap
+[TEST] S2-U10s PASS  final alignment sustains motor drive instead of ineffective one-tick pulses
+[TEST] S2-U10o PASS  left and right physically advance the same distance before pivoting
+[TEST] S2-U10p PASS  mirrored sensor order produces mirrored left/right wheel paths and equal turn angle
+[TEST] S2-U10q PASS  LEFT outgoing line before 70 encoder degrees is accepted after clearing junction
+[TEST] S2-U10r PASS  RIGHT uses the same early contact acquisition with mirrored sensors
+[TEST] S2-U10j PASS  barcode LEFT: GP2 alone cannot falsely complete the turn
+[TEST] S2-U10h PASS  barcode LEFT: missing tape faults at the angle limit
+[TEST] S2-U10k PASS  barcode LEFT: late centre contact must release before turn completion
+[TEST] S2-U10l PASS  barcode LEFT: centre remaining black cannot report corridor alignment
+[TEST] S2-U10m PASS  barcode LEFT: early crossing contact cannot validate later white space
+[TEST] S2-U10n PASS  barcode LEFT: both-black junction cannot validate a white corridor
+[TEST] S2-U10d PASS  both sensors black together do not confirm the right branch
+[TEST] S2-U10e PASS  line seen only far from 90 deg: fault at the angle limit
+[TEST] S2-U10f PASS  no fresh IR word: stop at encoder target and report unconfirmed turn
+[TEST] S2-U10g PASS  barcode U-turn: no advance, turns on the spot
+[TEST] S2-U10i PASS  left turn uses the recorded GP2 exit 7 mm before command start
+[TEST] S2-U11 PASS  queued TURN starts straight from creep speed (no full stop)
+[TEST] S2-U11a PASS  imbalanced avoidance pivots retain controllable wheel speed in both directions
+[TEST] s2 execution SUMMARY 27 passed, 0 failed
+[TEST] S2-U12 PASS  AVOID command rejected outside Obstacle Handling
+[TEST] S2-U13 PASS  BARCODE command rejected in Obstacle Handling
+[TEST] S2-U14 PASS  command from an older mode epoch rejected as stale
+[TEST] S2-U15 PASS  nothing accepted in INIT or SAFE_STOP
+[TEST] S2-U16 PASS  bounded command queue: overflow rejected (QUEUE)
+[TEST] S2-U17 PASS  STOP bypass aborts the running command (ABORTED, nav finished)
+[TEST] S2-U18 PASS  stop(): PWM forced to zero in the very next period
+[TEST] s2 arbitration SUMMARY 7 passed, 0 failed
+[TEST] S2-U19 PASS  stall (duty, no ticks for 400 ms): FAULT result and MOTOR_STALL
+[TEST] S2-U20 PASS  FAULT -> IDLE only after 300 ms clear; motors off meanwhile
+[TEST] S2-U21 PASS  3rd consecutive stall raises MOTION_ESCALATED (bounded recovery)
+[TEST] S2-U22 PASS  one wheel without ticks while driven: motion FAULT raised
+[TEST] s2 faults SUMMARY 4 passed, 0 failed
+[TEST] S2-U23 PASS  positive steer turns right (left wheel faster)
+[TEST] S2-U24 PASS  stale steering: the car stops instead of driving blind
+[TEST] S2-U25 PASS  obstacle speed cap limits line-following speed (FR8)
+[TEST] S2-U26 PASS  steering ignored outside Normal Navigation
+[TEST] S2-U27 PASS  SAFE_STOP: zero motor output whatever the inputs
+[TEST] S2-U40 PASS  stop for an obstacle: wheels coast to rest, no reverse duty (no runaway backwards)
+[TEST] s2 steering SUMMARY 6 passed, 0 failed
+[TEST] S2-U28 PASS  INIT waits for both IR and IMU calibration
+[TEST] S2-U29 PASS  not armed (test image): stays in INIT
+[TEST] S2-U30 PASS  INIT -> NORMAL when calibrated and armed
+[TEST] S2-U31 PASS  barcode command -> NAVIGATION ACTION
+[TEST] S2-U32 PASS  obstacle during a barcode action -> OBSTACLE, new epoch
+[TEST] S2-U33 PASS  avoidance done + line found -> NORMAL
+[TEST] S2-U34 PASS  critical fault (collision) -> SAFE_STOP
+[TEST] S2-U35 PASS  SAFE_STOP holds; events cannot leave it
+[TEST] S2-U36 PASS  validated RESUME -> INIT with calibration required again
+[TEST] S2-U37 PASS  initialisation timeout -> SAFE_STOP with SYS_FLT_INIT
+[TEST] S2-U38 PASS  severity: network/line-lost/stall degraded; FR12 and escalation critical
+[TEST] S2-U39 PASS  condition faults clear themselves; event faults need CLEAR
+[TEST] S2-U60 PASS  each of five buddies independently gates startup
+[TEST] S2-U61 PASS  calibrated local buddies wait indefinitely for hotspot and MQTT
+[TEST] S2-U62 PASS  MQTT ready automatically releases startup hold
+[TEST] S2-U63 PASS  later network outage retains existing autonomous policy
+[TEST] S2-U64 PASS  missing local ultrasonic readiness times out safely
+[TEST] S2-U65 PASS  one invalid ping after long MQTT wait does not latch INIT fault
+[TEST] S2-U66 PASS  fresh ping and MQTT release startup after transient sensor failure
+[TEST] s2 vehicle fsm SUMMARY 19 passed, 0 failed
+[TEST] S2-U70 PASS  bounded local records compact without changing shared wire words
+[TEST] S2-U71 PASS  freshness preserves timestamp wrap, sequence wrap and exact stale boundary
+[TEST] S2-U72 PASS  three-bit count holds all four queued commands without wrapping
+[TEST] S2-U73 PASS  vehicle mode, maximum epoch and calibration flags coexist without overlap
+[TEST] S2-U74 PASS  PID arithmetic retains values beyond motor-specific narrow limits
+[TEST] S2-U75 PASS  signed duties, both directions and all fault/result flags retain their full range
+[TEST] S2-U76 PASS  turn sentinel, settle/handoff timers and retry saturation remain representable
+[TEST] s2 packed storage SUMMARY 7 passed, 0 failed

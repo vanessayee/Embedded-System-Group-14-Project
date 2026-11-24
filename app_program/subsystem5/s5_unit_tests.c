@@ -319,7 +319,7 @@ LOCAL INT test_profile(void)
 			op_beam_compensate(&p, S5_BEAM_COMP_DEG);
 			TEST_CHECK("S5-U13d", p.status == PRF_VALID
 				   && p.clear_left_mm >= 0 && p.clear_right_mm >= 0,
-				   "captured production profile has two known edges for open-board planning");
+				   "captured production profile has two known edges for planning");
 			TEST_CHECK("S5-U13e", p.status == PRF_VALID
 				   && p.width_mm == raw_width
 				   && p.clear_left_mm == raw_left
@@ -695,7 +695,7 @@ LOCAL INT test_plan(void)
 	p.clear_left_mm = 900;
 	p.clear_right_mm = 900;
 	TEST_CHECK("S5-U16b", av_plan(&p, &pl) == AVP_OK && pl.offset_mm > 320,
-		   "open-road planning has no hardcoded 320 mm board-width limit");
+		   "planning has no hardcoded 320 mm board-width limit");
 	p.dist_mm = 700;
 	p.left_mm = -2000;
 	p.right_mm = 2000;

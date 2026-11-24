@@ -20,35 +20,53 @@ From the repository root in PowerShell:
 
     .\telemetry\tools\start-windows-dashboard.ps1
 
-Use -Restart after backend code changes. This starts Node-RED in the
+Use `-Restart` after **any** change under `telemetry/` (backend `lib/`, flows,
+or the dashboard page `dashboard/index.html` / `dashboard.js`): Node-RED reads
+all of them once at start-up, so a running service keeps serving the old
+version until restarted. Then hard-refresh the browser (Ctrl+F5). Without
+`-Restart` the script only reports that the service is already running.
+This starts Node-RED in the
 background using the existing local dependencies and credentials. It does
 not start or move the robot. Logs are in csc14-local/group14/nodered.log.
 The script expects the existing PostgreSQL and Mosquitto services to run.
 
 ## Changing the professor's barcode instructions
 
-1. Wait for ROBOT ONLINE and recent telemetry.
-2. Press **Stop** and wait for SAFE_STOP.
-3. Choose the A–Z letter for LEFT, RIGHT, STRAIGHT and U-TURN. Use the blank
+1. Wait for ROBOT ONLINE and recent telemetry. The robot may be stopped or
+   driving; rules can be applied in any mode.
+2. Choose the A–Z letter for LEFT, RIGHT, STRAIGHT and U-TURN. Use the blank
    choice to disable an instruction. Each selected letter must be different.
-4. Press **Apply all barcode rules**. It sends all 26 assignments and waits
+3. Press **Apply all barcode rules**. It sends all 26 assignments and waits
    for robot acknowledgements. Unselected letters are unmapped. They can
    still decode but do not request navigation.
-5. Check **Confirmed by robot**, or press **Read robot rules** to query all
+4. Check **Confirmed by robot**, or press **Read robot rules** to query all
    26 entries from the Pico. A saved choice is not proof the robot applied it.
-6. Once the robot is safely on the course, clear faults if required and
-   press **Resume**. Resume can start movement after initialization.
+5. If the robot was stopped, place it safely on the course, clear faults if
+   required and press **Resume**. Resume can start movement after
+   initialization.
 
-Configuration is refused while driving or a barcode instruction is queued
-or executing. STOP remains available during configuration. A read/apply
-normally takes several seconds because commands are paced below the
-firmware's five-per-second limit.
+While a barcode is being decoded or its instruction is executing, the robot
+refuses a map change (ACK REJ_STATE) so that instruction keeps its meaning;
+the backend waits and retries that letter every 0.5 s for up to 15 s. Each
+letter changes atomically, but the 26 letters are sent one by one (about
+8–10 s in total, paced below the firmware's five-per-second limit), so a
+barcode read during the transfer uses the old or the new rule for its
+letter. Apply on a stretch with no barcode ahead for a clean switch.
+**■ Stop** remains available during configuration; Resume/Clear are held
+until the transfer ends.
 
 The laptop saves desired rules in its runtime barcode-rules.json. The Pico
-keeps the active table in RAM. After powering the Pico off/on, stop it and
-reapply the saved choices. No firmware rebuild is needed to change letters.
-Existing pending instructions are cleared by Safe Stop; the new map applies
-to subsequent barcode scans.
+keeps the active table in RAM. After powering the Pico off/on it starts with
+the firmware default table (A=RIGHT, W=LEFT, Z=LEFT, X=STRAIGHT, Y=U-TURN);
+press **Apply all barcode rules** again to restore the saved choices. No
+firmware rebuild is needed to change letters. The new map applies to
+subsequent barcode scans.
+
+**■ Stop** halts everything: motors, any obstacle sweep (the servo
+centres) and obstacle avoidance, without adding an avoidance fault. One
+**Resume** continues; it also clears the last and highest hump height
+as a reboot does (the hump count keeps running within the boot so the database
+keeps one row per hump).
 
 ## Ten demonstration capabilities
 
@@ -134,7 +152,7 @@ automatically. A later network outage keeps the existing autonomous operation.
 Pressing the Pico physical RUN/reset button restarts the firmware. Its new boot
 identity resets the mission console's current measurements, ten evidence flags,
 event list, chart and confirmed barcode rules after MQTT reconnects. Saved laptop
-barcode choices remain available to reapply while stopped. Historical database
+barcode choices remain available to reapply (in any mode). Historical database
 records remain in PostgreSQL; the console's current values show only the
 latest boot. The boot identity is repeated every five seconds to
 recover from a dropped MQTT event; reconnecting alone does not reset the session.

@@ -46,15 +46,15 @@ EXPORT void hump_task(INT stacd, void *exinf)
 	 unsigned char expect : 4;
 	 unsigned char first : 1;
 	 unsigned char was_active : 1;
-	} sequence = {0, TRUE, FALSE};
-	UW		prev_mode;
+	 unsigned char was_safe_stop : 1;	/* RESUME detection: one bit */
+	} sequence = {0, TRUE, FALSE, FALSE};
 
 	(void)stacd;
 	(void)exinf;
 	hump_init(&hump);
 	sys_task_ready(SYS_TASK_HUMP);
 	publish();
-	prev_mode = sys_mode();
+	sequence.was_safe_stop = (sys_mode() == VM_SAFE_STOP) ? 1U : 0U;
 	tm_printf((UB*)"hump: %s mode, physical wheel span %d mm\n",
 		  HUMP_SIDEWAYS ? "sideways roll" : "forward pitch", HUMP_PHYSICAL_TRACK_MM);
 
@@ -63,18 +63,24 @@ EXPORT void hump_task(INT stacd, void *exinf)
 		BOOL	valid;
 		UB	previous_state;
 		W	candidate_peak;
-		UW	mode = sys_mode();
+		BOOL	safe_stop = (sys_mode() == VM_SAFE_STOP) ? TRUE : FALSE;
 
 		/* Safe Stop is left only by a validated RESUME: start a new run
-		   with last / highest height and count cleared, as after a reboot. */
-		if (prev_mode == VM_SAFE_STOP && mode != VM_SAFE_STOP) {
+		   with last / highest height cleared, as after a reboot.  The
+		   count keeps running within the boot: the server numbers each
+		   boot's humps by it (one database row per boot and count). */
+		if (sequence.was_safe_stop && !safe_stop) {
+			UB	count = (UB)hump.count;
+
 			hump_init(&hump);
+			hump.count = count;
 			sequence.first = TRUE;
 			sequence.was_active = FALSE;
 			publish();
-			tm_printf((UB*)"hump: RESUME - last/highest height and count cleared\n");
+			tm_printf((UB*)"hump: RESUME - last/highest height cleared (count %d kept)\n",
+				  (INT)count);
 		}
-		prev_mode = mode;
+		sequence.was_safe_stop = safe_stop ? 1U : 0U;
 
 		if (n != (INT)sizeof(w)) {
 			continue;

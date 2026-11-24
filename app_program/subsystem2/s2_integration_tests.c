@@ -666,18 +666,18 @@ LOCAL INT int_junction_turn(void)
 
 	TEST_INIT();
 	ok = junction_turn(c, 90, &th, &oc, &orr);
-	TEST_CHECK("INT-21a", ok && iabs(th - 90000) <= TURN_TOL_MDEG
+	TEST_CHECK("INT-22a", ok && iabs(th - 90000) <= TURN_TOL_MDEG
 		   && oc >= TURN_LINE_WIDTH_MM / 2 && orr <= -TURN_LINE_WIDTH_MM / 2,
 		   "'A' RIGHT at a cross junction: outgoing tape between centre and right after wheel coast");
-	TEST_CHECK("INT-21e", ok && follow_junction_branch(c),
+	TEST_CHECK("INT-22e", ok && follow_junction_branch(c),
 		   "after RIGHT, Buddy 3 steering drives forward along the outgoing branch");
 	ok = junction_turn(c, -90, &th, &oc, &orr);
-	TEST_CHECK("INT-21b", ok && iabs(th + 90000) <= TURN_TOL_MDEG
+	TEST_CHECK("INT-22b", ok && iabs(th + 90000) <= TURN_TOL_MDEG
 		   /* Offsets truncate to whole mm; 'ok' checks both sensors white
 		      against the full micrometre geometry, including tape edges. */
 		   && oc <= -TURN_LINE_WIDTH_MM / 2 && orr >= TURN_LINE_WIDTH_MM / 2,
 		   "LEFT at a cross junction: outgoing tape between centre and right after wheel coast");
-	TEST_CHECK("INT-21d", ok && follow_junction_branch(c),
+	TEST_CHECK("INT-22d", ok && follow_junction_branch(c),
 		   "after LEFT, Buddy 3 steering drives forward along the outgoing branch");
 	car_start(c);
 	c->ir_track = TRUE;
@@ -689,7 +689,7 @@ LOCAL INT int_junction_turn(void)
 			result = car_until_result(c, cmd, RUN_LIMIT_MS);
 			car_cycle(c);
 		}
-		TEST_CHECK("INT-21c", mres_status(result) == MRES_FAULT
+		TEST_CHECK("INT-22c", mres_status(result) == MRES_FAULT
 			   && (c->faults & SYS_FLT_RECOVERY_TIMEOUT) != 0U
 			   && c->vf.mode == VM_SAFE_STOP && c->duty_l == 0 && c->duty_r == 0,
 			   "no outgoing line: junction turn faults and holds both motors off");

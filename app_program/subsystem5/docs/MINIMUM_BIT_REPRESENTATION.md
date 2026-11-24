@@ -37,7 +37,7 @@ Across all five requirement stages, the saved original normal firmware was text 
 
 ## Behaviour and integration retained
 
-Sensor calibration and GPIO, 125 x 175 mm body geometry, requested 80 mm side gap plus 15 mm uncertainty reserve, detection/caution/emergency distances, servo motion, scan coverage, three-ping consensus, beam compensation, calculated turns, reverse limits, live far-edge detection, reduced post-edge advance and sensor-based line handoff are unchanged.
+(Values as of 21 November; see "Update 25 November 2026" below for the current gap and trigger.) Sensor calibration and GPIO, 125 x 175 mm body geometry, requested 80 mm side gap plus 15 mm uncertainty reserve, detection/caution/emergency distances, servo motion, scan coverage, three-ping consensus, beam compensation, calculated turns, reverse limits, live far-edge detection, reduced post-edge advance and sensor-based line handoff are unchanged.
 
 The 150 mm configured detection gap still includes the existing 60 mm stopping allowance, giving the same 210 mm sensor trigger threshold with the sensor above the bumper. This implementation does not retune that distance.
 
@@ -57,3 +57,23 @@ Per-stage equivalence evidence for Buddies 1-4 remains in their MINIMUM_BIT_REPR
 ## Supervised robot verification
 
 Use the normal UF2 for the course test. Confirm startup waits for readiness/MQTT; normal line following and barcode instructions in both scan directions; left/right/U-turn completion and subsequent tracking; obstacle detection, width, bypass and rejoin; sideways hump last/highest height on the dashboard; and motor stopping on handling/collision. Compare task timing/overruns against the saved firmware under the same hotspot conditions. The self-test image has been built but not executed on the Pico in this stage.
+
+## Update 25 November 2026 (after the obstacle-accuracy and STOP changes)
+
+Behaviour changes made after the 21 November stage, with their storage:
+
+| Change | Storage added / changed | Bound and reason |
+| --- | --- | --- |
+| Side gap 80 → 50 mm; corridor 190 mm | none (compile-time constants) | `AV_SIDE_GAP_MM`, `AV_REQUIRED_CORRIDOR_MM` |
+| Trigger 210 → 155 mm (150 mm gap + 5 mm stopping allowance) | none (constants) | `S5_STOPPING_ALLOWANCE_MM 5` |
+| Sweep ±75° → ±69° (51 → 47 samples) | none; profile count still 7 bits | 47 ≤ `OP_MAX_SAMPLES` 64; abs limit 69 fits the 8-bit field |
+| 45 mm servo-to-transducer radius, face-band + echo-envelope edges | locals only (`op_build_sensor`, edge helpers) | no new stored state |
+| Pass heading correction | `S5_PASS_STATE.corrected` : 1 bit | at most one correction per pass |
+| Least-squares side trend `AV_TREND` | `n` : 16-bit saturating (UH); odometry `t_first/t_last` 32-bit; sums 64-bit | a 2 m pass gives < 700 samples; sums of mm² over 700 samples need 64 bits, so they stay full width like other geometry arithmetic |
+| Operator STOP ends sweep / avoidance | none: reads the existing `SYS_FLT_REMOTE_STOP` bit (`S5_OPERATOR_STOP()`) | no new shared word |
+
+Packed messages, queue formats and MQTT frames are unchanged, except that
+the profile message now rounds obstacle edges outward and side clearance
+down (`s5_profile_pack`), so packing never shrinks the obstacle or enlarges
+free space (INT-15b). Host suite after these changes: 375 checks, 0 failed
+(`testing/integration/logs/2026-11-25_host_all_buddies.txt`).

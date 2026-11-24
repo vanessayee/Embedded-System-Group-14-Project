@@ -464,7 +464,7 @@ class Ingestor {
 			break;
 		case 'HUMP':
 			msg = `Hump measured: ${d.last_mm === null ? 'n/a' : d.last_mm + ' mm'} ` +
-				`(highest since boot ${d.max_boot_mm === null ? 'n/a' : d.max_boot_mm + ' mm'}, ` +
+				`(highest since boot or RESUME ${d.max_boot_mm === null ? 'n/a' : d.max_boot_mm + ' mm'}, ` +
 				`robot count ${d.count}${d.count_saturated ? ', saturated' : ''})`;
 			if (s.boot) {
 				ops.push(this.humpOp(s, base, { code: d.fields.last, count: d.count, max: d.fields.max,
