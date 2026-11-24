@@ -107,7 +107,7 @@ with valid data.
 | 10 | odometer_cm | 76 | 16 | no | cm | 0..65535, saturates | — | B2 |
 | 11 | heading2 | 92 | 8 | no | 2° (encoder heading, + clockwise) | 0..179 (0..358°) | — | B2 |
 | 12 | cruise10 | 100 | 6 | no | 10 mm/s (cruise setting, not a wheel target) | 0..63 (0..630 mm/s) | — | B2 |
-| 13 | ir_black | 106 | 3 | no | bit0 IR_L (GP2), bit1 IR_C (GP6), bit2 IR_R (GP27); 1 = black; see §11 for the car's sides | 0..7 | — | B3 |
+| 13 | ir_black | 106 | 3 | no | bit0 IR_L (GP2), bit1 IR_C (GP6), bit2 IR_R (GP26, also the barcode sensor); 1 = black; see §11 for the car's sides | 0..7 | — | B3 |
 | 14 | line_pos | 109 | 3 | no | CENTER, LEFT_NEAR, LEFT_FAR, RIGHT, LOST_LEFT, LOST_RIGHT, JUNCTION, RIGHT_NEAR (line follower's own IR_L/IR_R labels) | 0..7 | — | B3 |
 | 15 | line_state | 112 | 2 | no | ON_LINE, SEARCHING, LOST, UNKNOWN | 0..3 | 3 = not calibrated | B3 |
 | 16 | steer | 114 | 7 | yes | steer units (+ = right) | −63..63 | — | B3 |
@@ -181,6 +181,7 @@ subsystem's pack function to the decoded server value.
 | 4 | HUMP | last height code 6, highest code 6, count 4 |
 | 5 | OBSTACLE | outcome 2, fail reason 3, side 2, width 8 (5 mm), distance 10 (5 mm); sent when an avoidance finishes and, since 2026-10-30, when the avoidance state enters FAILED (a failure does not move the avoidance counter) |
 | 6 | COLLISION | shock 5 (0.5 g) |
+| 7 | BOOT | uptime 16 (0.1 s), boot token 16. The token is 16 random bits read from the RP2040 ring oscillator at power-up, so it changes on every reset but not on a reconnect. Sent once the robot is online, then repeated every 5 s with the same token so a lost QoS-0 frame is repaired. The server starts a new boot session when the token changes |
 
 Fail reasons: 0 NONE, 1 PROFILE, 2 CLEARANCE, 3 MOTION, 4 LINE, 5 TIMEOUT,
 6 SENSOR.
@@ -345,11 +346,11 @@ Some meanings depend on how the firmware was built, not on the frame.
 | Topic | Firmware fact | Server interpretation |
 |---|---|---|
 | Fault severity | `sys_state_logic.c`: LINE_RECOVERY (bit 7) is degraded; IMU, IMU_CAL, COLLISION and US_NO_RESPONSE follow `SYS_IMU_REQUIRED`, `SYS_COLLISION_STOPS`, `SYS_US_REQUIRED` (all 1) | `criticalMask(policy)`; `.env` `CSC14_SYS_*` |
-| IR sides | `IR_SIDES_MIRRORED` 1 (`drv_ir.h`): IR_R/GP27 is on the car's LEFT, IR_L/GP2 on its right | `line.ir.left/centre/right` are the car's real sides; `line.pos_phys` names `line_pos` after the real sides; `steer` is already + = clockwise and is not mirrored again |
+| IR sides | `IR_SIDES_MIRRORED` 1 (`drv_ir.h`): IR_R/GP26 is on the car's LEFT, IR_L/GP2 on its right | `line.ir.left/centre/right` are the car's real sides; `line.pos_phys` names `line_pos` after the real sides; `steer` is already + = clockwise and is not mirrored again |
 | Ultrasonic | monitoring (servo centred) except during COARSE/FINE scans (sample at an untransmitted angle) and PLANNING (ranging idle, value held) | `obstacle.us_context` = forward / scan_sweep / held; `forward_mm` only when forward |
 | Profile | words start at zero | all of fields 42–45 zero → `profile = none_yet`, values NULL |
 | Headings | encoder heading + clockwise; IMU heading + counter-clockwise, magnetometer | stored as `heading_enc_cw_deg` and `heading_imu_ccw_deg` |
-| Barcode | `nav`/`nav_valid` are the symbol's MAPPING (default map empty); execution is not transmitted | shown as "mapped to", never as executed |
+| Barcode | `nav`/`nav_valid` are the symbol's MAPPING (defaults at power-up: A = RIGHT, W and Z = LEFT, X = STRAIGHT, Y = U-TURN, `nav_map.c`; the operator can change them with SET_NAV_MAP); execution is not transmitted | shown as "mapped to", never as executed |
 | Counters | `hump_count` saturates at 15 (HUMP events stop), `tlm_dropped`/`rx_rejected` at 255, `reconnects` at 15, `bc_valid`/`bc_invalid` wrap at 64, `uptime_ds` wraps at 6553.6 s, sequence numbers wrap at 256 per type | see `telemetry/docs/DESIGN.md` |
 
 A frame with a value v1 never produces (for example `mode` 5..7,

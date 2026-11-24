@@ -1,11 +1,13 @@
 # Team and subsystems
 
 The tables below describe the integrated five-Buddy firmware in
-`app_program/`. Keep them synchronized with pin, task and interface changes.
+`app_program/` as of 22 November 2026. Keep them synchronized with pin, task
+and interface changes.
 
-Fill this in at the start of the project and keep it up to date. It is the
-single place that says **who owns what**, so that five people can work in
-one firmware image without clashing over pins, priorities, or kernel objects.
+This file is the single place that says **who owns what**, so that five
+people can work in one firmware image without clashing over pins,
+priorities, or kernel objects. When this file and the code disagree, the
+code is right and this file must be fixed.
 
 A **subsystem** is one student's part of the product, with its own folder.
 It may contain several tasks and own several peripherals (see section 3).
@@ -48,14 +50,14 @@ fixed.
 | Pin | Owner | Used for |
 |---|---|---|
 | GP23, GP24, GP25, GP29 | *reserved* | Pico W radio |
-| GP0 | S2 | left encoder A; unavailable with `CRASH_REPORT=1` / `CONSOLE=uart` |
-| GP1 | S2 | left encoder B; unavailable with `CRASH_REPORT=1` / `CONSOLE=uart` |
-| GP2 | S3 | IR left digital output |
-| GP3 | S3 | IR left analogue connection (currently unused) |
+| GP0 | S2 | wheel encoder A, shared GPIO interrupt. This plug is on the car's **right** wheel (`ENC_SWAP_LR 1` in `motion_cfg.h`). Unavailable with `CRASH_REPORT=1` / `CONSOLE=uart` |
+| GP1 | S2 | wheel encoder B, right wheel; input only (direction comes from the motor command, `ENC_QUADRATURE 0`). Unavailable with `CRASH_REPORT=1` / `CONSOLE=uart` |
+| GP2 | S3 | IR sensor `IR_L` digital output, on the car's physical **right** (`IR_SIDES_MIRRORED 1` in `drv_ir.h`); steering and junction detection |
+| GP3 | S3 | `IR_L` analogue output, wired but unused |
 | GP4 | S5 | HC-SR04 trigger |
 | GP5 | S5 | HC-SR04 echo, shared GPIO interrupt |
-| GP6 | S3 | IR centre digital output |
-| GP7 | S2 | right encoder A |
+| GP6 | S3 | IR centre digital output; steering and junction detection |
+| GP7 | S2 | wheel encoder A, shared GPIO interrupt; on the car's **left** wheel (`ENC_SWAP_LR 1`) |
 | GP8 | S2 | left motor M1A, PWM slice 4A |
 | GP9 | S2 | left motor M1B, PWM slice 4B |
 | GP10 | S2 | right motor M2A, PWM slice 5A |
@@ -68,12 +70,12 @@ fixed.
 | GP17 | S4 | I2C0 SCL for IMU |
 | GP18 | | |
 | GP19 | | |
-| GP20 | S2 | Safe Stop restart button, active low |
+| GP20 | S2 | Safe Stop restart button, active low. In Safe Stop a press reboots the Pico through the RP2040 watchdog; ignored in every other mode |
 | GP21 | | |
 | GP22 | | |
-| GP26 | | (ADC0 capable) |
-| GP27 | S3 | IR right digital output and barcode edge capture |
-| GP28 | S2 | right encoder B; check the VBAT jumper |
+| GP26 | S3 | IR sensor `IR_R` digital output, on the car's physical **left**; barcode sensor, sampled every 1 ms by TIMER alarm 3. Used as ADC0 only in the `S3_BARCODE_ANALOG=1` trial build |
+| GP27 | | |
+| GP28 | S2 | wheel encoder B, left wheel; input only. Check the VBAT jumper |
 
 ## 3. Peripherals
 
@@ -110,11 +112,14 @@ the drivers have no locking to stop it.
 | I2C1 | | | |
 | SPI0 | | | |
 | SPI1 | | | |
-| ADC | | | GP26 |
+| ADC | S3, only in the `S3_BARCODE_ANALOG=1` trial build | TIMER alarm 3 interrupt | GP26 |
 | PWM slices 4 and 5 | S2 | `motion_task` | GP8–GP11 |
 | PWM slice 7 | S5 | `scan_task` | GP15 |
-| IO_IRQ_BANK0 (shared dispatcher) | S2; S2/S3/S5 register callbacks | core 1 interrupt | GP0, GP5, GP7, GP27 |
+| IO_IRQ_BANK0 (shared dispatcher) | S2; callbacks from S2 (encoders) and S5 (echo). S3 registers GP26 only when built with `S3_CAPTURE_POLL_1MS=0` | interrupt on core 1 (enabled by `motion_task`) | GP0, GP5, GP7 |
+| TIMER alarm 3 (IRQ 3) | S3 | 1 ms barcode sampler interrupt; feeds `barcode_task` through a 64-entry ring | GP26 |
 | TIMER counter (read-only microsecond clock) | all | — | — |
+| WATCHDOG (reboot trigger only) | S2 | `motion_task` (GP20 restart button) | — |
+| ROSC random bit (read-only) | S1 | `telemetry_task` (boot token) | — |
 | WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in) | GP23–25, GP29 |
 
 ### WiFi and MQTT are special
@@ -132,15 +137,16 @@ What students *can* do:
   T_CYW43_UTK_STATUS st;
   cyw43_utk_get_status(&st);   /* st.ready, st.link_status, st.ip_addr, ... */
   ```
-- **Send or receive data over the network** by adding code that *runs
-  inside the service task*. The MQTT client is in
-  `lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c`. It publishes a heartbeat
-  today. A "cloud / reporting" subsystem would add a kernel object
-  (e.g. a message buffer) that application tasks fill. The MQTT code then
-  reads it with `TMO_POL` (never blocking) and publishes it.
-  Because this changes shared library code, **agree it with the team and
-  the instructor first**, and record it as an interface in section 5.
-  It needs the `NET=lwip MQTT=1` build (README section 3).
+- **Send or receive data over the network** only through Buddy 1's bridge
+  (interface IF-C2). The MQTT client in
+  `lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c` runs inside the service
+  task and calls the four `s1_mqtt_*` functions in
+  `app_program/subsystem1/mqtt_bridge.c`. They move frames through
+  `mbf_mqtt_tx` and `mbf_mqtt_rx` with `TMO_POL`, so neither side can block
+  the other. This change to shared library code was applied in commit
+  `05a675c` and is recorded in
+  `app_program/subsystem1/docs/MQTT_INTEGRATION_PATCH.md`.
+  It needs the `NET=lwip MQTT=1` build (README section 2).
 
 ## 4. Task priorities
 
@@ -166,22 +172,26 @@ sends to it or waits on it. Agree on the data format before coding.
 | ID | From → To | Mechanism | Object ID name | Data / meaning | Agreed by |
 |---|---|---|---|---|---|
 | IF-M1 | S3, S5, S1 → S2 | message buffer + event flag | `mbf_motion_cmd`, `flg_motion` | packed motion command (`motion_msg.h`) | |
-| IF-M2 | S3 → S2 | single-writer atomic word | `motion_set_steer()` | steering and speed fraction | |
+| IF-M2 | S3 → S2 | single-writer atomic words | `motion_set_steer()`, `motion_set_line_seen()` | steering and speed fraction; IR black bits that end a barcode turn | |
 | IF-M3 | S2 → S1, S3, S5 | event flag + result words | `flg_motion_done` | completion result for each command source | |
 | IF-M4 | any → S2 | atomic request + event flag | `motion_stop()` | immediate stop bypass | |
 | IF-M5 | S5 → S2 | single-writer atomic word | `motion_set_speed_cap()` | obstacle-distance speed cap | |
 | IF-S1 | S3, S4, S5 → S2 | atomic event word + flag | `sys_post_event()` | vehicle events (`SYS_EV_*`) | |
 | IF-S2 | all ↔ S2 | atomic fault bitmask | `sys_fault_set/clear/get()` | system faults (`SYS_FLT_*`) | |
 | IF-S3 | S2 → all | single-writer atomic word | `sys_vsw()` | vehicle mode/status word | |
-| IF-L1/L3 | S3 → S1, S5 | snapshot getters | `s3_get_line_status()`, `s3_get_barcode_status()` | line and barcode status | |
+| IF-S4 | S2 → S1, S3, S4, S5 | sequence-checked snapshot + atomic words | `motion_get_status()`, `motion_get_odometry()`, `motion_creep_speed_mms()` | motion status for telemetry; odometry for barcode timing, hump length and avoidance | |
+| IF-S5 | S1, S3, S4, S5 → S2 | atomic OR of ready bits | `sys_task_ready()` | startup readiness (`SYS_TASK_*`); motors stay off until every buddy is ready | |
+| IF-L1/L3 | S3 → S1, S2, S5 | snapshot getters | `s3_get_line_status()`, `s3_get_barcode_status()` | line and barcode status | |
 | IF-L2 | S3 → S5 | event flag | `flg_line_evt` | line FOUND/LOST/JUNCTION | |
-| IF-I1/I2 | S4 → S1 | snapshot getters | `s4_get_imu_status()`, `s4_get_hump_status()` | IMU and terrain status | |
-| IF-O1/O2/O3 | S5 → S1 | snapshot getters | `s5_get_scan_status()`, `s5_get_avoid_status()`, `s5_get_profile()` | obstacle telemetry | |
-| IF-C1 | S1 → S2 | validated supervisory motion commands | `motion_command()` | stop, speed, clear and resume requests | |
+| IF-I1/I2 | S4 → S1, S2 | snapshot getters | `s4_get_imu_status()`, `s4_get_hump_status()` | IMU and terrain status; S2 uses IMU status for the startup gate | |
+| IF-O1/O2/O3 | S5 → S1, S2 | snapshot getters | `s5_get_scan_status()`, `s5_get_avoid_status()`, `s5_get_profile()` | obstacle telemetry; S2 uses scan status for the startup gate | |
+| IF-C1 | S1 → S2 | validated supervisory motion commands + stop bypass | `motion_command()`, `motion_stop()` | stop, speed, clear and resume requests | |
 | IF-C2 | S1 ↔ MQTT service | bounded message buffers | `mbf_mqtt_tx`, `mbf_mqtt_rx` | binary MQTT protocol frames | |
+| IF-C3 | S1 → S3 | packed table, compare-and-swap updates | `nav_map_set()`, `nav_map_remove()`, `nav_map_lookup()` | operator's A–Z barcode instruction map; set only in INIT or Safe Stop | |
+| IF-C4 | S1 → S2 | single-writer atomic word | `s1_get_comm_status()` | MQTT link state for the startup gate | |
 
-Each interface is tested by at least one integration test
-(`testing/integration/TEST_LOG.md`).
+Integration tests for these interfaces are listed in
+`testing/integration/TEST_LOG.md`.
 
 ## 6. Kernel object budget
 

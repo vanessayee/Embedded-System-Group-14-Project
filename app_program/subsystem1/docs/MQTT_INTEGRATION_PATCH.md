@@ -10,21 +10,23 @@ current file differs from the diff in comments only. Steps 3-6 of
 Buddy 1's firmware encodes, queues, validates and acknowledges everything
 inside `app_program/subsystem1/`. Getting frames onto the network, however,
 needs a few lines in **`lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c`**.
-That file is professor-provided and outside the subsystem folders, so it was
-not modified. This document gives the exact change for the team (and the
-professor) to agree and apply.
+That file is professor-provided and outside the subsystem folders. This
+document was written to give the exact change for the team (and the
+professor) to agree; it was then applied in `05a675c`. `TEAM.md` §3 and
+interface IF-C2 now describe the result.
 
 ## Why the change has to be there
 
-* `TEAM.md` §3: *"No student task may call `cyw43_...`, lwIP or MQTT
-  functions … A 'cloud / reporting' subsystem would add a kernel object
-  (e.g. a message buffer) that application tasks fill. The MQTT code then
-  reads it with `TMO_POL` (never blocking) and publishes it."*
+* `TEAM.md` §3, as written in the project template: *"No student task may
+  call `cyw43_...`, lwIP or MQTT functions … A 'cloud / reporting' subsystem
+  would add a kernel object (e.g. a message buffer) that application tasks
+  fill. The MQTT code then reads it with `TMO_POL` (never blocking) and
+  publishes it."*
 * lwIP runs with `NO_SYS=1` on the single radio task (`cyw43_utk_task`).
   Every `mqtt_publish()` must therefore be called from that task, which
   means from `mqtt_utk.c`.
-* The current `mqtt_utk.c` is a demo. It publishes `"hb N"` text on
-  `MQTT_TOPIC` every 5 s, subscribes to the same topic, and **replaces every
+* Before the change, `mqtt_utk.c` was a demo. It published `"hb N"` text on
+  `MQTT_TOPIC` every 5 s, subscribed to the same topic, and **replaced every
   non-printable byte of a received payload with `'.'`**, which would corrupt
   binary command frames.
 

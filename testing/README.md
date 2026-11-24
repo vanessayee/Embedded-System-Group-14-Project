@@ -13,7 +13,8 @@ testing/
 ├── ...
 ├── subsystem5/
 ├── integration/           tests across two or more subsystems (shared)
-└── system/                tests of the whole product against its requirements (shared)
+├── system/                tests of the whole product against its requirements (shared)
+└── logs/                  whole-robot console logs that belong to no single subsystem
 ```
 
 ## Host logic tests (all five buddies)

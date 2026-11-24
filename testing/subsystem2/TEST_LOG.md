@@ -17,6 +17,18 @@ Define each test before running it. Test IDs are permanent. These automated chec
 | S2-U19..U27 (including U40) | Stall detection/recovery/escalation, steering freshness and direction, speed cap, safe-stop output | NFR6, FR8, IF-M2/IF-M5 | auto, simulated plant, host + Pico | `s2_unit_tests.c` | each `[TEST]` check PASS |
 | S2-U28..U39 | Vehicle mode transitions, calibration/arming, safe stop, resume and fault policy | vehicle mode, IF-S1/IF-S2 | auto, host + Pico | `s2_unit_tests.c` | each `[TEST]` check PASS |
 | S2-U40..U47 | Live Pico objects/interrupts, timer and motion-task timing, disarmed safety, stop latency, command/result interface, STOP/RESUME | IF-M1/IF-M3/IF-M4, NFR6 | auto, Pico only | `subsystem2_test.c` | each `[TEST]` check PASS |
+| S2-U60 | each of five buddies independently gates startup |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U60 PASS` |
+| S2-U61 | calibrated local buddies wait indefinitely for hotspot and MQTT |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U61 PASS` |
+| S2-U62 | MQTT ready automatically releases startup hold |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U62 PASS` |
+| S2-U63 | later network outage retains existing autonomous policy |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U63 PASS` |
+| S2-U64 | missing local ultrasonic readiness times out safely |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U64 PASS` |
+| S2-U70 | bounded local records compact without changing shared wire words |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U70 PASS` |
+| S2-U71 | freshness preserves timestamp wrap, sequence wrap and exact stale boundary |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U71 PASS` |
+| S2-U72 | three-bit count holds all four queued commands without wrapping |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U72 PASS` |
+| S2-U73 | vehicle mode, maximum epoch and calibration flags coexist without overlap |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U73 PASS` |
+| S2-U74 | PID arithmetic retains values beyond motor-specific narrow limits |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U74 PASS` |
+| S2-U75 | signed duties, both directions and all fault/result flags retain their full range |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U75 PASS` |
+| S2-U76 | turn sentinel, settle/handoff timers and retry saturation remain representable |  | auto, host + Pico | `s2_unit_tests.c` | `[TEST] S2-U76 PASS` |
 
 **ID issue to resolve before recording U40:** `s2_unit_tests.c` and `subsystem2_test.c` both currently use `S2-U40` for different checks. Treat the U40 result as ambiguous until one code-side test ID is changed and that change is committed. The groupings above retain the current source IDs for traceability.
 
@@ -105,4 +117,3 @@ Add one row for every test result and every run. Never edit or delete old rows. 
 | 2026-11-18 | S2-U44 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem2_target.txt` | Pico target run. |
 | 2026-11-18 | S2-U45 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem2_target.txt` | Pico target run. |
 | 2026-11-18 | S2-U46 | 42f79b1 (main; tested 4eef391) | Vanessa | PASS | `logs/2026-11-18_subsystem2_target.txt` | Pico target run. |
-| YYYY-MM-DD | S2-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_subsystem2_test.txt` | |

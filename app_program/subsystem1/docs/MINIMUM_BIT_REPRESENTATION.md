@@ -61,7 +61,7 @@ padding bit: 35 bytes. Values retain the same units, sentinels and resolutions.
 | 10 | odometer_cm | 76 | 16 | no | cm | 0..65535, saturates | — | B2 |
 | 11 | heading2 | 92 | 8 | no | 2° (encoder heading, + clockwise) | 0..179 (0..358°) | — | B2 |
 | 12 | cruise10 | 100 | 6 | no | 10 mm/s (cruise setting, not a wheel target) | 0..63 (0..630 mm/s) | — | B2 |
-| 13 | ir_black | 106 | 3 | no | bit0 IR_L (GP2), bit1 IR_C (GP6), bit2 IR_R (GP27); 1 = black; see §11 for the car's sides | 0..7 | — | B3 |
+| 13 | ir_black | 106 | 3 | no | bit0 IR_L (GP2), bit1 IR_C (GP6), bit2 IR_R (GP26, also the barcode sensor); 1 = black; see §11 for the car's sides | 0..7 | — | B3 |
 | 14 | line_pos | 109 | 3 | no | CENTER, LEFT_NEAR, LEFT_FAR, RIGHT, LOST_LEFT, LOST_RIGHT, JUNCTION, RIGHT_NEAR (line follower's own IR_L/IR_R labels) | 0..7 | — | B3 |
 | 15 | line_state | 112 | 2 | no | ON_LINE, SEARCHING, LOST, UNKNOWN | 0..3 | 3 = not calibrated | B3 |
 | 16 | steer | 114 | 7 | yes | steer units (+ = right) | −63..63 | — | B3 |
