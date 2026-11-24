@@ -73,15 +73,21 @@ EXPORT void s5_profile_pack(const S5_PROFILE *p, UW w[2])
 	UH	dist = (p->dist_mm < 0) ? (UH)S5_DIST_INVALID : s5_dist_code((UW)p->dist_mm);
 	UW	width = (p->width_mm < 0) ? S5_WIDTH_UNKNOWN
 		      : (UW)clamp((p->width_mm + 2) / 5, 0, 254);
-	UW	cl = (p->clear_left_mm < 0) ? S5_CLEAR_UNKNOWN
-		   : (UW)clamp((p->clear_left_mm + 5) / 10, 0, 254);
-	UW	cr = (p->clear_right_mm < 0) ? S5_CLEAR_UNKNOWN
-		   : (UW)clamp((p->clear_right_mm + 5) / 10, 0, 254);
 	/* Packing must not shrink the measured obstacle. */
 	W	le = clamp(p->left_mm < 0 ? -((-p->left_mm + 9) / 10)
 					    : p->left_mm / 10, -127, 127);
 	W	re = clamp(p->right_mm > 0 ? (p->right_mm + 9) / 10
 					     : p->right_mm / 10, -127, 127);
+	/* Clearance is measured from its obstacle edge. Outward rounding of
+	   that edge consumes space; then round remaining clearance DOWN so
+	   a narrow route cannot cross the acceptance threshold in transit. */
+	W left_loss = p->left_mm - le * 10;
+	W right_loss = re * 10 - p->right_mm;
+	UW cl = (p->clear_left_mm < 0) ? S5_CLEAR_UNKNOWN
+		: (UW)clamp((p->clear_left_mm - (left_loss > 0 ? left_loss : 0)) / 10, 0, 254);
+	UW cr = (p->clear_right_mm < 0) ? S5_CLEAR_UNKNOWN
+		: (UW)clamp((p->clear_right_mm - (right_loss > 0 ? right_loss : 0)) / 10, 0, 254);
+
 
 	w[0] = F(p->scan_id, 0x7UL, 0) | F(p->status, 0x3UL, 3)
 	     | F(dist, 0x3FFUL, 5) | F(clamp(p->bearing_deg, -127, 127), 0xFFUL, 15)

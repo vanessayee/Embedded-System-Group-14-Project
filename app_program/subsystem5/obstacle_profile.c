@@ -210,6 +210,99 @@ LOCAL BOOL corner_echo(const OP_SAMPLE *o, H y, W y_near)
 		&& (W)y < y_near - OP_CORNER_DEPTH_MM) ? TRUE : FALSE;
 }
 
+/* planar() at tenths of a degree (linear between whole degrees) */
+LOCAL W planar_d10(W y, INT d10)
+{
+	INT	d = (d10 >= 0) ? d10 / 10 : -((-d10 + 9) / 10);
+	INT	f = d10 - d * 10;
+	W	a = planar(y, d), b = planar(y, d + 1);
+
+	return a + (b - a) * f / 10;
+}
+
+/* Any echo from the obstacle: face or corner, not background */
+LOCAL BOOL env_echo(const OP_SAMPLE *o, INT n, INT i, W y_near)
+{
+	return (i >= 0 && i < n && o[i].status == SS_OK
+		&& (W)o[i].dist_mm >= y_near - depth_tolerance(y_near)
+		&& (W)o[i].dist_mm <= y_near + OP_ENV_RANGE_MM) ? TRUE : FALSE;
+}
+
+/* Last index of the obstacle's own echo run on one side (face and corner
+   echoes heard off-axis), walking out from the face-band edge index 'from'
+   and bridging one dropout. */
+LOCAL INT env_run_end(const OP_SAMPLE *o, INT n, INT from, INT step, W y_near)
+{
+	INT	e = from;
+
+	for (;;) {
+		if (env_echo(o, n, e + step, y_near)) {
+			e += step;
+		} else if (e + step >= 0 && e + step < n && o[e + step].status != SS_OK
+			   && env_echo(o, n, e + 2 * step, y_near)) {
+			e += 2 * step;			/* bridge one dropout */
+		} else {
+			return e;
+		}
+	}
+}
+
+/* Edge from the echo envelope on one side (step +1 = right, -1 = left),
+   walking out from the face-band edge index 'from'.  Only used when the
+   run beyond the band shows specular corner echoes and ends cleanly in
+   background; otherwise the band edge stands alone. */
+LOCAL BOOL env_edge(const OP_SAMPLE *o, const H *y, INT n, INT from, INT step,
+		    W y_near, W *x_env)
+{
+	INT	e, corners = 0, k, end_d10;
+
+	if (y_near < OP_ENV_Y_MIN_MM || y_near > OP_ENV_Y_MAX_MM) return FALSE;
+	e = env_run_end(o, n, from, step, y_near);
+	if (e + step < 0 || e + step >= n || o[e + step].status == SS_INVALID) {
+		return FALSE;				/* envelope end not observed */
+	}
+	for (k = from + step; k != e + step; k += step) {
+		if (o[k].status == SS_OK && corner_echo(&o[k], y[k], y_near)) corners++;
+	}
+	if (corners < OP_ENV_MIN_CORNER) return FALSE;
+	end_d10 = (o[e].angle_deg + o[e + step].angle_deg) * 5;	/* midpoint */
+	*x_env = planar_d10(y_near, end_d10 - step * OP_ENV_GAMMA_D10);
+	return TRUE;
+}
+
+/* TRUE when the first ray past the band edge is an obstacle echo from
+   BEHIND the face plane: the far corner of an edge that lies farther out,
+   heard after the face left the direct beam.  The band was cut short. */
+LOCAL BOOL band_cut_short(const OP_SAMPLE *o, const H *y, INT n, INT from,
+			  INT step, W y_near)
+{
+	INT	i = from + step;
+
+	return (env_echo(o, n, i, y_near)
+		&& (W)y[i] > y_near + depth_tolerance(y_near)) ? TRUE : FALSE;
+}
+
+/* Inward (narrower): average the two edges, at most the 15 mm reserve.
+   Outward (wider): average too, unless the band was cut short at the
+   direct-beam limit (off-centre 15 cm box at 150 mm: band 44 mm, true
+   edge 85 mm); then take the envelope edge, since widening only adds
+   clearance. */
+LOCAL W fuse_edge(W x_band, BOOL env_ok, W x_env, INT step, BOOL cut_short)
+{
+	W	inward;
+
+	if (!env_ok) return x_band;
+	inward = (x_band - x_env) * step;	/* > 0: envelope edge is inside */
+	if (inward > 0) {
+		inward /= 2;
+		if (inward > OP_ENV_MAX_SHRINK_MM) inward = OP_ENV_MAX_SHRINK_MM;
+	} else {
+		if (!cut_short) inward /= 2;
+		if (inward < -OP_ENV_MAX_GROW_MM) inward = -OP_ENV_MAX_GROW_MM;
+	}
+	return x_band - inward * step;
+}
+
 /*
  * Ultrasonic reflections can disappear at one servo angle and reappear at
  * the next (the 3-degree fine scan observed 325, 781, 301 mm).  Treat one
@@ -266,6 +359,27 @@ LOCAL W side_clearance(const OP_SAMPLE *o, const H *y, UINT n, INT from, INT ste
 		best = reach;			/* free as far as the scan can see */
 	}
 	return (best > OP_CLEAR_CAP_MM) ? OP_CLEAR_CAP_MM : best;
+}
+
+EXPORT void op_build_sensor(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
+			    S5_PROFILE *out)
+{
+	OP_SAMPLE	a[OP_MAX_SAMPLES];
+	UINT		i;
+
+	if (n > OP_MAX_SAMPLES) {
+		n = OP_MAX_SAMPLES;
+	}
+	for (i = 0; i < n; i++) {
+		a[i] = s[i];
+		if (a[i].status == SS_OK) {
+			a[i].dist_mm = (H)(s[i].dist_mm + OP_SENSOR_RADIUS_MM);
+		}
+	}
+	op_build(a, n, scan_limit_deg, out);
+	if (out->dist_mm >= OP_SENSOR_RADIUS_MM) {
+		out->dist_mm -= OP_SENSOR_RADIUS_MM;	/* shaft -> transducer/bumper */
+	}
 }
 
 EXPORT void op_build(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
@@ -399,14 +513,34 @@ EXPORT void op_build(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
 	out->dist_mm = y_near;
 	out->left_mm = planar(y_near, edge_l);
 	out->right_mm = planar(y_near, edge_r);
+	{
+		W	xe = 0;
+		BOOL	ok;
+
+		ok = l_known && env_edge(o, y, (INT)n, li, -1, y_near, &xe);
+		out->left_mm = fuse_edge(out->left_mm, ok, xe, -1,
+					 band_cut_short(o, y, (INT)n, li, -1, y_near));
+		ok = r_known && env_edge(o, y, (INT)n, ri, 1, y_near, &xe);
+		out->right_mm = fuse_edge(out->right_mm, ok, xe, 1,
+					  band_cut_short(o, y, (INT)n, ri, 1, y_near));
+		if (out->right_mm < out->left_mm) out->right_mm = out->left_mm;
+		edge_l = op_atan_deg(out->left_mm, y_near);
+		edge_r = op_atan_deg(out->right_mm, y_near);
+	}
 	out->width_mm = out->right_mm - out->left_mm;
 	if (out->width_mm < 0) {
 		out->width_mm = 0;
 	}
 	out->bearing_deg = (edge_l + edge_r) / 2;
-	out->clear_left_mm = side_clearance(o, y, n, li - 1, -1, out->left_mm,
-					    y_near, scan_limit_deg, l_known);
-	out->clear_right_mm = side_clearance(o, y, n, ri + 1, 1, out->right_mm,
-					     y_near, scan_limit_deg, r_known);
+	/* Free space starts after the obstacle's own echo run.  Its corner
+	   echoes heard off-axis are not a second object beside it (24/25 Nov
+	   15 cm box at 160 mm: corner echoes reported as obstacles 3 and
+	   15 mm away while both sides were open). */
+	out->clear_left_mm = side_clearance(o, y, n,
+		env_run_end(o, (INT)n, li, -1, y_near) - 1, -1, out->left_mm,
+		y_near, scan_limit_deg, l_known);
+	out->clear_right_mm = side_clearance(o, y, n,
+		env_run_end(o, (INT)n, ri, 1, y_near) + 1, 1, out->right_mm,
+		y_near, scan_limit_deg, r_known);
 	out->status = (l_known || r_known) ? PRF_VALID : PRF_INSUFFICIENT;
 }

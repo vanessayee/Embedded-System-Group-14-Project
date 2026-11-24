@@ -50,9 +50,36 @@
    while its perpendicular is inside the beam; beyond that the corner is
    heard at sqrt(face^2 + edge^2).  The outermost face ray is dropped, at
    most once per side, when it looks like such a corner echo. */
+/* [CAL] Servo shaft to the front face of the HC-SR04 transducers, sensor
+   pointing ahead (measured 45 mm, 25 Nov).  The transducers swing on this
+   radius, so every reading is 45 mm short of the distance from the shaft,
+   which sits on the car's centre line.  Lateral geometry (edges, side
+   gaps) is computed from the shaft; the forward gap stays bumper-based. */
+#define OP_SENSOR_RADIUS_MM	45
 #define OP_BEAM_DIRECT_DEG	15	/* HC-SR04 nominal beam half-angle   */
 #define OP_CORNER_RANGE_MM	8	/* > one 5 mm range step farther ... */
 #define OP_CORNER_DEPTH_MM	3	/* ... and projected nearer than face */
+/* Echo envelope (second, independent edge estimate).  A smooth face echoes
+   straight back only while its perpendicular is inside the beam, so a box
+   narrower than the beam (10 cm at 205 mm) reads as wide as the beam in the
+   face band.  Its corners, however, keep echoing until the sensor points
+   OP_ENV_GAMMA_D10 past them: last obstacle echo minus that angle is the
+   edge.  Calibrated from the two recorded 130 mm scans, independently of
+   where the box sat (22.9 and 24.4 deg).  The final edge is the average of
+   the band and envelope edges, moved inward by at most the avoidance
+   plan's 15 mm edge reserve and outward by at most 25 mm. */
+#define OP_ENV_GAMMA_D10	270	/* corner heard up to 27.0 deg past it;
+					   from the servo shaft (45 mm radius) the
+					   four recorded scans give 25.9-28.9 deg
+					   at 160 and 205 mm (was 24.0 assuming
+					   the shaft at the transducer) */
+#define OP_ENV_RANGE_MM		60	/* obstacle echo: range <= face + this */
+#define OP_ENV_MIN_CORNER	2	/* corner echoes needed beyond the band */
+#define OP_ENV_MAX_SHRINK_MM	15	/* = AV_EDGE_UNCERTAINTY_MM */
+#define OP_ENV_MAX_GROW_MM	50	/* outward is safe; bounded for stray echoes */
+#define OP_ENV_Y_MIN_MM		140	/* face distance from the servo shaft;  */
+#define OP_ENV_Y_MAX_MM		350	/* calibrated at 205 and 250 mm (the car
+					   now scans at ~205 mm from the shaft) */
 
 /* One scan sample as the Profile task keeps it, at the widths its ranges
    need (servo +-80 deg, HC-SR04 0..4000 mm): 4 bytes, where an INT / W /
@@ -69,6 +96,10 @@ typedef struct S5_LOCAL_BITS {
 /* samples need not be sorted; scan_limit_deg = largest |angle| scanned */
 IMPORT void op_build(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
 		     S5_PROFILE *out);
+/* Raw HC-SR04 readings: adds OP_SENSOR_RADIUS_MM so op_build works from the
+   servo shaft, then reports dist_mm from the transducer (= front bumper). */
+IMPORT void op_build_sensor(const OP_SAMPLE *s, UINT n, INT scan_limit_deg,
+			    S5_PROFILE *out);
 
 /* Optional calibrated correction, at most one scan cell per known edge.
    Disabled by default. Never increases measured free side clearance. */

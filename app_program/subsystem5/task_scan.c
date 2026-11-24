@@ -268,9 +268,17 @@ LOCAL void do_scan(const S5_SCAN_REQ *rq)
 		smp.dist_code = sst.dist_code;
 		smp.scan_id = rq->scan_id;
 		smp.phase = phase;
-		smp.last = last ? 1U : 0U;
 		smp.status = (r == US_OK) ? SS_OK : (r == US_NO_ECHO) ? SS_NO_ECHO
 			   : (last && silent == total) ? SS_ABORTED : SS_INVALID;
+		if (S5_OPERATOR_STOP()) {
+			/* operator STOP: end the sweep here; the profile of an
+			   aborted scan is invalid and is never acted upon */
+			last = TRUE;
+			smp.status = SS_ABORTED;
+			tm_printf((UB*)"servo: scan %d stopped by operator at %d deg, centring\n",
+				  (INT)rq->scan_id, servo_angle());
+		}
+		smp.last = last ? 1U : 0U;
 		w = s5_sample_pack(&smp);
 		if (tk_snd_mbf(mbf_scan_samples, &w, (INT)sizeof(w), TMO_POL) != E_OK) {
 			sys_fault_set(SYS_FLT_TASK_COMM);

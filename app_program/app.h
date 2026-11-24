@@ -9,6 +9,14 @@
 #ifndef APP_H
 #define APP_H
 
+/* Build-only measurement mode; ordinary firmware always defaults to driving. */
+#ifndef APP_S5_SCAN_ONLY
+#define APP_S5_SCAN_ONLY 0
+#endif
+#if APP_S5_SCAN_ONLY != 0 && APP_S5_SCAN_ONLY != 1
+#error "APP_S5_SCAN_ONLY must be 0 or 1"
+#endif
+
 #include <tk/tkernel.h>		/* micro T-Kernel API (tk_xxx_yyy) */
 #include <tm/tmonitor.h>	/* T-Monitor API: tm_printf() console output */
 #include <bsp/libbsp.h>		/* Board helpers: gpio_set_pin/val, pwm_... */

@@ -114,7 +114,7 @@ function render(s) {
 		const decoded = ['VALID','DUPLICATE'].includes(t.bc_result_label);
 		text('barcode', decoded ? t.bc_symbol : t.bc_result_label === 'INVALID' ? 'INVALID' : '—');
 		text('barcode-action', decoded ? (t.nav_label || 'Decoded · no assigned instruction') : t.bc_state_label);
-		text('hump', cm(t.hump_last_mm)); text('hump-max', 'Highest this boot: ' + cm(t.hump_max_boot_mm));
+		text('hump', cm(t.hump_last_mm)); text('hump-max', 'Highest this run: ' + cm(t.hump_max_boot_mm));
 		text('width', cm(t.obst_width_mm)); text('range', t.us_no_echo ? 'No echo' : cm(t.us_dist_mm)); text('range-context', t.us_context || 'sensor to surface');
 		text('safety', t.collision ? 'LATCHED' : 'MONITORING'); text('shock', 'Peak shock: ' + fmt(t.shock_g, ' g'));
 		text('line-status', t.line_state_label); text('ir-state', (t.ir_centre ? 'BLACK' : 'WHITE') + ' / ' + (t.ir_right ? 'BLACK' : 'WHITE'));

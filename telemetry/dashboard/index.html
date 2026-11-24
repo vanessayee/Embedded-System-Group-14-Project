@@ -39,7 +39,7 @@ h1{font-size:35px;letter-spacing:-1.3px;line-height:1.2;margin:8px 0 12px}h2{fon
 <section class="metrics" aria-label="Live measurements">
 <div class="metric highlight"><label>Decoded barcode</label><strong id="barcode">—</strong><small id="barcode-action">Waiting for a scan</small></div>
 <div class="metric"><label>Robot speed</label><strong id="speed">—</strong><small>mm/s · average wheel speed</small></div>
-<div class="metric"><label>Last hump height</label><strong id="hump">—</strong><small id="hump-max">Highest this boot: —</small></div>
+<div class="metric"><label>Last hump height</label><strong id="hump">—</strong><small id="hump-max">Highest this run: —</small></div>
 <div class="metric"><label>Obstacle width</label><strong id="width">—</strong><small>cm · ultrasonic estimate</small></div>
 <div class="metric"><label>Ultrasonic range</label><strong id="range">—</strong><small id="range-context">cm · sensor to surface</small></div>
 <div class="metric"><label>Handling / collision</label><strong id="safety">—</strong><small id="shock">Peak shock: —</small></div>
@@ -69,11 +69,11 @@ h1{font-size:35px;letter-spacing:-1.3px;line-height:1.2;margin:8px 0 12px}h2{fon
 <section class="card" id="rules"><div class="card-head"><div><h2>Barcode instructions</h2><div class="sub">Choose the demonstration letters without reflashing</div></div><span class="tag">A–Z</span></div><div class="card-body">
 <div class="sub">Each selected letter queues its instruction for the next junction. Other letters decode normally and request no turn.</div>
 <div class="rule-grid"><div class="rule-field"><label for="rule-left"><span class="rule-icon">↰</span>Turn left</label><select id="rule-left" aria-label="Left barcode letter"></select></div><div class="rule-field"><label for="rule-right"><span class="rule-icon">↱</span>Turn right</label><select id="rule-right" aria-label="Right barcode letter"></select></div><div class="rule-field"><label for="rule-straight"><span class="rule-icon">↑</span>Go straight</label><select id="rule-straight" aria-label="Straight barcode letter"></select></div><div class="rule-field"><label for="rule-uturn"><span class="rule-icon">↶</span>U-turn</label><select id="rule-uturn" aria-label="U-turn barcode letter"></select></div></div>
-<button class="btn primary full" id="apply-rules">Apply all barcode rules</button><div class="map-result" id="map-result" role="status" aria-live="polite">Stop the robot, choose the letters, then apply.</div>
+<button class="btn primary full" id="apply-rules">Apply all barcode rules</button><div class="map-result" id="map-result" role="status" aria-live="polite">Choose the letters, then apply. Works while the robot is driving.</div>
 <div class="controls"><button class="btn soft" id="read-rules">Read robot rules</button><button class="btn" id="restore-rules">Load saved choices</button></div>
 <div class="divider"></div><div class="eyebrow">Confirmed by robot</div><div class="chips" id="confirmed-rules"><span class="sub">Not read from the robot yet.</span></div>
 <div class="note">Applying replaces all A–Z assignments. The laptop saves your choices; the robot map is in RAM. Reapply after switching the Pico off and on. No changes are reported as applied until the robot acknowledges them.</div>
-<div class="controls"><button class="btn danger" data-command="STOP">■ Stop motors</button><button class="btn danger" data-command="RESET">↻ Reset Pico</button><button class="btn" data-command="CLEAR">Clear faults</button><button class="btn soft" data-command="RESUME">▶ Resume</button></div>
+<div class="controls"><button class="btn danger" data-command="STOP">■ Stop</button><button class="btn danger" data-command="RESET">↻ Reset Pico</button><button class="btn" data-command="CLEAR">Clear faults</button><button class="btn soft" data-command="RESUME">▶ Resume</button></div>
 <div class="sub" style="margin-top:10px">Reset stops motors and reboots the Pico, including during avoidance. Current-run data clears after the new boot arrives. Reset and Resume can start movement once readiness checks pass. Reapply barcode rules after reset.</div>
 </div></section>
 <section class="card"><div class="card-head"><h2>Terrain &amp; recovery</h2><span class="tag" id="avoid-status">WAITING</span></div><div class="card-body"><div class="live-detail">

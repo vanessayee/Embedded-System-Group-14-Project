@@ -28,7 +28,7 @@ The script expects the existing PostgreSQL and Mosquitto services to run.
 ## Changing the professor's barcode instructions
 
 1. Wait for ROBOT ONLINE and recent telemetry.
-2. Press **Stop motors** and wait for SAFE_STOP.
+2. Press **Stop** and wait for SAFE_STOP.
 3. Choose the A–Z letter for LEFT, RIGHT, STRAIGHT and U-TURN. Use the blank
    choice to disable an instruction. Each selected letter must be different.
 4. Press **Apply all barcode rules**. It sends all 26 assignments and waits

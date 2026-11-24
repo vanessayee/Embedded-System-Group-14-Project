@@ -69,12 +69,17 @@ LOCAL BOOL wait_profile(UB phase, S5_PROFILE *p)
 		UW	el = app_now_ms() - start;
 		INT	n;
 
+		if (S5_OPERATOR_STOP()) {
+			return FALSE;		/* reported by fail() as an operator stop */
+		}
 		if (el >= S5_SCAN_TIMEOUT_MS) {
 			tm_printf((UB*)"avoid: profile timeout, scan %d phase %d after %d ms\n",
 				  (INT)request_state.scan_id, (INT)phase, (INT)el);
 			return FALSE;
 		}
-		n = tk_rcv_mbf(mbf_profile, pw, (TMO)(S5_SCAN_TIMEOUT_MS - el));
+		n = tk_rcv_mbf(mbf_profile, pw,
+			       (TMO)((S5_SCAN_TIMEOUT_MS - el < S5_PROFILE_POLL_MS)
+				     ? S5_SCAN_TIMEOUT_MS - el : S5_PROFILE_POLL_MS));
 		if (n != (INT)sizeof(pw)) {
 			continue;
 		}
@@ -241,8 +246,25 @@ LOCAL BOOL align_line(INT side)
 	}
 	return FALSE;
 }
+/* Operator STOP: everything stops, the servo returns to centre and no
+   avoidance fault is added on top of the operator hold, so a RESUME
+   starts cleanly.  The robot stays in Safe Stop until then. */
+LOCAL void operator_abandon(void)
+{
+	motion_stop(MSRC_AVOID);
+	ast.outcome = AVO_NONE;
+	ast.fail = AVF_NONE;
+	set_state(AVST_IDLE);
+	request_scan(SREQ_MONITOR, 0, 0, 0);
+	tm_printf((UB*)"avoid: STOP from operator - obstacle handling abandoned, waiting for RESUME\n");
+}
+
 LOCAL void fail(UB reason, UW fault_bits)
 {
+	if (S5_OPERATOR_STOP()) {
+		operator_abandon();
+		return;
+	}
 	motion_stop(MSRC_AVOID);
 	ast.fail = reason;
 	ast.outcome = AVO_FAILED;
@@ -255,6 +277,10 @@ LOCAL void fail(UB reason, UW fault_bits)
 
 LOCAL void finish(UB outcome)
 {
+	if (S5_OPERATOR_STOP()) {
+		operator_abandon();		/* never resume the mission */
+		return;
+	}
 	ast.outcome = outcome;
 	ast.fail = AVF_NONE;
 	ast.count = (UB)((ast.count + 1U) & 0xFU);
@@ -288,6 +314,10 @@ LOCAL BOOL profile_obstacle(S5_PROFILE *p, BOOL *cleared)
 	W	front_gap;
 
 	*cleared = FALSE;
+	if (S5_OPERATOR_STOP()) {
+		operator_abandon();		/* never start a sweep after STOP */
+		return FALSE;
+	}
 	request_state.scan_id = (UB)((request_state.scan_id + 1U) & 0x7U);
 	/* A complete 3-degree sweep already contains the information supplied
 	   by the old 15-degree coarse pass, while avoiding a second left-to-right
@@ -346,16 +376,23 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 	W		farthest_side_mm = 0;
 	W		lateral_mm = AV_ROBOT_WIDTH_MM / 2 + plan->side_gap_mm;
 	W		side_sin = op_sin_q15(S5_SIDE_LOOK_DEG);
+	/* Side readings are taken from the transducer, OP_SENSOR_RADIUS_MM out
+	   from the servo shaft on the centre line: shaft distance = reading +
+	   radius.  The limit is a reading, so the radius is subtracted. */
 	W		side_limit = av_side_watch_limit_mm(profile, plan, S5_SIDE_LOOK_DEG,
-						       S5_SIDE_ECHO_ALLOWANCE_MM);
+						       S5_SIDE_ECHO_ALLOWANCE_MM)
+				   - OP_SENSOR_RADIUS_MM;
 	W		acquire_limit = plan->front_gap_mm + AV_SENSOR_BEHIND_FRONT_MM
 				      - plan->forward_before_pass_mm + AV_ROBOT_LENGTH_MM
 				      + S5_SIDE_ECHO_ALLOWANCE_MM;
 	UW		debug_at = 0;
 	BOOL		debug_sent = FALSE;
 	INT		away = (plan->side == AV_SIDE_RIGHT) ? 1 : -1;	/* turn sign away from obstacle */
-	W		confirm_travel = 0, ref_mm = -1, ref_travel = 0, last_side_mm = 0;
+	W		confirm_travel = 0, last_side_mm = 0;
 	INT		heading_fix = 0;
+	AV_TREND	trend;
+
+	av_trend_reset(&trend);
 
 	s5_get_scan_status(&ss);
 	watch.last_seq = ss.seq;
@@ -378,7 +415,8 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 
 	tm_printf((UB*)"avoid: passing obstacle, ultrasonic looking %d deg; "
 		  "expected side %d mm, present limit %d mm, far edge needs %d clears\n",
-		  look, (INT)((D)lateral_mm * 32768 / side_sin), (INT)side_limit,
+		  look, (INT)((D)lateral_mm * 32768 / side_sin - OP_SENSOR_RADIUS_MM),
+		  (INT)side_limit,
 		  S5_SIDE_CLEAR_CONFIRM);
 	motion_get_odometry(&odo0, NULL);
 	if (motion_command(MCMD_MOVE, MSRC_AVOID, AV_SIDE_PASS_MAX_MM,
@@ -424,7 +462,8 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 				}
 				if (watch.seen_run < S5_SIDE_SEEN_CONFIRM) watch.seen_run++;
 				if (watch.seen_run >= S5_SIDE_SEEN_CONFIRM && !watch.seen) {
-					W measured_gap = (W)((D)side_mm * side_sin / 32768)
+					W measured_gap = (W)((D)(side_mm + OP_SENSOR_RADIUS_MM)
+							     * side_sin / 32768)
 						- AV_ROBOT_WIDTH_MM / 2;
 
 					watch.seen = TRUE;
@@ -435,26 +474,44 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 						  AV_SIDE_GAP_MM, AV_EDGE_UNCERTAINTY_MM);
 				} else if (watch.seen && !watch.corrected
 					   && travelled - confirm_travel >= S5_HEADING_SETTLE_MM) {
-					/* Compare ranges S5_HEADING_BASELINE_MM apart; slide the
-					   reference while the car is parallel enough. */
-					if (ref_mm < 0) {
-						ref_mm = side_mm;
-						ref_travel = travelled;
-					} else if (travelled - ref_travel >= S5_HEADING_BASELINE_MM) {
-						INT conv = av_side_convergence_deg(ref_mm, side_mm,
-							travelled - ref_travel, S5_SIDE_LOOK_DEG);
+					/* Trend of the perpendicular side distance (from the
+					   servo shaft) over travel: robust to single 5 mm
+					   range steps and fast enough for a short box. */
+					W	perp = (W)((D)(side_mm + OP_SENSOR_RADIUS_MM)
+							   * side_sin / 32768);
+					W	body_gap = perp - AV_ROBOT_WIDTH_MM / 2;
+					INT	conv = 0;
+					BOOL	have = FALSE;
 
-						if (conv >= S5_HEADING_FIX_MIN_DEG) {
-							heading_fix = (conv > S5_HEADING_FIX_MAX_DEG)
-								    ? S5_HEADING_FIX_MAX_DEG : conv;
-							tm_printf((UB*)"avoid: converging %d deg on the obstacle "
-								  "(side %d -> %d mm over %d mm)\n", conv,
-								  (INT)ref_mm, (INT)side_mm,
-								  (INT)(travelled - ref_travel));
-						} else {
-							ref_mm = side_mm;
-							ref_travel = travelled;
-						}
+					av_trend_add(&trend, travelled, perp);
+					have = av_trend_closing_deg(&trend, &conv);
+					if (have && conv >= S5_HEADING_FIX_MIN_DEG) {
+						heading_fix = conv;
+					} else if (body_gap < S5_SIDE_MIN_GAP_MM) {
+						/* last-resort guard: too close, trend or not */
+						heading_fix = (have && conv > S5_HEADING_FIX_MIN_DEG)
+							    ? conv : 10;
+					}
+					if (heading_fix > S5_HEADING_FIX_MAX_DEG)
+						heading_fix = S5_HEADING_FIX_MAX_DEG;
+					if (heading_fix > 0) {
+						tm_printf((UB*)"avoid: converging %d deg on the obstacle "
+							  "(body gap %d mm after %d mm of trend)\n",
+							  have ? conv : -1, (INT)body_gap,
+							  (INT)(trend.t_last - trend.t_first));
+					}
+				} else if (watch.seen && watch.corrected) {
+					W	gap2 = (W)((D)(side_mm + OP_SENSOR_RADIUS_MM)
+							   * side_sin / 32768) - AV_ROBOT_WIDTH_MM / 2;
+
+					if (gap2 < S5_SIDE_MIN_GAP_MM / 2) {
+						/* already corrected once and still closing: stop
+						   rather than scrape along the obstacle */
+						motion_stop(MSRC_AVOID);
+						tm_printf((UB*)"avoid: body gap %d mm after correction; stopping\n",
+							  (INT)gap2);
+						fail(AVF_CLEARANCE, SYS_FLT_AVOID_FAILED);
+						return EXEC_FAILED;
 					}
 				}
 				last_side_mm = side_mm;
@@ -537,10 +594,14 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 		if (watch.seen && watch.clear_run >= S5_SIDE_CLEAR_CONFIRM) {
 			W clear_travel = (clear_start_mm >= 0)
 				       ? travelled - clear_start_mm : 0;
+			/* Treats the transducer as if at the bumper: the edge
+			   really lies ~37 mm farther back when looking sideways,
+			   so this over-advances slightly (the safe direction). */
 			W edge_ahead = (W)(((D)farthest_side_mm
 						 * op_cos_q15(S5_SIDE_LOOK_DEG)) / 32768)
 				       - clear_travel + S5_FAR_EDGE_ALLOWANCE_MM;
-			W measured_gap = (W)(((D)closest_side_mm * side_sin) / 32768)
+			W measured_gap = (W)(((D)(closest_side_mm + OP_SENSOR_RADIUS_MM)
+					      * side_sin) / 32768)
 					 - AV_ROBOT_WIDTH_MM / 2
 					 - S5_SIDE_GAP_MEAS_MARGIN_MM;
 			W body_path;
@@ -743,6 +804,11 @@ LOCAL void handle_obstacle(void)
 				return;
 			}
 			set_state(AVST_PLANNING);
+			tm_printf((UB*)"avoid: side corridor needs %d mm; left %d (%s), right %d (%s)\n",
+				  AV_REQUIRED_CORRIDOR_MM, (INT)prof.clear_left_mm,
+				  prof.clear_left_mm >= AV_REQUIRED_CORRIDOR_MM ? "usable" : "blocked/unknown",
+				  (INT)prof.clear_right_mm,
+				  prof.clear_right_mm >= AV_REQUIRED_CORRIDOR_MM ? "usable" : "blocked/unknown");
 			pr = av_plan(&prof, &plan);
 			reverse_mm = av_reverse_needed_mm(&prof);
 			if (pr == AVP_NO_CLEARANCE && !reverse_used && reverse_mm > 0) {
@@ -803,6 +869,50 @@ LOCAL void handle_obstacle(void)
 	fail(AVF_MOTION, SYS_FLT_AVOID_FAILED);		/* re-plans exhausted */
 }
 
+#if APP_S5_SCAN_ONLY
+/* Same scan task, filtering and profiler as normal avoidance. No motion
+   command or obstacle-mode event is submitted by this calibration loop. */
+LOCAL void calibration_scans(void)
+{
+	S5_PROFILE profile;
+	UW sample = 0;
+
+	set_state(AVST_IDLE);
+	sys_task_ready(SYS_TASK_AVOID);
+	tm_printf((UB*)"\ncalib: SCAN ONLY - motor output disabled in this firmware\n");
+	tm_printf((UB*)"calib: no hotspot/MQTT connection required to scan\n");
+	tm_printf((UB*)"calib: place one object square to the sensor, 200 mm from its front face\n");
+	tm_printf((UB*)"calib: first scan in 10 seconds; 5 scans/group, then 20 seconds to change object\n");
+	(void)tk_dly_tsk(10000);
+	for (;;) {
+		sample++;
+		request_state.scan_id = (UB)((request_state.scan_id + 1U) & 0x7U);
+		set_state(AVST_FINE);
+		tm_printf((UB*)"\ncalib: BEGIN sample %d, group %d scan %d/5, %d..%d deg step %d\n",
+			  (INT)sample, (INT)((sample - 1U) / 5U + 1U),
+			  (INT)((sample - 1U) % 5U + 1U), -S5_SCAN_LIMIT_DEG,
+			  S5_SCAN_LIMIT_DEG, S5_FINE_STEP);
+		request_scan(SREQ_FINE, -S5_SCAN_LIMIT_DEG, S5_SCAN_LIMIT_DEG, S5_FINE_STEP);
+		if (wait_profile(1, &profile)) {
+			tm_printf((UB*)"calib: END sample %d status %d, front %d mm, width %d mm, edges %d..%d mm, clear L %d R %d mm\n",
+				  (INT)sample, (INT)profile.status, (INT)profile.dist_mm,
+				  (INT)profile.width_mm, (INT)profile.left_mm, (INT)profile.right_mm,
+				  (INT)profile.clear_left_mm, (INT)profile.clear_right_mm);
+		} else {
+			tm_printf((UB*)"calib: END sample %d PROFILE TIMEOUT - check sensor/servo and serial log\n", (INT)sample);
+		}
+		set_state(AVST_IDLE);
+		if (sample % 5U == 0U) {
+			tm_printf((UB*)"calib: GROUP COMPLETE - change object now; next group in 20 seconds\n");
+			(void)tk_dly_tsk(20000);
+		} else {
+			tm_printf((UB*)"calib: leave object still; next scan in 5 seconds\n");
+			(void)tk_dly_tsk(5000);
+		}
+	}
+}
+#endif
+
 EXPORT void avoid_task(INT stacd, void *exinf)
 {
 	UINT	ptn;
@@ -816,6 +926,10 @@ EXPORT void avoid_task(INT stacd, void *exinf)
 	ast.outcome = AVO_NONE;
 	ast.count = 0;
 	ast.fail = AVF_NONE;
+#if APP_S5_SCAN_ONLY
+	calibration_scans();
+	return;
+#endif
 	set_state(AVST_IDLE);
 	request_scan(SREQ_MONITOR, 0, 0, 0);
 	sys_task_ready(SYS_TASK_AVOID);

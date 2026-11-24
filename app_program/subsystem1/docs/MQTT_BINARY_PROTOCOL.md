@@ -213,8 +213,9 @@ whether each is safe in the current mode:
   immediate telemetry frame.
 
 SET_NAV_MAP accepts Code 39 indices 10..35 (A..Z). Actions are 0 LEFT,
-1 RIGHT, 2 STRAIGHT, 3 U-TURN, 4 NONE/unmapped. It is accepted only in
-INIT or SAFE_STOP with no pending/executing barcode instruction. GET_NAV_MAP
+1 RIGHT, 2 STRAIGHT, 3 U-TURN, 4 NONE/unmapped. It is accepted in every
+mode, including while driving, except while a barcode is being decoded or
+executed (ACK REJ_STATE; the dashboard retries). GET_NAV_MAP
 accepts an A..Z index in any mode. Both acknowledge the resulting action in
 ACK.detail (0..4). Each table entry is published atomically across cores.
 Mappings are RAM-only and survive RESUME, but reset to firmware defaults on

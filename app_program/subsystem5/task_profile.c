@@ -85,7 +85,7 @@ EXPORT void profile_task(INT stacd, void *exinf)
 			}
 			tm_printf((UB*)"\n");
 		}
-		op_build(buf, current.n, current.limit, &prof);
+		op_build_sensor(buf, current.n, current.limit, &prof);
 		raw_width = prof.width_mm;
 		if (current.aborted) {
 			prof.status = PRF_INVALID;	/* sensor silent for the whole scan */

@@ -121,15 +121,14 @@ before applying any nonzero correction.
 
 ## 4. Avoidance plan (`avoid_plan.c`; Briefing p.8 workflow)
 
-* **Side choice:** with `AV_ASSUME_OPEN_BOARD=1`, the board is treated like an
-  open road. The lateral reach of the scan is not interpreted as a board edge.
-  Each known obstacle edge defines a candidate route and the planner chooses
-  the one requiring less lateral deviation; equal routes prefer right
-  (`AV_PREFER_RIGHT`). The path uses the 125 mm robot width
-  (`AV_ROBOT_WIDTH_MM`), the requested 50 mm side gap (`AV_SIDE_GAP_MM`, was 80 mm) and a
-  15 mm edge-uncertainty allowance (`AV_EDGE_UNCERTAINTY_MM`). If both
-  obstacle edges are unknown →
-  `OBSTACLE_UNAVOIDABLE` → Safe Stop (FR12).
+* **Side choice:** board dimensions are not assumed. Each measured/reported
+  side corridor must fit the 125 mm robot width, requested 50 mm side gap and
+  15 mm uncertainty reserve: 190 mm total with the current configuration.
+  Unknown clearance is rejected. Choose the shorter qualifying route; equal
+  offsets prefer right. If left is too narrow, evaluate right, and vice versa.
+  If neither qualifies, planning fails and requests Safe Stop. Scan reach is
+  only the extent of observed clearance, not a fixed board boundary; unobserved
+  space is not automatically accepted as a free route.
 * **Manoeuvre** (side s = ±1):
   `[MOVE approach], TURN s·T, MOVE d1, TURN −s·T, PASS, TURN −s·30°, SEARCH ≤ dS, TURN s·30°`.
   The planner uses all measured spare forward space, then calculates
@@ -266,6 +265,105 @@ must confirm width, actual side gap, side acquisition, far-edge detection, and
 line reacquisition before calling the maneuver validated.
 
 
+## Left/right bypass asymmetry and pass heading correction
+
+The left bypass worked on the robot; the right bypass did not. The
+software is a mirror image: the plan flips every turn with the side, and
+the plant simulation run in both directions gives identical steps with
+opposite signs, the same 52 mm side gap, the same 740 mm travel and end
+headings of +36 / -36 mdeg. The difference is physical. On the 24 November
+right bypass:
+
+* the right motor needed 20-55 % more duty than the left at the same speed
+  (225 vs 144 at 50 mm/s);
+* during the pass the side range fell 190 -> 170 -> 165 mm over about
+  110 mm of travel: the car was angled about 13 deg toward the obstacle.
+
+The departure pair (turn toward the bypass side, then back) does not cancel
+on the car, and leaves it angled to the left after either bypass. On a
+right bypass the obstacle is on the left, so the car closes on it; on a
+left bypass the same error points away from the obstacle and is harmless.
+
+`pass_obstacle` now measures this. From 40 mm after the side is confirmed
+it compares side ranges at least 100 mm of travel apart
+(`av_side_convergence_deg`, S5-U20d). If the car is closing on the obstacle
+by 5 deg or more, it stops, turns that angle (at most 20 deg) away from the
+obstacle, and continues the pass with the remaining distance. This happens
+at most once per pass and never turns toward the obstacle, because rising
+ranges near the far corner would look like divergence. The console shows
+`avoid: converging N deg ...` and `avoid: turning N deg away ...`.
+This must be checked on the robot. If it consistently corrects by a
+similar angle, a per-direction pivot calibration in Buddy 2 would remove
+the cause.
+
+## Servo radius, +-69 deg sweep and side trend (25 November)
+
+The transducers sit 45 mm in front of the servo shaft (`OP_SENSOR_RADIUS_MM`).
+Every reading is therefore 45 mm short of the distance from the shaft, which
+is on the car's centre line. On the 25 November left bypass the side watch
+read 55-60 mm while a clear gap was visible: from the shaft that is
+100-105 mm, a body gap of about 37 mm, not "0 mm".
+
+* `op_build_sensor()` adds the radius to every echo before profiling and
+  reports the front gap from the bumper again. Edges and clearances are from
+  the shaft. The four recorded scans then give a corner-echo angle of
+  25.9-28.9 deg at both 160 and 205 mm; `OP_ENV_GAMMA_D10` is 27.0 deg.
+  Widths: 13 cm box 151/151 mm, 15 cm box 152/165 mm (all at or above the
+  true width; previously the 15 cm box read 128 mm, below the reserve).
+* The side watch converts readings to shaft distance (gap, limits).
+* The sweep is +-69 deg (47 angles): a multiple of the 3 deg step keeps the
+  0 deg ray and symmetry.
+* Closing on the obstacle is now a least-squares trend of the side distance
+  over at least 40 mm (`av_trend_closing_deg`, S5-U20e); the former 100 mm
+  two-point comparison never completed on the 170 mm box. A body gap under
+  20 mm turns away even without a trend; after one correction, a gap under
+  10 mm stops the car instead of scraping.
+
+## Edge finding: face band plus echo envelope
+
+Each edge now comes from two independent estimates on the same sweep:
+
+1. **Face band** (as before): rays whose forward projection lies within
+   the face band, minus at most one corner echo per side.
+2. **Echo envelope**: a smooth face echoes straight back only while its
+   perpendicular is inside the beam, so a box narrower than the beam
+   (10 cm at 205 mm, edges at +-14 deg) fills the band out to about +-18 deg
+   regardless of its width. Its corners keep echoing until the sensor points
+   about 24 deg past them, so the last obstacle echo (range within 60 mm of
+   the face) minus 24.0 deg locates the edge. The 24 deg was calibrated on
+   the two recorded 130 mm scans in a way that cancels where the box sat:
+   22.9 and 24.4 deg.
+
+The final edge is the average of the two, moved inward by at most 15 mm
+(the plan's `AV_EDGE_UNCERTAINTY_MM` reserve, S5-U13q). Outward it is also
+averaged, except when the first ray past the band is an obstacle echo from
+behind the face plane: then the band was cut short at the direct-beam
+limit by a farther corner, and the envelope edge is taken in full (at most
+50 mm out, S5-U13r). The envelope is used only when the face is
+120-300 mm away, at least two specular corner echoes follow the band, and
+the envelope ends in clear background.
+
+**Scan distance (25 November).** The trigger is now 165 mm
+(`S5_STOPPING_ALLOWANCE_MM` 60 -> 15), so the car scans from about 150 mm
+instead of 205 mm (it arrived at ~42 mm/s and stopped within ~5 mm, so the
+old 60 mm allowance was unused). From 150 mm the 10, 13 and 15 cm boxes'
+edges (18.4, 23.4, 26.6 deg) lie outside the ~17 deg direct-echo zone, and
+one 3 deg step is ~10 mm instead of ~12 mm. In the fitted beam model the
+mean width error falls from 60/49/40 mm to 36/25/23 mm, no plan needs a
+reverse, and no edge is placed more than 14 mm inside the box. The 24 deg
+was measured at 205 mm: record new 150 mm scans to recalibrate it.
+
+| Method | Scan A (130 mm) | Scan B (130 mm) | Edge placed inside box, beam model |
+|---|---:|---:|---:|
+| Face band only | 125 (-5) | 140 (+10) | 0 mm |
+| Band + envelope (current) | 135 (+5) | 131 (+1) | 0 mm |
+
+In a beam model fitted to those scans and varied in beam width, corner
+hearing angle, distance (180-250 mm) and box offset (+-10 mm), the mean
+width error falls by about 40 % for 10, 13 and 15 cm boxes and no edge is
+placed inside the box. The model was fitted on 130 mm scans only; record
+`profile: scan ... rays` for the 10 cm and 15 cm boxes to confirm.
+
 ## Corner echoes at the obstacle edges (24 November scan)
 
 A second scan of the same ~130 mm box (24 November robot log) reported
@@ -321,3 +419,27 @@ failure during alignment is reported as AVF_MOTION rather than being labelled
 only as missing line recovery. Incomplete alignment prints elapsed time, mode,
 result, sensor bits and faults. These changes need another supervised robot
 run to validate motor torque and physical line alignment.
+
+
+## Side-clearance acceptance correction
+
+The former open-road branch accepted any nonnegative clearance, including
+5 mm, without checking whether the robot fitted. It has been removed. Planning
+and reverse calculation now use the same required-corridor check on both sides.
+Shorter-route selection and right-hand tie preference apply only after both
+candidates are checked. Reversing cannot rescue a profile with neither side
+usable; the existing failure/event path requests Safe Stop.
+
+Profile clearance packing remains the same two-word format, but free space is
+rounded down, and any space consumed by outward edge rounding is deducted
+first. Thus a just-insufficient corridor cannot round up to the threshold.
+Unknown clearance remains unknown. The dashboard may show a slightly smaller
+clearance because the same conservative packed profile reaches telemetry.
+
+S5-U21a..g cover blocked-left/right symmetry, two narrow routes, no unhelpful
+reverse, packed values just below the threshold, exact-threshold acceptance,
+right-hand tie preference and edge-rounding loss. Existing Buddy 1 integration
+checks now verify conservative clearance transport rather than nearest rounding.
+The scan remains a sparse ultrasonic estimate, not proof that the complete
+moving body swept volume is clear; physical testing is still required. Known
+corner-trimming and pass-heading/return limitations are separate from this fix.

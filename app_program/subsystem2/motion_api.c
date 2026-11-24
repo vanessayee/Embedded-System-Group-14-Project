@@ -44,7 +44,7 @@ EXPORT void motion_api_init(void)
 	s2_cap_word = 0;
 	s2_stop_req = 0;
 	s2_reset_req = 0;
-#if APP_TEST
+#if APP_TEST || APP_S5_SCAN_ONLY
 	s2_armed = 0;		/* test image: never drive away on its own */
 #else
 	s2_armed = 1;		/* Week 6 statechart: start after initialisation */

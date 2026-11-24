@@ -40,6 +40,44 @@ EXPORT INT av_side_convergence_deg(W r_from_mm, W r_to_mm, W travel_mm,
 	return op_atan_deg(closing, travel_mm);
 }
 
+EXPORT void av_trend_reset(AV_TREND *t)
+{
+	t->n = 0;
+	t->t_first = 0;
+	t->t_last = 0;
+	t->st = t->sd = t->stt = t->std = 0;
+}
+
+EXPORT void av_trend_add(AV_TREND *t, W travel_mm, W side_mm)
+{
+	if (t->n == 0) t->t_first = travel_mm;
+	t->t_last = travel_mm;
+	t->n++;
+	t->st += travel_mm;
+	t->sd += side_mm;
+	t->stt += (D)travel_mm * travel_mm;
+	t->std += (D)travel_mm * side_mm;
+}
+
+EXPORT BOOL av_trend_closing_deg(const AV_TREND *t, INT *deg)
+{
+	D	den, num;
+
+	if (t->n < S5_HEADING_MIN_SAMPLES
+	    || t->t_last - t->t_first < S5_HEADING_BASELINE_MM) {
+		return FALSE;
+	}
+	den = (D)t->n * t->stt - t->st * t->st;		/* n^2 var(t) > 0 */
+	num = -((D)t->n * t->std - t->st * t->sd);	/* + when distance falls */
+	if (den <= 0) return FALSE;
+	while (den > 0x3FFFFFFF || num > 0x3FFFFFFF || num < -0x3FFFFFFF) {
+		den >>= 1;
+		num /= 2;
+	}
+	*deg = op_atan_deg((W)num, (W)den);
+	return TRUE;
+}
+
 EXPORT BOOL av_line_lock_sample(AV_LINE_LOCK *lock,
 			       BOOL centre_black, BOOL right_black)
 {
@@ -95,39 +133,23 @@ LOCAL INT select_path(const S5_PROFILE *p, UB *side, W *offset)
 	if (l_offset < AV_SIDE_GAP_MM) l_offset = AV_SIDE_GAP_MM;
 	if (r_offset < AV_SIDE_GAP_MM) r_offset = AV_SIDE_GAP_MM;
 
-#if AV_ASSUME_OPEN_BOARD
-	/* The road is declared laterally open.  A known edge is enough to
-	   calculate the requested obstacle gap; the ultrasonic scan reach or a
-	   spurious side reflection must not be treated as a board boundary. */
-	l_ok = (p->clear_left_mm >= 0) ? TRUE : FALSE;
-	r_ok = (p->clear_right_mm >= 0) ? TRUE : FALSE;
-	(void)required;
-#else
+	/* Board dimensions are unknown. Require the observed free corridor
+	   to fit the robot and both allowances; an identified edge alone does
+	   not prove that a neighboring obstruction leaves enough room. */
 	l_ok = (p->clear_left_mm >= required) ? TRUE : FALSE;
 	r_ok = (p->clear_right_mm >= required) ? TRUE : FALSE;
-#endif
 
 	if (!l_ok && !r_ok) {
 		return AVP_NO_CLEARANCE;
 	}
 	if (l_ok && r_ok) {
-#if AV_ASSUME_OPEN_BOARD
-		/* Side echoes are unreliable board-width measurements.  Choose the
-		   route requiring less deviation; use the configured preference only
-		   when the geometry is equal. */
+		/* Choose the shortest of the qualifying routes; prefer right only
+		   when the required offsets are identical. */
 		if (r_offset != l_offset) {
 			*side = (r_offset < l_offset) ? AV_SIDE_RIGHT : AV_SIDE_LEFT;
 		} else {
 			*side = AV_PREFER_RIGHT ? AV_SIDE_RIGHT : AV_SIDE_LEFT;
 		}
-#else
-		if (p->clear_right_mm != p->clear_left_mm) {
-			*side = (p->clear_right_mm > p->clear_left_mm)
-			      ? AV_SIDE_RIGHT : AV_SIDE_LEFT;
-		} else {
-			*side = AV_PREFER_RIGHT ? AV_SIDE_RIGHT : AV_SIDE_LEFT;
-		}
-#endif
 	} else {
 		*side = r_ok ? AV_SIDE_RIGHT : AV_SIDE_LEFT;
 	}

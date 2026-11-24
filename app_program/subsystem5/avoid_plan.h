@@ -8,11 +8,10 @@
  *	back to the line.  If there is not enough room to pivot in front of
  *	the obstacle, planning fails and the vehicle enters Safe Stop.
  *
- *	With AV_ASSUME_OPEN_BOARD, a side is usable when that obstacle edge is
- *	known; the shorter measured-obstacle route is chosen and scan reach is not
- *	treated as a board boundary.  With it disabled, clearance must fit the car,
- *	configured gap and measurement allowance.  If neither side qualifies the plan fails
- *	(FR12 -> Safe Stop): no bypass is ever invented.
+ *	Board dimensions are not assumed. Each side must have enough observed
+ *	free corridor for the robot width, requested gap and uncertainty reserve.
+ *	Choose the shorter qualifying route, preferring right for an equal offset.
+ *	If neither side qualifies, fail planning instead of attempting a bypass.
  *
  *	Plan for side s (+1 right, -1 left): optionally move forward, calculate
  *	a safe outward angle T from measured front clearance and lateral offset,
@@ -35,7 +34,6 @@
 #define AV_SIDE_GAP_MM		50	/* requested closest side gap (5 cm; was 8 cm,
 					   measured ~95-100 mm on the robot) */
 #define AV_EDGE_UNCERTAINTY_MM	15	/* [CAL] reserve beyond the requested body gap */
-#define AV_ASSUME_OPEN_BOARD	1	/* road has no known lateral boundary */
 #define AV_REQUIRED_CORRIDOR_MM	(AV_ROBOT_WIDTH_MM + AV_SIDE_GAP_MM \
 				 + AV_EDGE_UNCERTAINTY_MM)
 #define AV_TURN_MIN_DEG		30	/* calculated outward turn bounds */
@@ -114,10 +112,26 @@ IMPORT UW av_motion_wait_ms(UW type, INT arg, W creep_mms, UW extra_ms);
    toward the obstacle).  The same error points a LEFT bypass away from the
    obstacle, which is why only the right side failed.  Correct convergence
    once per pass from the live side ranges; never turn toward the obstacle. */
-#define S5_HEADING_SETTLE_MM	40	/* skip near-corner echoes after confirmation */
-#define S5_HEADING_BASELINE_MM	100	/* travel between compared side ranges */
-#define S5_HEADING_FIX_MIN_DEG	5	/* > two 5 mm range steps over the baseline */
+#define S5_HEADING_SETTLE_MM	20	/* skip near-corner echoes after confirmation */
+#define S5_HEADING_BASELINE_MM	40	/* travel spanned by the side-range trend
+					   (was a 100 mm two-point comparison:
+					   too slow for a 170 mm box, 25 Nov) */
+#define S5_HEADING_MIN_SAMPLES	6	/* ~3 mm per ping at 50 mm/s */
+#define S5_HEADING_FIX_MIN_DEG	5	/* trend angle that triggers a correction */
 #define S5_HEADING_FIX_MAX_DEG	20	/* bound one correction turn */
+#define S5_SIDE_MIN_GAP_MM	20	/* body gap guard while passing */
+
+/* Least-squares trend of the perpendicular side distance against travel */
+typedef struct {
+	W	n;
+	W	t_first, t_last;
+	D	st, sd, stt, std;
+} AV_TREND;
+IMPORT void av_trend_reset(AV_TREND *t);
+IMPORT void av_trend_add(AV_TREND *t, W travel_mm, W side_mm);
+/* TRUE when the trend spans S5_HEADING_BASELINE_MM with enough samples;
+   *deg = angle toward the obstacle (+ closing, - opening). */
+IMPORT BOOL av_trend_closing_deg(const AV_TREND *t, INT *deg);
 
 /* Heading toward the obstacle side from two side-watch ranges taken
    travel_mm apart at look_deg: + = converging, - = diverging, degrees. */

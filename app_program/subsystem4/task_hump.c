@@ -16,6 +16,8 @@ EXPORT volatile UW	s4_max_hump = (UW)-1;
 
 LOCAL HUMP	hump;
 
+#define HUMP_MODE_POLL_MS	100	/* RESUME is noticed even with no samples */
+
 EXPORT void s4_get_hump_status(S4_HUMP_STATUS *s)
 {
 	s4_hump_unpack(app_load(&s4_hump_word), s);
@@ -45,20 +47,34 @@ EXPORT void hump_task(INT stacd, void *exinf)
 	 unsigned char first : 1;
 	 unsigned char was_active : 1;
 	} sequence = {0, TRUE, FALSE};
+	UW		prev_mode;
 
 	(void)stacd;
 	(void)exinf;
 	hump_init(&hump);
 	sys_task_ready(SYS_TASK_HUMP);
 	publish();
+	prev_mode = sys_mode();
 	tm_printf((UB*)"hump: %s mode, physical wheel span %d mm\n",
 		  HUMP_SIDEWAYS ? "sideways roll" : "forward pitch", HUMP_PHYSICAL_TRACK_MM);
 
 	for (;;) {
-		INT	n = tk_rcv_mbf(mbf_imu_hump, &w, TMO_FEVR);
+		INT	n = tk_rcv_mbf(mbf_imu_hump, &w, HUMP_MODE_POLL_MS);
 		BOOL	valid;
 		UB	previous_state;
 		W	candidate_peak;
+		UW	mode = sys_mode();
+
+		/* Safe Stop is left only by a validated RESUME: start a new run
+		   with last / highest height and count cleared, as after a reboot. */
+		if (prev_mode == VM_SAFE_STOP && mode != VM_SAFE_STOP) {
+			hump_init(&hump);
+			sequence.first = TRUE;
+			sequence.was_active = FALSE;
+			publish();
+			tm_printf((UB*)"hump: RESUME - last/highest height and count cleared\n");
+		}
+		prev_mode = mode;
 
 		if (n != (INT)sizeof(w)) {
 			continue;

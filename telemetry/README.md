@@ -87,7 +87,7 @@ check is in [docs/FIRMWARE.md](docs/FIRMWARE.md) §5.
 | `CSC14_IR_SIDES_MIRRORED`, `CSC14_SYS_*` | if the flashed firmware was built with different `IR_SIDES_MIRRORED` / `SYS_COLLISION_STOPS` / `SYS_IMU_REQUIRED` / `SYS_US_REQUIRED` |
 | `CSC14_MQTT_HOST`, `CSC14_MQTT_PORT` | broker on another computer |
 | `CSC14_GRAFANA_HOST=0.0.0.0` | to open Grafana from another laptop. The embedded console is loaded from `http://127.0.0.1:1880` (`grafana/dashboards/csc14-robot.json`), so on another computer that panel stays empty unless the iframe address and `CSC14_NODERED_HOST` are changed too |
-| `CSC14_ALLOW_MOTION_COMMANDS=1` | to enable the dashboard's **Resume** and **Clear faults** buttons, and `bin/csc14 command stop/resume/clear/speed`. The dashboard's **Stop motors** button works without it. `tools/start-windows-dashboard.ps1` sets it for you |
+| `CSC14_ALLOW_MOTION_COMMANDS=1` | to enable the dashboard's **Resume** and **Clear faults** buttons, and `bin/csc14 command stop/resume/clear/speed`. The dashboard's **Stop** button works without it. `tools/start-windows-dashboard.ps1` sets it for you |
 
 ## Tests
 

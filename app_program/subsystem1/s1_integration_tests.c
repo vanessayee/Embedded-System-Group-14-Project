@@ -271,10 +271,10 @@ LOCAL INT int_binary_interfaces(void)
 		 && dec.pitch == 12 && dec.yaw_rate == 46 && dec.heading == 271U
 		 && iabs(s5_dist_mm(dec.us_dist) - 312) <= 3
 		 && iabs((W)dec.obst_width * 5 - 152) <= 3 && dec.obst_bearing == -12
-		 && iabs((W)dec.clear_left * 10 - 612) <= 5
-		 && iabs((W)dec.clear_right * 10 - 1234) <= 5;
+		 && (W)dec.clear_left * 10 <= 612 && 612 - (W)dec.clear_left * 10 < 20
+		 && (W)dec.clear_right * 10 <= 1234 && 1234 - (W)dec.clear_right * 10 < 20;
 	TEST_CHECK("INT-15b", sent && scaled,
-		   "engineering values arrive within their step: 2 deg, 10 mm/s, 1 deg, 5 mm, 10 mm");
+		   "engineering values arrive within their steps; clearance stays conservative after edge rounding");
 	TEST_SUMMARY("int binary interfaces");
 	return test_fail_;
 }

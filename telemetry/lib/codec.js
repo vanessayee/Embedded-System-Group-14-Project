@@ -397,7 +397,7 @@ function interpretTelemetry(raw, opts) {
 		},
 		hump: {
 			last_mm: humpMm(raw.hump_last),
-			max_boot_mm: humpMm(raw.hump_max),		/* highest since robot boot */
+			max_boot_mm: humpMm(raw.hump_max),		/* highest since robot boot or last RESUME */
 			count: raw.hump_count,
 			count_saturated: raw.hump_count === 15,
 			active: raw.hump_active === 1

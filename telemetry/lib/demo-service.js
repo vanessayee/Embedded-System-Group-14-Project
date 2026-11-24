@@ -7,6 +7,8 @@ const { Pool } = require('pg');
 const { codec } = require('./protocol');
 const ACTIONS = ['LEFT', 'RIGHT', 'STRAIGHT', 'U-TURN', 'NONE'];
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const MAP_BUSY_WAIT_MS = 15000;	/* longest wait for one barcode to finish */
+const MAP_BUSY_RETRY_MS = 500;
 
 function mapArg(letter, action) {
 	if (!LETTERS.includes(letter) || letter.length !== 1 || !ACTIONS.includes(action))
@@ -143,7 +145,12 @@ class DemoService {
 		await this.db.query("UPDATE csc14.command SET status=$2,ack_result=$3,ack_detail=$4,acked_at=now() WHERE id=$1",
 			[row.id, ack.result === 'OK' ? 'accepted' : 'rejected', ack.result, String(ack.detail)]);
 		if (name === 'RESET' && ack.result === 'OK' && ack.detail !== 31) throw new Error('Firmware did not confirm reset support. Flash the current UF2.');
-		if (ack.result !== 'OK') throw new Error('Robot rejected ' + name + ': ' + ack.result + '. Stop the car and clear any queued barcode first.');
+		if (ack.result !== 'OK') {
+			const e = new Error('Robot rejected ' + name + ': ' + ack.result +
+				(name === 'SET_NAV_MAP' ? '. A barcode was still being read or carried out; try again.' : '.'));
+			e.code = ack.result;
+			throw e;
+		}
 		if (name === 'SET_NAV_MAP' || name === 'GET_NAV_MAP') {
 			const action = ACTIONS[Number(ack.detail)];
 			if (!action) throw new Error('Robot returned an unsupported map response. Reflash the current UF2.');
@@ -159,14 +166,21 @@ class DemoService {
 			if (generation !== this.controlGeneration) throw new Error('Barcode configuration cancelled by reset.');
             // Map SET/GET are idempotent. Retry a missing ACK once with a
             // fresh command ID; never extend this policy to motion/reset.
-            for (let attempt = 0; attempt < 2; attempt++) {
+            // While driving, the robot refuses a SET (REJ_STATE) only while
+            // a barcode is being decoded or executed: wait for it to finish.
+            const busyUntil = Date.now() + MAP_BUSY_WAIT_MS;
+            for (let attempt = 0; ; attempt++) {
                 if (generation !== this.controlGeneration) throw new Error('Barcode configuration cancelled by reset.');
                 try {
                     await this.command(rules ? 'SET_NAV_MAP' : 'GET_NAV_MAP',
                         rules ? mapArg(letter, rules[letter]) : letter.charCodeAt(0) - 55);
                     break;
                 } catch (e) {
-                    if (e.code !== 'ACK_TIMEOUT' || attempt === 1) throw e;
+                    if (rules && e.code === 'REJ_STATE' && Date.now() < busyUntil) {
+                        await new Promise(r => setTimeout(r, MAP_BUSY_RETRY_MS));
+                        continue;
+                    }
+                    if (e.code !== 'ACK_TIMEOUT' || attempt >= 1) throw e;
                 }
             }
 			await new Promise(r => setTimeout(r, 220));
@@ -189,8 +203,10 @@ class DemoService {
 		if (this.mappingBusy) throw new Error('Another barcode configuration request is running.');
 		const rules = validateRules(input);
 		const s = await this.snapshot();
-		if (!s.live || !s.latest || !['SAFE_STOP', 'INIT'].includes(s.latest.mode_label))
-			throw new Error('Stop the robot before applying barcode rules.');
+		/* Any mode, also while driving: the robot only defers a letter while
+		   a barcode is being read or carried out (handled in transferMap). */
+		if (!s.live || !s.latest)
+			throw new Error('Robot telemetry is offline or stale. No rules were sent.');
 		if (this.mappingBusy) throw new Error('Another barcode configuration request is running.');
 		this.mappingBusy = true;
 		try {

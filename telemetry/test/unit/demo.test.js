@@ -226,3 +226,27 @@ test('mapping retry budget is bounded and a rejected command is never retried', 
         }finally{await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
     }
 });
+
+test('rules apply while driving; a letter refused during a barcode is retried', async () => {
+ const f = fixture();
+ try {
+  f.service.snapshot = async () => ({live:true,latest:{mode_label:'NORMAL'}});
+  const sent = []; let refused = false;
+  f.service.command = async (name,arg) => {
+   sent.push([name,arg]);
+   if (!refused && (arg & 63) === 10) {			/* A: barcode being executed */
+    refused = true;
+    const e = new Error('Robot rejected SET_NAV_MAP: REJ_STATE'); e.code = 'REJ_STATE'; throw e;
+   }
+   f.service.confirmed[String.fromCharCode((arg & 63)+55)] = ACTIONS[arg >> 6];
+  };
+  const rules=Object.fromEntries([...LETTERS].map(l=>[l,'NONE'])); rules.A='RIGHT';
+  const applied=await f.service.applyRules(rules);
+  assert.equal(refused,true);
+  assert.equal(sent.length,27);
+  assert.deepEqual(applied.confirmed,rules);
+  assert.equal(f.service.mappingBusy,false);
+  f.service.snapshot = async () => ({live:false,latest:null});
+  await assert.rejects(f.service.applyRules(rules),/offline/);
+ } finally {await f.service.close();fs.rmSync(f.runtimeDir,{recursive:true});}
+});

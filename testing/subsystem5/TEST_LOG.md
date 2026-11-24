@@ -34,7 +34,12 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S5-U13h | central three-ray median retains a narrow obstacle despite valid background echoes |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13h PASS` |
 | S5-U13n | corner echoes at the edges do not widen a recorded 130 mm box (24 Nov scan, was 174 mm) |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13n PASS` |
 | S5-U13o | corner trimming removes at most one scan cell per side |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13o PASS` |
-| S5-U14 | both sides free: use spare forward space, calculated departure, pass, shallow return, search, align |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U14 PASS` |
+| S5-U13p | both recorded 130 mm scans measure 115..160 mm through the sensor path with the 45 mm servo radius (was 125..140 before the radius, 25 Nov) |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13p PASS` |
+| S5-U13q | echo envelope moves an edge inward by at most the 15 mm edge reserve |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13q PASS` |
+| S5-U13r | off-centre 15 cm box 205 mm from the servo shaft (beam model refitted from the shaft, 25 Nov): no edge more than the 15 mm reserve inside the box |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13r PASS` |
+| S5-U13s | recorded 15 cm box at 160 mm (25 Nov): the box's own corner echoes are not side obstacles, both sides clear the 190 mm corridor and the plan succeeds (was clear 3/15 mm, Safe Stop) |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13s PASS` |
+| S5-U13t | second recorded 15 cm scan (25 Nov left bypass) cut to the +-69 deg sweep: 47 samples, width 135..180 mm, both sides clear, plan succeeds |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13t PASS` |
+| S5-U13u | 45 mm servo-to-transducer radius: lateral geometry from the shaft, front gap still from the bumper |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U13u PASS` || S5-U14 | both sides free: use spare forward space, calculated departure, pass, shallow return, search, align |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U14 PASS` |
 | S5-U15 | calculated 30–75° path gives the configured 100 mm robot-to-obstacle side gap and clears the front face |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U15 PASS` |
 | S5-U15b | more front clearance produces a longer forward approach before departure |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U15b PASS` |
 | S5-U16 | right-shifted obstacle chooses the shorter calculated route on the left |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U16 PASS` |
@@ -48,6 +53,8 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S5-U18 | no known safe side: no plan (Safe Stop), never an invented bypass |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U18 PASS` |
 | S5-U19 | no valid profile: no plan |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U19 PASS` |
 | S5-U20 | every planned step is a valid AVOID motion command |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20 PASS` |
+| S5-U20d | side ranges give the pass convergence angle (24 Nov right bypass: ~13 deg); one 5 mm range step is not a correction |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20d PASS` |
+| S5-U20e | least-squares side trend detects ~16 deg closing within 40 mm (25 Nov left bypass); 5 mm flicker and too-short spans do not trigger |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20e PASS` |
 | S5-U21 | Obstacle Scan ranges every 60 ms (+ one 10 ms tick) while monitoring |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U21 PASS` |
 | S5-U22 | ranging result and distance code agree; a silent sensor raises US_NO_RESPONSE |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U22 PASS` |
 | S5-U23 | outside navigation: avoidance idle, servo centred, forward monitoring |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U23 PASS` |

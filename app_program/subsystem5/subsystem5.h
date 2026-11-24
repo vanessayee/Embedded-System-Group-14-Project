@@ -33,7 +33,11 @@
 
 /* Detection and speed (FR8) [CAL] */
 #define S5_PING_PERIOD_MS	60	/* HC-SR04 measurement cycle        */
-#define S5_STOPPING_ALLOWANCE_MM 60	/* at 100 mm/s caution speed: scan closer */
+#define S5_STOPPING_ALLOWANCE_MM 5	/* trigger 155 mm -> scan from ~150 mm.
+					   25 Nov runs at 165 mm stopped and
+					   scanned at 158-160 mm (5-7 mm below
+					   the trigger at ~42 mm/s).  Was 60
+					   (210 mm), then 15 (165 mm). */
 #define S5_DETECT_MM		(AV_SENSOR_BEHIND_FRONT_MM \
 				 + AV_DETECT_FRONT_GAP_MM + S5_STOPPING_ALLOWANCE_MM)
 #define S5_DETECT_CONFIRM	2	/* consecutive readings             */
@@ -45,7 +49,9 @@
 
 /* Scanning */
 #define S5_FINE_STEP		3	/* one full-resolution sweep        */
-#define S5_SCAN_LIMIT_DEG	75	/* -75..+75 degrees, 51 samples     */
+#define S5_SCAN_LIMIT_DEG	69	/* -69..+69 degrees, 47 samples; a
+					   multiple of the 3 deg step keeps 0 deg
+					   and symmetry (was 75) */
 #define S5_SCAN_PINGS		3	/* majority + median at every angle */
 #define S5_SIDE_LOOK_DEG	80	/* near-perpendicular view of obstacle side */
 #define S5_SIDE_ECHO_ALLOWANCE_MM 40	/* [CAL] range/pose tolerance around plan */
@@ -81,6 +87,12 @@
 #endif
 
 #define S5_REPLANS		1	/* after an emergency stop          */
+
+/* Operator STOP (dashboard Stop / remote STOP / RESET) latched by Buddy 1/2.
+   It ends any scan sweep and obstacle handling at once; it is cleared only
+   by a validated RESUME / CLEAR. */
+#define S5_OPERATOR_STOP()	((sys_fault_get() & SYS_FLT_REMOTE_STOP) != 0U)
+#define S5_PROFILE_POLL_MS	50	/* operator-stop check while waiting */
 
 /* flg_avoid bits */
 #define AVEV_DETECTED		0x01U

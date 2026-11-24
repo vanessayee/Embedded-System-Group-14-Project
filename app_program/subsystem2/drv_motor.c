@@ -51,11 +51,19 @@ LOCAL void write_motor(UW slice, W duty, BOOL invert)
 
 EXPORT void motor_set(W duty_l_pm, W duty_r_pm)
 {
+#if APP_S5_SCAN_ONLY
+	/* This image cannot be armed by a button, command or another buddy. */
+	(void)duty_l_pm;
+	(void)duty_r_pm;
+	motor_off();
+	return;
+#else
 	if (app_load(&motor_is_ready) == 0U) {
 		return;
 	}
 	write_motor(MOTOR_L_SLICE, duty_l_pm, MOTOR_L_INVERT != 0);
 	write_motor(MOTOR_R_SLICE, duty_r_pm, MOTOR_R_INVERT != 0);
+#endif
 }
 
 EXPORT void motor_off(void)

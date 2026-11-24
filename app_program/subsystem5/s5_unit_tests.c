@@ -18,6 +18,8 @@
 #include "s5_tests.h"
 #include "../subsystem2/motion_msg.h"
 
+LOCAL W rec_width_a = -1;	/* S5-U13m result, checked again by S5-U13p */
+
 LOCAL W iabs(W v)
 {
 	return (v < 0) ? -v : v;
@@ -426,10 +428,14 @@ LOCAL INT test_profile(void)
 			o[k].dist_mm = recorded[k];
 			o[k].status = (recorded[k] < 0) ? SS_INVALID : SS_OK;
 		}
-		op_build(o, 51, 75, &p);
-		TEST_CHECK("S5-U13m", p.status == PRF_VALID && p.width_mm >= 110
-			   && p.width_mm <= 145 && p.dist_mm == 205,
+		/* Raw readings: through the robot's path, which adds the 45 mm
+		   servo-to-transducer radius (bounds: >= true - 15 mm reserve,
+		   <= true + 30; was 110..145 before the radius, 25 Nov). */
+		op_build_sensor(o, 51, 75, &p);
+		TEST_CHECK("S5-U13m", p.status == PRF_VALID && p.width_mm >= 115
+			   && p.width_mm <= 160 && p.dist_mm == 205,
 			   "recorded target keeps central face without merging nearer echo groups");
+		rec_width_a = p.width_mm;
 	}
 	/* Second exact hardware scan of the same ~130 mm box (24 Nov robot
 	   log): +-21 deg returned the 215 mm corner range and was read as
@@ -446,10 +452,116 @@ LOCAL INT test_profile(void)
 			o[k].dist_mm = recorded[k];
 			o[k].status = SS_OK;
 		}
-		op_build(o, 51, 75, &p);
-		TEST_CHECK("S5-U13n", p.status == PRF_VALID && p.width_mm >= 110
-			   && p.width_mm <= 145 && p.dist_mm == 205,
+		op_build_sensor(o, 51, 75, &p);
+		TEST_CHECK("S5-U13n", p.status == PRF_VALID && p.width_mm >= 115
+			   && p.width_mm <= 160 && p.dist_mm == 205,
 			   "corner echoes at the edges do not widen a recorded 130 mm box");
+		/* Both real scans of the 130 mm box: never narrower than the
+		   15 mm edge reserve allows, at most 30 mm wide */
+		TEST_CHECK("S5-U13p", rec_width_a >= 115 && rec_width_a <= 160
+			   && p.width_mm >= 115 && p.width_mm <= 160,
+			   "both recorded 130 mm scans measure 115..160 mm");
+	}
+	/* A narrow box inside the beam: face echoes to +-18 deg, corner echoes
+	   to +-27 deg, then background.  The envelope places the edge near
+	   16 mm, far inside the 82 mm band edge; the average may move each
+	   edge in by at most OP_ENV_MAX_SHRINK_MM (the plan's 15 mm reserve). */
+	n = 0;
+	for (k = 0; k < 51U; k++) {
+		INT a = -75 + (INT)k * 3, m = (a < 0) ? -a : a;
+
+		o[n].angle_deg = a;
+		o[n].status = (m <= 27) ? SS_OK : SS_NO_ECHO;
+		o[n].dist_mm = (m <= 18) ? 205 : (m == 21) ? 212 : (m == 24) ? 213 : 215;
+		n++;
+	}
+	op_build(o, n, 75, &p);
+	TEST_CHECK("S5-U13q", p.status == PRF_VALID
+		   && p.right_mm >= 82 - OP_ENV_MAX_SHRINK_MM && p.right_mm < 82
+		   && p.left_mm <= -(82 - OP_ENV_MAX_SHRINK_MM) && p.left_mm > -82,
+		   "echo envelope moves an edge inward by at most the 15 mm reserve");
+	/* 150 mm box, 10 mm left of centre, face 205 mm from the servo shaft
+	   (the 160 mm reading + 45 mm radius), beam model fitted to the four
+	   recorded scans from the shaft (direct echo to 16 deg, corners heard
+	   26 deg past their edge; real 25.9-28.9).  No edge may lie more than
+	   the 15 mm reserve inside the true -85 / +65 mm edges.  (Regenerated
+	   25 Nov: the earlier case assumed 21 deg from the transducer.) */
+	{
+		static const H rays150[] = {
+			750,750,750,750,750,750,750,750,750,235,235,235,230,
+			230,230,225,225,225,225,225,205,205,205,205,205,205,
+			205,205,205,205,205,215,215,220,220,225,225,225,230,
+			230,750,750,750,750,750,750,750,750,750,750,750
+		};
+		for (k = 0; k < 51U; k++) {
+			o[k].angle_deg = -75 + (INT)k * 3;
+			o[k].dist_mm = rays150[k];
+			o[k].status = SS_OK;
+		}
+		op_build(o, 51, 75, &p);
+		TEST_CHECK("S5-U13r", p.status == PRF_VALID && p.dist_mm == 205
+			   && p.left_mm <= -85 + OP_ENV_MAX_SHRINK_MM
+			   && p.right_mm >= 65 - OP_ENV_MAX_SHRINK_MM,
+			   "off-centre 15 cm box: no edge lies more than the 15 mm reserve inside the box");
+	}
+	/* 25 Nov robot run, 15 cm box scanned from 160 mm, open on both sides
+	   (-1 = no echo).  The box's own corner echoes were reported as
+	   obstacles 3 and 15 mm beside it, both sides failed the 190 mm
+	   corridor rule and the car went to Safe Stop instead of avoiding. */
+	{
+		static const H rays15[] = {
+			645,650,655,660,700,665,670,725,195,185,175,180,170,
+			160,165,165,170,170,160,160,160,160,160,160,160,160,
+			160,170,170,170,165,165,160,170,170,180,175,185,205,
+			-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+		};
+		AV_PLAN pl15;
+
+		for (k = 0; k < 51U; k++) {
+			o[k].angle_deg = -75 + (INT)k * 3;
+			o[k].dist_mm = (rays15[k] < 0) ? 0 : rays15[k];
+			o[k].status = (rays15[k] < 0) ? SS_NO_ECHO : SS_OK;
+		}
+		op_build_sensor(o, 51, 75, &p);
+		TEST_CHECK("S5-U13s", p.status == PRF_VALID && p.dist_mm == 160
+			   && p.clear_left_mm >= AV_REQUIRED_CORRIDOR_MM
+			   && p.clear_right_mm >= AV_REQUIRED_CORRIDOR_MM
+			   && p.width_mm >= 150 - OP_ENV_MAX_SHRINK_MM
+			   && p.width_mm <= 150 + 30
+			   && av_plan(&p, &pl15) == AVP_OK,
+			   "recorded 15 cm box at 160 mm: own corner echoes are not side obstacles; plan succeeds");
+	}
+	/* Second 15 cm run (25 Nov, left bypass), cut to the new +-69 deg sweep */
+	{
+		static const H raysD[] = {
+			650,645,650,655,660,670,685,695,670,690,695,670,185,
+			180,170,170,160,160,165,170,160,160,160,160,160,160,
+			160,160,160,160,160,165,165,160,160,170,170,165,175,
+			180,180,185,195,215,-1,-1,-1,-1,-1,-1,-1
+		};
+		AV_PLAN plD;
+
+		n = 0;
+		for (k = 0; k < 51U; k++) {
+			INT a = -75 + (INT)k * 3;
+
+			if (a < -69 || a > 69) continue;
+			o[n].angle_deg = a;
+			o[n].dist_mm = (raysD[k] < 0) ? 0 : raysD[k];
+			o[n].status = (raysD[k] < 0) ? SS_NO_ECHO : SS_OK;
+			n++;
+		}
+		op_build_sensor(o, n, 69, &p);
+		TEST_CHECK("S5-U13t", p.status == PRF_VALID && p.dist_mm == 160 && n == 47U
+			   && p.width_mm >= 150 - OP_ENV_MAX_SHRINK_MM
+			   && p.width_mm <= 150 + 30
+			   && p.clear_left_mm >= AV_REQUIRED_CORRIDOR_MM
+			   && p.clear_right_mm >= AV_REQUIRED_CORRIDOR_MM
+			   && av_plan(&p, &plD) == AVP_OK,
+			   "second recorded 15 cm scan, +-69 deg sweep: width within reserve, plan succeeds");
+		/* the 45 mm radius is added to every echo and removed from the gap */
+		TEST_CHECK("S5-U13u", OP_SENSOR_RADIUS_MM == 45 && p.dist_mm == 160,
+			   "servo-to-transducer radius: lateral geometry from the shaft, front gap from the bumper");
 	}
 	/* Only ONE corner-like echo is dropped per side, so a genuinely
 	   wider face can lose at most one scan cell (205 mm: +21 deg edge
@@ -620,13 +732,12 @@ LOCAL INT test_plan(void)
 	TEST_CHECK("S5-U17c", av_reverse_needed_mm(&p) < 0,
 		   "reverse beyond the 150 mm bound is refused");
 
-	/* Limited angular scan reach is not a board edge on the declared-open
-	   road; choose from measured obstacle geometry and calculate the gap. */
+	/* Neither a board width nor a route is invented beyond observed free space. */
 	s5_profile_box(-25, 25, 220, 0, &p);
 	p.clear_left_mm = 240;
 	p.clear_right_mm = 130;
-	TEST_CHECK("S5-U18a", av_plan(&p, &pl) == AVP_OK && pl.side == AV_SIDE_RIGHT,
-		   "open-board mode ignores captured 240/130 mm echo reach; equal geometry prefers right");
+	TEST_CHECK("S5-U18a", av_plan(&p, &pl) == AVP_OK && pl.side == AV_SIDE_LEFT,
+		   "240 mm left corridor qualifies while 130 mm right corridor is too narrow");
 
 	p.clear_left_mm = -1;
 	p.clear_right_mm = -1;
@@ -675,7 +786,7 @@ LOCAL INT test_plan(void)
 		{
 			INT c24 = av_side_convergence_deg(190, 165, 107, -80);
 			INT away = av_side_convergence_deg(165, 190, 107, 80);
-			INT step = av_side_convergence_deg(205, 200, S5_HEADING_BASELINE_MM, 80);
+			INT step = av_side_convergence_deg(205, 200, 100, 80);
 
 			TEST_CHECK("S5-U20d", c24 >= 11 && c24 <= 15 && away == -c24
 				   && c24 >= S5_HEADING_FIX_MIN_DEG
@@ -684,6 +795,65 @@ LOCAL INT test_plan(void)
 				   && av_side_convergence_deg(200, 150, 0, 80) == 0,
 				   "side ranges give the convergence angle; one 5 mm range step is not a correction");
 		}
+		/* Side-distance trend (one ping per ~3 mm at 50 mm/s) */
+		{
+			AV_TREND tr;
+			INT	deg = 0, j;
+			BOOL	early, quiet_ok, closing_ok;
+
+			/* parallel, readings flicker by one 5 mm step: no correction */
+			av_trend_reset(&tr);
+			for (j = 0; j <= 14; j++) av_trend_add(&tr, j * 3, (j % 3 == 1) ? 105 : 100);
+			quiet_ok = av_trend_closing_deg(&tr, &deg) && deg < S5_HEADING_FIX_MIN_DEG
+				   && deg > -S5_HEADING_FIX_MIN_DEG;
+			/* 25 Nov left bypass: gap ~81 -> 37 mm over ~150 mm, ~16 deg */
+			av_trend_reset(&tr);
+			for (j = 0; j <= 14; j++) av_trend_add(&tr, j * 3, 143 - (j * 3 * 29) / 100);
+			closing_ok = av_trend_closing_deg(&tr, &deg) && deg >= 13 && deg <= 19;
+			/* too short a span: no decision yet */
+			av_trend_reset(&tr);
+			for (j = 0; j < 6; j++) av_trend_add(&tr, j * 3, 100 - j);
+			early = av_trend_closing_deg(&tr, &deg);
+			TEST_CHECK("S5-U20e", quiet_ok && closing_ok && !early,
+				   "side trend detects 16 deg closing within 40 mm; 5 mm flicker and short spans do not trigger");
+		}
+	}
+
+	{
+		S5_PROFILE packed;
+		UW words[2];
+		p.status = PRF_VALID; p.dist_mm = 205;
+		p.left_mm = -50; p.right_mm = 150; p.width_mm = 200;
+		p.clear_left_mm = 5; p.clear_right_mm = 1000;
+		TEST_CHECK("S5-U21a", av_plan(&p, &pl) == AVP_OK && pl.side == AV_SIDE_RIGHT,
+			   "blocked shorter left route cannot override the usable right route");
+		p.left_mm = -150; p.right_mm = 50;
+		p.clear_left_mm = 1000; p.clear_right_mm = 5;
+		TEST_CHECK("S5-U21b", av_plan(&p, &pl) == AVP_OK && pl.side == AV_SIDE_LEFT,
+			   "mirrored blocked shorter right route chooses usable left");
+		p.clear_left_mm = AV_REQUIRED_CORRIDOR_MM - 1;
+		p.clear_right_mm = AV_REQUIRED_CORRIDOR_MM - 1;
+		TEST_CHECK("S5-U21c", av_plan(&p, &pl) == AVP_NO_CLEARANCE
+			   && pl.n == 0 && pl.side == AV_SIDE_NONE && av_reverse_needed_mm(&p) < 0,
+			   "two narrow routes produce no move or unhelpful reverse");
+		s5_profile_pack(&p, words); s5_profile_unpack(words, &packed);
+		TEST_CHECK("S5-U21d", packed.clear_left_mm <= p.clear_left_mm
+			   && packed.clear_right_mm <= p.clear_right_mm
+			   && av_plan(&packed, &pl) == AVP_NO_CLEARANCE,
+			   "profile packing cannot round an insufficient corridor into acceptance");
+		p.clear_left_mm = AV_REQUIRED_CORRIDOR_MM; p.clear_right_mm = -1;
+		TEST_CHECK("S5-U21e", av_plan(&p, &pl) == AVP_OK && pl.side == AV_SIDE_LEFT,
+			   "exact required corridor qualifies; unknown opposite side cannot win");
+		p.left_mm = -50; p.right_mm = 50; p.width_mm = 100;
+		p.clear_left_mm = 1000; p.clear_right_mm = 1000;
+		TEST_CHECK("S5-U21f", av_plan(&p, &pl) == AVP_OK && pl.side == AV_SIDE_RIGHT,
+			   "equal qualifying routes retain right preference");
+		p.left_mm = -61; p.right_mm = 69;
+		p.clear_left_mm = p.clear_right_mm = AV_REQUIRED_CORRIDOR_MM;
+		s5_profile_pack(&p, words); s5_profile_unpack(words, &packed);
+		TEST_CHECK("S5-U21g", packed.clear_left_mm < AV_REQUIRED_CORRIDOR_MM
+			   && packed.clear_right_mm < AV_REQUIRED_CORRIDOR_MM,
+			   "outward edge quantization consumes clearance instead of inventing room");
 	}
 	TEST_SUMMARY("s5 plan");
 	return test_fail_;

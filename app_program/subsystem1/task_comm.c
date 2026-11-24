@@ -142,9 +142,12 @@ LOCAL void execute(const CMD_RECORD *c)
 
 		if (c->cmd == CMD_SET_NAV_MAP) {
 			s3_get_barcode_status(&bc);
-			/* A queued instruction keeps its meaning until its junction. */
-			if ((sys_mode() != VM_SAFE_STOP && sys_mode() != VM_INIT)
-			    || bc.state == BCS_DECODING || bc.state == BCS_EXECUTING) {
+			/* Accepted in every mode, also while driving: each entry is one
+			   atomic word update and Buddy 3 reads the map once per barcode.
+			   Only a barcode being decoded or executed blocks the write, so
+			   a queued instruction keeps its meaning until its junction;
+			   the dashboard retries after it. */
+			if (bc.state == BCS_DECODING || bc.state == BCS_EXECUTING) {
 				send_ack(c->cmd_id, c->cmd, ACK_REJ_STATE, MREJ_MODE);
 				return;
 			}

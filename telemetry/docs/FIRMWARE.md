@@ -42,7 +42,7 @@ obstacle avoidance. The images contain the Wi-Fi settings of
 | 3 IR bits, line position/state, steering request | per-wheel speed targets, PWM, battery, position on the track |
 | last barcode symbol/result, its navigation MAPPING, read counters | whether a barcode turn was executed (`executed`/`mres` exist in the barcode status word, not in telemetry) |
 | IMU status, pitch, roll, magnetometer turn rate and heading, motion class, tilt, collision latch, peak shock | IMU sample validity/freshness flags, IMU calibration flag |
-| hump last/highest (since boot), count (≤ 15), in progress | humps after the 15th as events; hump length |
+| hump last/highest (since boot or last RESUME), count (≤ 15), in progress | humps after the 15th as events; hump length |
 | ultrasonic range and result, avoidance phase/side/outcome | servo angle and scan mode of a range sample; profile status (PRF_*) and scan id |
 | profile width, bearing, clearances | when the profile was measured |
 | comm state, robot drop and reject counters | task timing (only with the F2 measurement image, on the console) |
