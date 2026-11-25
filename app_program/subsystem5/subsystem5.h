@@ -59,6 +59,11 @@
 #define S5_SIDE_GAP_MEAS_MARGIN_MM 10	/* subtract live-range error before return */
 #define S5_SIDE_SEEN_CONFIRM	2	/* establish the obstacle before looking for edge */
 #define S5_SIDE_CLEAR_CONFIRM	3	/* consecutive clear side readings */
+#define S5_MIN_OBSTACLE_LEN_MM	100	/* [CAL] far edge not accepted before the
+					   sensor is this far past the front face.
+					   Course boxes are >= 10 cm; on 25 Nov a
+					   wide pass (228 mm gap) saw a side gap
+					   after 8 mm and returned into the box */
 #define S5_SIDE_BAD_MAX	10	/* unusable side readings before failure */
 #define S5_SIDE_READY_MS	2000	/* servo reach + first side sample */
 #define S5_SIDE_CENTER_MS	700	/* centre servo before final forward clearance */

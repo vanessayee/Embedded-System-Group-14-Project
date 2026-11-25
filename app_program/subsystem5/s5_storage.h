@@ -37,5 +37,6 @@ typedef struct S5_LOCAL_BITS {
  unsigned int seen : 1;
  unsigned int ready : 1;
  unsigned int corrected : 1; /* one heading correction per pass */
+ unsigned int short_logged : 1; /* "side clear too early" reported once */
 } S5_PASS_STATE;
 #endif

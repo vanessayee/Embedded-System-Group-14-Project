@@ -138,6 +138,7 @@ LOCAL BOOL search_line(INT dist)
 	UINT	ptn;
 
 	(void)tk_clr_flg(flg_line_evt, ~LEV_FOUND);
+	(void)tk_clr_flg(flg_avoid, ~AVEV_EMERGENCY);	/* fresh: set means blocked */
 	if (motion_command(MCMD_MOVE, MSRC_AVOID, dist, S5_AVOID_SPEED_LVL / 2U, &cmd) != E_OK) {
 		return FALSE;
 	}
@@ -485,7 +486,14 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 
 					av_trend_add(&trend, travelled, perp);
 					have = av_trend_closing_deg(&trend, &conv);
-					if (have && conv >= S5_HEADING_FIX_MIN_DEG) {
+					/* Correct only once the car is actually inside the planned
+					   gap.  While the gap is still wider than planned, a closing
+					   trend is harmless and keep passing straight: on 25 Nov
+					   every pass started ~144 mm out (planned 65), the corner-to-
+					   face echo change read as 40-48 deg closing, and the 20 deg
+					   correction then drove the car diagonally away. */
+					if (have && conv >= S5_HEADING_FIX_MIN_DEG
+					    && body_gap <= plan->side_gap_mm) {
 						heading_fix = conv;
 					} else if (body_gap < S5_SIDE_MIN_GAP_MM) {
 						/* last-resort guard: too close, trend or not */
@@ -591,6 +599,23 @@ LOCAL INT pass_obstacle(const AV_PLAN *plan, const S5_PROFILE *profile)
 			fail(AVF_SENSOR, SYS_FLT_AVOID_FAILED);
 			return EXEC_FAILED;
 		}
+		if (watch.seen && watch.clear_run >= S5_SIDE_CLEAR_CONFIRM
+		    && plan->forward_before_pass_mm + travelled
+		       - (plan->front_gap_mm + AV_SENSOR_BEHIND_FRONT_MM)
+		       < S5_MIN_OBSTACLE_LEN_MM) {
+			/* Too short to be the far edge of a course box: a gap in the
+			   side echoes (wide pass, oblique side).  Keep passing. */
+			if (!watch.short_logged) {
+				tm_printf((UB*)"avoid: side clear after only %d mm of obstacle; "
+					  "continuing (minimum %d mm)\n",
+					  (INT)(plan->forward_before_pass_mm + travelled
+						- (plan->front_gap_mm + AV_SENSOR_BEHIND_FRONT_MM)),
+					  S5_MIN_OBSTACLE_LEN_MM);
+				watch.short_logged = TRUE;
+			}
+			watch.clear_run = 0;
+			clear_start_mm = -1;
+		}
 		if (watch.seen && watch.clear_run >= S5_SIDE_CLEAR_CONFIRM) {
 			W clear_travel = (clear_start_mm >= 0)
 				       ? travelled - clear_start_mm : 0;
@@ -691,6 +716,14 @@ LOCAL INT execute_plan(const AV_PLAN *plan, const S5_PROFILE *profile)
 
 			set_state(AVST_SEARCHING);
 			found = search_line(st->arg);
+			if (!found && sys_mode() == VM_OBSTACLE
+			    && tk_wai_flg(flg_avoid, AVEV_EMERGENCY, TWF_ORW | TWF_BITCLR,
+					  &ptn, TMO_POL) == E_OK) {
+				/* The forward monitor stopped the search: the obstacle is
+				   still ahead (returned too early).  Re-plan from here. */
+				tm_printf((UB*)"avoid: obstacle ahead during line search; re-planning\n");
+				return EXEC_EMERGENCY;
+			}
 			if (!found && ast.retries < S5_SEARCH_RETRIES
 			    && sys_mode() == VM_OBSTACLE) {
 				/* retry once with a steeper approach, shorter run */
