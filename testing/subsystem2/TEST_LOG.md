@@ -261,3 +261,12 @@ Add one row for every test result and every run. Never edit or delete old rows. 
 | 2026-11-25 | S2-U74 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S2-U75 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S2-U76 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_host.txt` | Host all-buddies run. |
+| 2026-11-25 | all S2-U/M host checks (78 PASS) | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `../integration/logs/2026-11-25_host_after_cleanup.txt` | Re-run after removing unused code (gpio_irq_enable_pin, sys_fault_severity). |
+| 2026-11-25 | S2-U41 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S2-U42 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S2-U43 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S2-U44 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S2-U45 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S2-U46 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S2-U47 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | all other S2-U/M checks on the Pico (78 PASS) | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem2_target.txt` | Same unit checks as the host run, executed on the RP2040 target; subsystem2 TOTAL 0 failed. |

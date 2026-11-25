@@ -1,0 +1,78 @@
+# Pico W self-test image (TEST=1), complete run captured from COM4 at 115200 baud
+# Date: 2026-11-25 08:57 (after RUN/reset)   Image: build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.uf2 (built 07:48)
+# Code: 9d0e75f + uncommitted unused-code cleanup of 25 Nov (S5-U20d retired)
+# Result: 388 [TEST] PASS lines, 0 FAIL; every subsystem TOTAL 0 failed.
+# Note: two result lines (S1-U21, INT-16e) were overwritten by concurrent console output; they are
+#       covered by 'subsystem1 target SUMMARY 6 passed, 0 failed' and 'subsystem1 TOTAL 0 failed check(s)'.
+# Note: an earlier capture of the power-up run (before the port was opened) was truncated by the USB
+#       console buffer and is not kept; this file holds only the complete run.
+# Extract: Buddy 1 section (lines 2..69 of testing/logs/2026-11-25_pico_selftest.txt run)
+
+hump: sideways roll mode, physical wheel span 110 mm
+wifi: cyw43_utk_task starting (proc 1)
+[TEST] S1-U01 PASS  CRC-16/CCITT-FALSE: catalogue check value 0x29B1; empty input 0xFFFF
+wifi: cyw43_init() ...
+[TEST] S1-U02 PASS  LSB-first bit order (known bytes FD BC DA), signed fields, overflow/underflow flagged
+wifi: cyw43_init() returned, bringing interface up ...
+[TEST] s1 bits SUMMARY 2 passed, 0 failed
+[TEST] S1-U03 PASS  heartbeat = golden bytes 12 2A 04 34 12 EC 3D 60 E5; decodes; reconnects saturate at 15
+[TEST] S1-U04 PASS  command frame = golden bytes; decoded and validated (SET_SPEED 250, id 0x5A)
+[TEST] S1-U05 PASS  acknowledgement and event frames = golden bytes; both decode
+[TEST] S1-U06 PASS  telemetry: 279 bits -> 40-byte frame = golden frame; decodes field by field
+[TEST] S1-U07 PASS  telemetry round trip with every field at its maximum and at its minimum
+[TEST] s1 frames SUMMARY 5 passed, 0 failed
+[TEST] S1-U08 PASS  rejected: bad CRC, truncated, version, unknown type, length byte, wrong type, schema size
+[TEST] S1-U09 PASS  command fields: reserved bits and invalid map args rejected; SET_SPEED 50..400 only
+[TEST] S1-U09m PASS  all A-Z runtime map actions and query commands validate; invalid actions rejected
+[TEST] S1-U10 PASS  decoder errors map to distinct acknowledgement codes
+[TEST] S1-U11 PASS  commands map to supervisory requests only; Buddy 2's refusal is acknowledged with its reason
+[TEST] s1 validation SUMMARY 5 passed, 0 failed
+[TEST] S1-U12 PASS  every encoder refuses a buffer one byte too small (no overrun)
+[TEST]   telemetry size: binary frame 40 bytes, same fields as JSON 697 bytes
+[TEST] S1-U13 PASS  binary telemetry frame (40 B) at least 10x smaller than the JSON text form
+[TEST] s1 sizes SUMMARY 2 passed, 0 failed
+[TEST] S1-U14 PASS  no network stack in the image: DISABLED without faults; starts once configured
+[TEST] S1-U15 PASS  connect sequence WIFI -> MQTT -> SUBSCRIBE -> ONLINE
+[TEST] S1-U16 PASS  WiFi lost while online: WIFI_LOSS (degraded) and RECOVERING reported
+[TEST] S1-U17 PASS  retries wait 1, 2, 4, 8, 16, 16 s (capped, non-blocking); every 3rd restarts the client
+[TEST] S1-U18 PASS  automatic reconnection: ONLINE again, counted, back-off reset, faults cleared
+[TEST] S1-U19 PASS  broker lost with WiFi up: MQTT_LOSS only; each wait for the broker bounded to 10 s
+[TEST] s1 comm fsm SUMMARY 6 passed, 0 failed
+[TEST] S1-U20 PASS  communication status word: 17 bits, counters saturate at 15
+[TEST] s1 status word SUMMARY 1 passed, 0 failed
+[TEST] S1-U36 PASS  task-owned records use minimum fields and only byte-tail padding
+[TEST] S1-U37 PASS  command flood never wraps the packed rate counter or bypasses the limit
+[TEST] S1-U32 PASS  new rate window admits commands after resetting the counter
+[TEST] S1-U33 PASS  255 attempts and 16000 ms backoff retain the original recovery cadence
+[TEST] S1-U34 PASS  packed reconnect counter saturates without wrapping
+[TEST] S1-U35 PASS  v1 compatibility bit cannot convert an invalid argument into a valid command
+[TEST] s1 packed storage SUMMARY 6 passed, 0 failed
+[TEST] INT-15a PASS  Buddies 1-5 at their limits and invalid codes: all 48 fields reach the server unchanged
+[TEST] INT-15b PASS  engineering values arrive within their steps; clearance stays conservative after edge rounding
+[TEST] int binary interfaces SUMMARY 2 passed, 0 failed
+[TEST] INT-16a PASS  30 mm hump measured by Buddy 4 arrives at the server within +-4 mm
+[TEST] INT-16b PASS  after humps of 30, 20, 45 mm: count 3, highest 45 mm within +-4 mm
+[TEST] INT-16c PASS  one EVT_HUMP frame carries last, highest and count
+[TEST] INT-16d PASS  mode, barcode, obstacle and collision events decode to their fiespeed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 32
+speed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 28
+imu: calibrated (no gyro), level offset -37 -12 mg
+startup: B1 MQTT 0 B2 motion 1 B3 IR/barcode 1 B4 IMU/hump 1 B5 ultrasonic 1; motors held until all ready
+wifi: joining "Xiang_Zenbook" ...
+speed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 28
+wifi: link status -> joined AP, waiting for IP (1)
+[TEST]   telemetry: 3 runs in 2 s, worst run 1239 us
+[TEST] S1-U22 PASS  telemetry task: one frame per 500 ms, never over its 50 ms budget
+speed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 28
+[TEST]   comm state CONNECTING_WIFI, link 1, session 0
+[TEST] S1-U23 PASS  connection state machine running (DISABLED without NET=lwip MQTT=1, no false fault)
+comm: command 0 id 165 -> ack 0
+[TEST] S1-U24 PASS  MQTT hand-over: wrong topic and empty frame refused; PING answered with ACK OK
+comm: command 4 id 166 -> ack 0
+barcode: debug alive GP26 raw=0 black=0 mode=0 speed=0 mm/s edges=0
+speed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 32
+speed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 28
+speed: L tgt 0 meas 0 duty 0 edges 0 | R tgt 0 meas 0 duty 0 edges 0 | irq/s 28
+[TEST] S1-U25 PASS  SET_SPEED reaches Buddy 2 and is acknowledged; a corrupted frame is counted, flagged, never run
+[TEST] S1-U26 PASS  bounded queue full: the OLDEST frame is dropped and counted (overflow policy)
+[TEST] subsystem1 target SUMMARY 6 passed, 0 failed
+[TEST] subsystem1 TOTAL 0 failed check(s)

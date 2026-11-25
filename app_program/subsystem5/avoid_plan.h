@@ -133,10 +133,6 @@ IMPORT void av_trend_add(AV_TREND *t, W travel_mm, W side_mm);
    *deg = angle toward the obstacle (+ closing, - opening). */
 IMPORT BOOL av_trend_closing_deg(const AV_TREND *t, INT *deg);
 
-/* Heading toward the obstacle side from two side-watch ranges taken
-   travel_mm apart at look_deg: + = converging, - = diverging, degrees. */
-IMPORT INT av_side_convergence_deg(W r_from_mm, W r_to_mm, W travel_mm,
-				   INT look_deg);
 
 IMPORT INT av_plan(const S5_PROFILE *p, AV_PLAN *plan);
 /* -1 = reversing is unsafe/unhelpful, 0 = not needed, positive = reverse mm */

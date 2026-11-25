@@ -304,9 +304,12 @@ on the car, and leaves it angled to the left after either bypass. On a
 right bypass the obstacle is on the left, so the car closes on it; on a
 left bypass the same error points away from the obstacle and is harmless.
 
-`pass_obstacle` now measures this. From 40 mm after the side is confirmed
-it compares side ranges at least 100 mm of travel apart
-(`av_side_convergence_deg`, S5-U20d). If the car is closing on the obstacle
+`pass_obstacle` now measures this. After the side is confirmed (20 mm
+settle) it fits a least-squares trend of the perpendicular side distance
+against travel (`AV_TREND`, at least 6 samples over at least 40 mm,
+S5-U20e). (The first version compared two ranges 100 mm apart,
+`av_side_convergence_deg` / S5-U20d; it was retired on 25 November.) If the
+car is closing on the obstacle
 by 5 deg or more, it stops, turns that angle (at most 20 deg) away from the
 obstacle, and continues the pass with the remaining distance. This happens
 at most once per pass and never turns toward the obstacle, because rising

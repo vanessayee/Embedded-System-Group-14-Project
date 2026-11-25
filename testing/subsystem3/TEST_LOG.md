@@ -212,3 +212,8 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-25 | S3-U88 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S3-U30 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S3-U31 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S3-U32 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S3-U33 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S3-U34 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S3-U35 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | all other S3-U/M checks on the Pico (69 PASS) | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem3_target.txt` | Same unit checks as the host run, executed on the RP2040 target; subsystem3 TOTAL 0 failed. |

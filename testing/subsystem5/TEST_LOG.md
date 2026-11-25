@@ -77,7 +77,7 @@ Test definitions below mirror the current automated checks. Pico-only tests must
 | S5-U20a | inflated scan profile cannot hide a real 300 mm side return behind a 200 mm gap gate |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20a PASS` |
 | S5-U20b | mirrored departure covers the same measured profile envelope |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20b PASS` |
 | S5-U20c | both turn directions allow the wheel arc at creep plus bounded slack |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20c PASS` |
-| S5-U20d | side ranges give the convergence angle; one 5 mm range step is not a correction |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20d PASS` |
+| S5-U20d | **Retired 2026-11-25** (with `av_side_convergence_deg()`, replaced by the `AV_TREND` fit, see S5-U20e). Was: side ranges give the convergence angle; one 5 mm range step is not a correction |  | retired | — | no longer run |
 | S5-U20e | side trend detects 16 deg closing within 40 mm; 5 mm flicker and short spans do not trigger |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U20e PASS` |
 | S5-U21 | Obstacle Scan ranges every 60 ms (+ one 10 ms tick) while monitoring |  | auto (target only) | `subsystem5/subsystem5_test.c` | `[TEST] S5-U21 PASS` |
 | S5-U21a | blocked shorter left route cannot override the usable right route |  | auto (host + target) | `subsystem5/s5_unit_tests.c` | `[TEST] S5-U21a PASS` |
@@ -232,3 +232,8 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-25 | S5-M06 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S5-M07 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S5-M08 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_host.txt` | Host all-buddies run. |
+| 2026-11-25 | all S5-U/M host checks (82 PASS) | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `../integration/logs/2026-11-25_host_after_cleanup.txt` | Re-run after removing unused code (av_side_convergence_deg; S5-U20d retired). |
+| 2026-11-25 | S5-U21 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S5-U22 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S5-U23 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | all other S5-U/M checks on the Pico (82 PASS) | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem5_target.txt` | Same unit checks as the host run, executed on the RP2040 target; subsystem5 TOTAL 0 failed. |

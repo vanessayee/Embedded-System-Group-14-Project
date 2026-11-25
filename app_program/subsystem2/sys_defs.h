@@ -50,14 +50,14 @@
  *  Shared fault bitmask.  One bit per independent fault, one owner per
  *  bit.  27 bits are defined -> transmitted as a 27-bit field.
  *
- *  Severity (sys_fault_severity()):
+ *  Severity (fault_severity[] table, sys_state_logic.c):
  *    FSEV_DEGRADED   reported only; the vehicle keeps running
  *    FSEV_CRIT_COND  critical CONDITION: forces Safe Stop; the owner
  *                    clears the bit when the condition has gone
  *    FSEV_CRIT_EVENT critical EVENT: forces Safe Stop; latched until a
  *                    validated supervisory CLEAR/RESUME (Week 6 system
  *                    statechart: "wait for recovery / reset condition")
- *  The policy table is in sys_fault_severity() (sys_state_logic.c) so
+ *  The policy table is fault_severity[] in sys_state_logic.c so
  *  the team can change one row instead of hunting through tasks.
  * --------------------------------------------------------------------- */
 #define SYS_FLT_MOTOR_STALL		(1UL << 0)	/* B2: PWM, no ticks   */
@@ -164,7 +164,6 @@ static inline UW vsw_source(UW vsw)	{ return vsw_field(vsw, VSW_SRC_SHIFT, VSW_S
 static inline UW vsw_escalation(UW vsw)	{ return vsw_field(vsw, VSW_ESC_SHIFT, VSW_ESC_MASK); }
 
 /* Fault policy (sys_state_logic.c, pure) */
-IMPORT UW   sys_fault_severity(UW bit_index);
 IMPORT UW   sys_fault_critical_mask(void);	/* CRIT_COND | CRIT_EVENT bits */
 IMPORT UW   sys_fault_event_mask(void);		/* CRIT_EVENT bits only */
 IMPORT const char *sys_mode_name(UW mode);

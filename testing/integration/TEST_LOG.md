@@ -115,3 +115,4 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-25 | INT-16c | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_host_all_buddies.txt` | Host all-buddies run. |
 | 2026-11-25 | INT-16d | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_host_all_buddies.txt` | Host all-buddies run. |
 | 2026-11-25 | INT-16e | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_host_all_buddies.txt` | Host all-buddies run. |
+| 2026-11-25 | INT-10a..INT-22e on the Pico (41 PASS lines) | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `../logs/2026-11-25_pico_selftest.txt` | Pico target run (TEST=1 image), integration checks inside the subsystem1/2 sections; INT-16e result line overwritten by concurrent console output, covered by "subsystem1 TOTAL 0 failed check(s)". |

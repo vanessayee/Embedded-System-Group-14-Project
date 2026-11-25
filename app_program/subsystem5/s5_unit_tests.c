@@ -782,19 +782,8 @@ LOCAL INT test_plan(void)
 			   && av_motion_wait_ms(MCMD_TURN, -69, 22, 3000)
 			      == av_motion_wait_ms(MCMD_TURN, 69, 22, 3000),
 			   "both turn directions allow the wheel arc at creep plus bounded slack");
-		/* 24 Nov right bypass: side 190 -> 165 mm over 107 mm of pass */
-		{
-			INT c24 = av_side_convergence_deg(190, 165, 107, -80);
-			INT away = av_side_convergence_deg(165, 190, 107, 80);
-			INT step = av_side_convergence_deg(205, 200, 100, 80);
-
-			TEST_CHECK("S5-U20d", c24 >= 11 && c24 <= 15 && away == -c24
-				   && c24 >= S5_HEADING_FIX_MIN_DEG
-				   && step < S5_HEADING_FIX_MIN_DEG
-				   && av_side_convergence_deg(200, 200, 100, 80) == 0
-				   && av_side_convergence_deg(200, 150, 0, 80) == 0,
-				   "side ranges give the convergence angle; one 5 mm range step is not a correction");
-		}
+		/* S5-U20d retired 2026-11-25 with av_side_convergence_deg(); the
+		   pass correction uses the least-squares trend below (S5-U20e). */
 		/* Side-distance trend (one ping per ~3 mm at 50 mm/s) */
 		{
 			AV_TREND tr;

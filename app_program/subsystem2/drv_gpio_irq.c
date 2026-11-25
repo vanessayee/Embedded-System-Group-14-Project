@@ -141,30 +141,6 @@ EXPORT BOOL gpio_irq_running(void)
 	return (app_load(&irq_started) != 0U) ? TRUE : FALSE;
 }
 
-/* Mask/unmask one registered pin at run time (atomic set/clear aliases,
-   safe from any core). */
-EXPORT void gpio_irq_enable_pin(UINT pin, BOOL on)
-{
-	UINT	i;
-
-	if (!gpio_irq_running()) {
-		return;			/* gpio_irq_start() enables every pin */
-	}
-	for (i = 0; i < irq_n; i++) {
-		if (irq_tab[i].pin == pin) {
-			UW	bits = (UW)irq_tab[i].events << IOB_SHIFT_OF(pin);
-
-			if (on) {
-				out_w(IOB_INTR(IOB_REG_OF(pin)), bits);
-				set_w(IOB_INTE(irq_core, IOB_REG_OF(pin)), bits);
-			} else {
-				clr_w(IOB_INTE(irq_core, IOB_REG_OF(pin)), bits);
-			}
-			return;
-		}
-	}
-}
-
 EXPORT UW gpio_irq_count(void)
 {
 	return app_load(&irq_count);

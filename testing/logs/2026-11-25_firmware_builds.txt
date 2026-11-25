@@ -13,3 +13,15 @@
    text	   data	    bss	    dec	    hex	filename
  402622	    128	  84788	 487538	  77072	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.elf
 
+
+## Rebuild after unused-code cleanup (07:48-07:49)
+### TEST=1: exit 0, compiler warnings 0
+   text	   data	    bss	    dec	    hex	filename
+ 529792	    132	  86836	 616760	  96938	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
+### S5_SCAN_ONLY=1: exit 0, compiler warnings 0
+   text	   data	    bss	    dec	    hex	filename
+ 393214	    128	  84784	 478126	  74bae	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_scan_only.elf
+### normal: exit 0, compiler warnings 0
+   text	   data	    bss	    dec	    hex	filename
+ 402622	    128	  84788	 487538	  77072	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt.elf
+### extra check: all app_program/*.c compiled with -Wall -Wextra -fsyntax-only: 0 warnings

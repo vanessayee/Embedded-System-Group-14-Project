@@ -130,3 +130,10 @@ Host suites passed; backend unit suites 48 passed, 0 failed. Tests cover exact r
 | 2026-11-25 | S1-U35 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S1-U27 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS (14 × PASS) | `logs/2026-11-25_backend_unit_tests.txt` | `node telemetry/lib/codec.js` |
 | 2026-11-25 | S1-U28 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS (pass 51, fail 0) | `logs/2026-11-25_backend_unit_tests.txt` | Includes new test "rules apply while driving; a letter refused during a barcode is retried". |
+| 2026-11-25 | S1-U21 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS (by summary) | `logs/2026-11-25_subsystem1_target.txt` | Pico target run; result line overwritten by concurrent console output, covered by "subsystem1 target SUMMARY 6 passed, 0 failed". |
+| 2026-11-25 | S1-U22 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S1-U23 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S1-U24 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S1-U25 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S1-U26 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | all other S1-U/M checks on the Pico (27 PASS) | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem1_target.txt` | Same unit checks as the host run, executed on the RP2040 target; subsystem1 TOTAL 0 failed. |

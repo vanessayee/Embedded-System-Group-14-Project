@@ -26,20 +26,6 @@ EXPORT UW av_motion_wait_ms(UW type, INT arg, W creep_mms, UW extra_ms)
 	return (UW)(distance / creep_mms) + extra_ms;
 }
 
-/* Perpendicular side distance is range * sin(look); its change over the
-   travelled distance gives the angle between the car and the obstacle side. */
-EXPORT INT av_side_convergence_deg(W r_from_mm, W r_to_mm, W travel_mm,
-				   INT look_deg)
-{
-	W s = op_sin_q15(look_deg);
-	W closing;
-
-	if (travel_mm <= 0) return 0;
-	if (s < 0) s = -s;
-	closing = (W)(((D)(r_from_mm - r_to_mm) * s) / 32768);
-	return op_atan_deg(closing, travel_mm);
-}
-
 EXPORT void av_trend_reset(AV_TREND *t)
 {
 	t->n = 0;

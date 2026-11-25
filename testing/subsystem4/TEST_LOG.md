@@ -215,3 +215,7 @@ Firmware build NET=lwip MQTT=1 TEST=0 passed. Expanded protocol/ingestion/storag
 | 2026-11-25 | S4-M04 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S4-M05 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
 | 2026-11-25 | S4-M06 | 6a5b715 + 25 Nov working tree | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_host.txt` | Host all-buddies run. |
+| 2026-11-25 | S4-U30 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S4-U31 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | S4-U32 | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_target.txt` | Pico target run (TEST=1 image). |
+| 2026-11-25 | all other S4-U/M checks on the Pico (69 PASS) | 9d0e75f + 25 Nov cleanup | TeyHaiSeang | PASS | `logs/2026-11-25_subsystem4_target.txt` | Same unit checks as the host run, executed on the RP2040 target; subsystem4 TOTAL 0 failed. |

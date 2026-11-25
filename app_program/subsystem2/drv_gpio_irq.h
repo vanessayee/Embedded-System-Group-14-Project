@@ -42,7 +42,6 @@ IMPORT void gpio_irq_init(void);
 IMPORT ER   gpio_irq_register(UINT pin, UINT events, GPIO_IRQ_FN fn);
 IMPORT ER   gpio_irq_start(void);
 IMPORT BOOL gpio_irq_running(void);
-IMPORT void gpio_irq_enable_pin(UINT pin, BOOL on);
 IMPORT UW   gpio_irq_count(void);	/* interrupts taken (diagnostics) */
 
 /* SIO input with Schmitt trigger and the given pull */

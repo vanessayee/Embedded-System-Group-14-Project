@@ -83,14 +83,6 @@ LOCAL const UB fault_severity[SYS_FLT_COUNT] = {
 	FSEV_CRIT_EVENT		/* 26 REMOTE_STOP (operator hold)        */
 };
 
-EXPORT UW sys_fault_severity(UW bit_index)
-{
-	if (bit_index >= SYS_FLT_COUNT) {
-		return FSEV_DEGRADED;
-	}
-	return fault_severity[bit_index];
-}
-
 LOCAL UW mask_of(UW sev_a, UW sev_b)
 {
 	UW	i, mask = 0;
